@@ -777,6 +777,7 @@ footer{font-size:.8rem;color:var(--muted)}
 
   <p class="privacy"><strong>Datenschutz:</strong> Ausfahrliste und Routendatei werden nur hier auf deinem Handy gelesen. Nichts wird hochgeladen oder gespeichert, Kundennamen werden nicht angezeigt. Beim Schließen der Seite ist die Tour weg.</p>
   <p class="loaded" id="loaded"></p>
+  <p class="loaded" id="routeState" hidden></p>
   <div class="geo" id="geoBox" hidden>
     <button class="btn primary" id="geoBtn" type="button">📍 Adressen auf der Karte suchen</button>
     <span class="loaded" id="geoState">Sucht die Adressen aus der Ausfahrliste bei OpenStreetMap (Nominatim). Dabei gehen nur Straße, Hausnummer und Ort raus, keine Namen.</span>
@@ -1008,25 +1009,32 @@ async function geocodeTour(){
   }catch(x){ $("geoState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal versuchen."; }
   geoRunning=false; $("geoBtn").disabled=false; routeTour(); $("geoBox").hidden=!tour.stops.some(s=>!s.ll);
 }
-// Fahrstrecke über Straßen berechnen (OSRM-Routenserver der FOSSGIS / openstreetmap.de). Es gehen nur Koordinaten raus.
-const ROUTER="https://routing.openstreetmap.de/routed-car/route/v1/driving/";
+// Fahrstrecke über Straßen berechnen (OSRM-Routenserver). Es gehen nur Koordinaten raus.
+// Erst der Server von openstreetmap.de (FOSSGIS), bei Problemen der OSRM-Demoserver.
+const ROUTERS=["https://routing.openstreetmap.de/routed-car/route/v1/driving/","https://router.project-osrm.org/route/v1/driving/"];
 let routeSeq=0;
+function routeState(t){ $("routeState").textContent=t; $("routeState").hidden=!t; }
+async function routeWith(base,pts){
+  const line=[]; let m=0, sec=0;
+  for(let k=0;k<pts.length-1;k+=24){ // höchstens 25 Punkte pro Anfrage, Abschnitte überlappen um einen Stopp
+    const part=pts.slice(k,k+25);
+    const r=await fetch(base+part.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=false");
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code||"keine Route");
+    const g=j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+    line.push(...(line.length?g.slice(1):g)); m+=j.routes[0].distance; sec+=j.routes[0].duration;
+  }
+  return {line,km:m/1000,sec};
+}
 async function routeTour(){
   if(!tour) return; const seq=++routeSeq, t=tour;
   const pts=t.stops.filter(s=>s.ll).map(s=>s.ll); if(pts.length<2) return;
-  const line=[]; let m=0, sec=0;
-  try{
-    for(let k=0;k<pts.length-1;k+=24){ // höchstens 25 Punkte pro Anfrage, Abschnitte überlappen um einen Stopp
-      const part=pts.slice(k,k+25);
-      const r=await fetch(ROUTER+part.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=false");
-      if(!r.ok) throw new Error(r.status);
-      const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code);
-      const g=j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
-      line.push(...(line.length?g.slice(1):g)); m+=j.routes[0].distance; sec+=j.routes[0].duration;
-    }
-  }catch(x){ if(seq===routeSeq) toast("Straßenroute konnte nicht berechnet werden, es wird die einfache Linie gezeigt."); return; }
+  routeState("Straßenroute wird berechnet …");
+  let road=null, why=[];
+  for(const base of ROUTERS){ try{ road=await routeWith(base,pts); break; }catch(x){ why.push(new URL(base).host+": "+(x.message||x)); } }
   if(seq!==routeSeq||tour!==t) return;
-  t.road={line,km:m/1000,sec}; render();
+  if(!road){ routeState("Straßenroute nicht verfügbar ("+why.join("; ")+"). Gezeigt wird nur die grobe Verbindung."); return; }
+  t.road=road; routeState(""); render();
 }
 function loadedInfo(){
   const parts=[]; if(pdfTour) parts.push(`Ausfahrliste: ${pdfTour.stops.length} Stopps`); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
@@ -1112,7 +1120,7 @@ function render(){
     tour.stops.forEach(s=>{ if(!s.ll){s.li=-1;return;} let best=from,bd=Infinity; for(let k=from;k<line.length;k++){const d=dist(line[k],s.ll); if(d<bd){bd=d;best=k;} if(bd<15&&d>500) break;} s.li=best; from=best; }); }
   tour.line=line;
   const routeColor=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
-  if(line.length>1) L.polyline(line,{color:routeColor,weight:5,opacity:.85,dashArray:(tour.road||tour.stops.some(s=>s.via.length))?null:"6 8"}).addTo(layer);
+  if(line.length>1) L.polyline(line,tour.road?{color:routeColor,weight:5,opacity:.9}:{color:routeColor,weight:3,opacity:.5,dashArray:"4 8"}).addTo(layer); // gestrichelt = nur grobe Verbindung
   let km=0; for(let i=1;i<line.length;i++) km+=dist(line[i-1],line[i]);
   if(cur>=tour.stops.length||cur<0) cur=tour.stops.findIndex(s=>!s.done);
   const nextIdx=cur;

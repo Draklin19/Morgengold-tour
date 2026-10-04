@@ -905,7 +905,6 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
     <div class="opts"><label for="fontSel">Schriftgröße Tourleiste <select id="fontSel"><option value="0">1 (sehr klein)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (groß)</option></select></label>
       <label for="dockSel">Tourleiste <select id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label></div>
     <p class="hint">Gilt für die Ansicht nach „Tour starten“. Die Tourleiste lässt sich dort auch verschieben: oben auf „⠿“ gedrückt halten und an den gewünschten Rand ziehen.</p>
-    <div class="opts"><span id="geoPref"></span><button class="btn" id="geoReset" type="button">Standort-Frage zurücksetzen</button></div>
     <label><input type="checkbox" id="voiceOn"> Sprachansage vor jedem Stopp („Gleich Hausnummer 18, Haus rechts“)</label>
     <div class="opts"><label for="voiceSel">Stimme <select id="voiceSel"><option value="">Standard</option></select></label><button class="btn" id="voiceTry" type="button">🔊 Anhören</button></div>
     <p class="hint" id="voiceHint">Welche Stimmen es gibt, hängt vom Handy ab. Weitere Stimmen lassen sich in den Handy-Einstellungen unter „Sprachausgabe“ bzw. „Text-in-Sprache“ herunterladen.</p>
@@ -920,7 +919,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
     <button class="btn" id="confirmNo" type="button">Abbrechen</button>
   </div>
 
-  <p class="privacy">🔒 Alles bleibt auf deinem Handy: Ausfahrliste und Routendatei werden nur hier gelesen, nichts wird hochgeladen, Kundennamen werden nicht angezeigt.</p>
+  <p class="privacy">🔒 Alles bleibt auf deinem Handy: Ausfahrliste und Routendatei werden nur hier gelesen, nichts wird hochgeladen, Kundennamen werden nicht angezeigt. Die Tour bleibt höchstens 18 Stunden oder bis „Tour löschen“ gespeichert.</p>
   <p class="loaded" id="loaded"></p>
   <p class="loaded" id="routeState" hidden></p>
   <div class="geo" id="geoBox" hidden>
@@ -984,7 +983,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
   <div class="ask" id="geoAsk" hidden role="dialog" aria-modal="true" aria-labelledby="geoAskT">
     <div class="ask-box">
       <h2 id="geoAskT">Standort verwenden?</h2>
-      <p>Mit deinem Standort zeigt die App, wo du gerade bist, folgt dir auf der Karte und hakt Stopps beim Ankommen ab. Der Standort bleibt auf dem Handy und wird nicht gespeichert. Die Frage kommt nur einmal.</p>
+      <p id="geoAskP">Mit deinem Standort zeigt die App, wo du gerade bist, folgt dir auf der Karte und hakt Stopps beim Ankommen ab. Der Standort bleibt auf dem Handy und wird nicht gespeichert. GPS schaltet sich spätestens um 10 Uhr automatisch aus.</p>
       <div class="opts"><button class="btn primary" id="geoYes" type="button">Erlauben</button><button class="btn" id="geoNo" type="button">Ablehnen</button></div>
     </div>
   </div>
@@ -1240,6 +1239,7 @@ document.getElementById("meFile").addEventListener("change",e=>{
   img.src=url;
 });
 document.getElementById("meClear").addEventListener("click",()=>meSet(""));
+const TOUR_KEY="navi-tour";
 let layer=L.layerGroup().addTo(map), tour=null, markers=[], cur=0, simTimer=null, car=null, carPos=null, simIdx=0, arrivedShown=-1;
 meRefresh();
 const $=id=>document.getElementById(id);
@@ -1299,7 +1299,10 @@ function render(){
     tour.stops.forEach(s=>{ if(!s.ll){s.li=-1;return;} let best=from,bd=Infinity; for(let k=from;k<line.length;k++){const d=dist(line[k],s.ll); if(d<bd){bd=d;best=k;} if(bd<15&&d>500) break;} s.li=best; from=best; s.side=sideOf(s,line); }); }
   tour.line=line;
   const routeColor=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
-  if(line.length>1) L.polyline(line,tour.road?{color:routeColor,weight:5,opacity:.9}:{color:routeColor,weight:3,opacity:.5,dashArray:"4 8"}).addTo(layer); // gestrichelt = nur grobe Verbindung
+  const styleOn=tour.road?{color:routeColor,weight:5,opacity:.9}:{color:routeColor,weight:3,opacity:.5,dashArray:"4 8"}; // gestrichelt = nur grobe Verbindung
+  const curIdx=(cur>=0&&cur<tour.stops.length)?cur:tour.stops.findIndex(s=>!s.done), cut=curIdx>0&&tour.stops[curIdx].li>0?tour.stops[curIdx].li:0;
+  if(cut>0){ L.polyline(line.slice(0,cut+1),{color:"#9aa0a6",weight:4,opacity:.45}).addTo(layer); L.polyline(line.slice(cut),styleOn).addTo(layer); } // erledigter Teil grau, Tour ab dem aktuellen Stopp
+  else if(line.length>1) L.polyline(line,styleOn).addTo(layer);
   let km=0; for(let i=1;i<line.length;i++) km+=dist(line[i-1],line[i]);
   if(cur>=tour.stops.length||cur<0) cur=tour.stops.findIndex(s=>!s.done);
   const nextIdx=cur;
@@ -1327,7 +1330,7 @@ function render(){
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
-  renderGoogle(); scrollCurrent();
+  renderGoogle(); scrollCurrent(); if(document.body.classList.contains("drive")) updateApproach(); saveTour();
   $("prev").disabled=nextIdx===0;
   if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
   else{const s=tour.stops[nextIdx];nc.hidden=false;$("nextDone").hidden=false;$("nextOsm").hidden=false;$("nextGmaps").hidden=false;
@@ -1438,7 +1441,7 @@ async function startGps(){
   speakPrime(); announced=-1;
   if(!("geolocation" in navigator)){$("gpsState").textContent="Dieses Gerät bietet kein GPS an.";$("gpsState").hidden=false;return;}
   stopSim();
-  $("gpsState").textContent="Warte auf GPS …";$("gpsState").hidden=false;
+  $("gpsState").textContent="Warte auf GPS …";$("gpsState").hidden=false; gpsStartedAt=Date.now(); planAsk(); let firstFix=true;
   try{ if(navigator.wakeLock) wakeLock=await navigator.wakeLock.request("screen"); }catch(e){}
   gpsWatch=navigator.geolocation.watchPosition(pos=>{
     carPos=[pos.coords.latitude,pos.coords.longitude];
@@ -1446,7 +1449,10 @@ async function startGps(){
     car.setLatLng(carPos).addTo(map);
     const acc=Math.round(pos.coords.accuracy);
     $("gpsState").textContent=`GPS aktiv, Genauigkeit ca. ${acc} m`+(tour&&cur>=0&&tour.stops[cur].ll?` · noch ${Math.round(dist(carPos,tour.stops[cur].ll))} m bis Stopp ${cur+1}`:"");
-    if(document.body.classList.contains("drive")&&follow) map.panTo(carPos,{animate:true}); // Karte folgt der Position, außer man schaut sich gerade woanders um
+    const driving=document.body.classList.contains("drive");
+    if(driving&&firstFix&&tour&&cur>=0&&tour.stops[cur].ll){ map.fitBounds(L.latLngBounds([carPos,tour.stops[cur].ll]).pad(.25),{maxZoom:17}); } // Tour ab dem eigenen Standort zeigen
+    else if(driving&&follow) map.panTo(carPos,{animate:true}); // Karte folgt der Position, außer man schaut sich gerade woanders um
+    firstFix=false; if(driving) updateApproach();
     setFollow(follow);
     checkArrival();
   },err=>{
@@ -1455,20 +1461,45 @@ async function startGps(){
   },{enableHighAccuracy:true,maximumAge:2000,timeout:20000});
   $("gps").textContent="■ GPS stoppen";
 }
-// Standort nur nach einmaliger Frage. Bei „Ablehnen“ wird die eigene Position nie gezeigt.
-const GEO_KEY="navi-standort"; let geoPref=""; try{ geoPref=localStorage.getItem(GEO_KEY)||""; }catch(e){}
-function setGeoPref(v){ geoPref=v; try{ v?localStorage.setItem(GEO_KEY,v):localStorage.removeItem(GEO_KEY); }catch(e){} geoPrefUi(); }
-function geoPrefUi(){ $("geoPref").textContent=geoPref==="ja"?"Standort: erlaubt":geoPref==="nein"?"Standort: abgelehnt":"Standort: noch nicht gefragt"; $("geoReset").hidden=!geoPref; $("gps").hidden=geoPref==="nein"; }
-let geoThen=null;
-function withGeo(fn){ // fn läuft nur mit Erlaubnis
-  if(geoPref==="ja") return fn();
-  if(geoPref==="nein"){ toast("Standort ist abgelehnt. Ändern unter ⚙ Einstellungen."); return; }
-  geoThen=fn; $("geoAsk").hidden=false; $("geoYes").focus();
+// Standort: bei jedem „Tour starten“ (und „GPS starten“) wird neu gefragt. Ab 8:30 Uhr fragt die App, ob GPS weiterlaufen soll,
+// um 10 Uhr schaltet sie GPS für Fahrten, die vorher begonnen haben, automatisch aus.
+let askDone=null;
+function ask(title,text,yes,no){ // eigenes Fragefenster, liefert true/false
+  $("geoAskT").textContent=title; $("geoAskP").textContent=text; $("geoYes").textContent=yes; $("geoNo").textContent=no;
+  if(askDone) askDone(false);
+  $("geoAsk").hidden=false; $("geoYes").focus();
+  return new Promise(res=>{ askDone=v=>{ askDone=null; $("geoAsk").hidden=true; res(v); }; });
 }
-$("geoYes").addEventListener("click",()=>{ $("geoAsk").hidden=true; setGeoPref("ja"); const f=geoThen; geoThen=null; if(f) f(); });
-$("geoNo").addEventListener("click",()=>{ $("geoAsk").hidden=true; setGeoPref("nein"); geoThen=null; stopGps(); if(car){car.remove();} carPos=null; toast("Ohne Standort: Stopps bitte manuell abhaken."); if(tour&&cur>=0) focusStop(cur); });
-$("geoReset").addEventListener("click",()=>{ setGeoPref(""); toast("Beim nächsten „Tour starten“ fragt die App wieder."); });
-geoPrefUi();
+$("geoYes").addEventListener("click",()=>askDone&&askDone(true));
+$("geoNo").addEventListener("click",()=>askDone&&askDone(false));
+const GEO_TEXT="Mit deinem Standort zeigt die App, wo du gerade bist, folgt dir auf der Karte und hakt Stopps beim Ankommen ab. Der Standort bleibt auf dem Handy und wird nicht gespeichert. GPS schaltet sich spätestens um 10 Uhr automatisch aus.";
+function hideMe(){ stopGps(); if(car) car.remove(); carPos=null; clearApproach(); setFollow(true); }
+async function withGeo(fn){ // fn läuft nur, wenn diesmal „Erlauben“ getippt wurde
+  if(await ask("Standort verwenden?",GEO_TEXT,"Erlauben","Ablehnen")) return fn();
+  hideMe(); toast("Ohne Standort: Stopps bitte manuell abhaken."); if(tour&&cur>=0) focusStop(cur);
+}
+const todayAt=(h,m)=>{ const d=new Date(); d.setHours(h,m,0,0); return d.getTime(); };
+let gpsStartedAt=0, nextAsk=0, asking=false;
+// Ab 8:30 fragt die App, ob GPS weiterlaufen soll. „Weiter nutzen“ verlängert um 30 Minuten.
+// Keine Antwort in 5 Minuten = aus. Um 10 Uhr ist GPS in jedem Fall aus.
+function gpsOff(msg){ if(askDone) askDone(false); hideMe(); $("gpsState").hidden=true; toast(msg); }
+function planAsk(){ nextAsk=gpsStartedAt<todayAt(8,30)?todayAt(8,30):gpsStartedAt+30*60000; }
+
+setInterval(async()=>{
+  if(gpsWatch===null) return;
+  const now=Date.now();
+  if(gpsStartedAt<todayAt(10,0)&&now>=todayAt(10,0)){
+    gpsOff("Es ist 10 Uhr: GPS wurde automatisch ausgeschaltet."); say("GPS ist jetzt aus."); return; }
+  if(asking||now<nextAsk) return;
+  asking=true;
+  const timer=setTimeout(()=>{ if(askDone) askDone(false); },5*60000);
+  const go=await ask("GPS weiter nutzen?","Soll die App deinen Standort weitere 30 Minuten verwenden? Ohne Antwort schaltet sich GPS in 5 Minuten aus. Um 10 Uhr ist GPS in jedem Fall aus.","Weiter nutzen (+30 Min.)","GPS ausschalten");
+  clearTimeout(timer); asking=false;
+  if(gpsWatch===null) return;
+  if(go){ nextAsk=Date.now()+30*60000; toast("GPS bleibt 30 Minuten an."); }
+  else gpsOff("GPS ist aus. Stopps bitte manuell abhaken.");
+},15000);
+
 
 // Zurückgenommen: Mit Filter blendete iOS neu heruntergeladene Dateien aus. Ohne Filter erscheint zwar wieder das Foto-Menü, dort „Datei auswählen“ tippen.
 // Link zur Seite, von der die Fahrer ihre Tour herunterladen. TOUR_LINK_DEFAULT gilt für alle, in den Einstellungen kann jeder einen eigenen eintragen.
@@ -1537,17 +1568,29 @@ function leaveDrive(){
   document.body.classList.remove("drive");
   try{ if(screen.orientation&&screen.orientation.unlock) screen.orientation.unlock(); }catch(e){}
   if(document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} }
-  stopGps(); $("gpsState").hidden=true;
+  stopGps(); clearApproach(); $("gpsState").hidden=true;
   setTimeout(()=>{ map.invalidateSize(); fit(); },350);
 }
 document.addEventListener("fullscreenchange",()=>{ if(fsUsed&&!document.fullscreenElement&&document.body.classList.contains("drive")) leaveDrive(); });
 function scrollCurrent(){ // nur die Liste scrollen, aktueller Stopp in die Mitte
   if(!document.body.classList.contains("drive")) return; const l=$("list"), el=l.querySelector(".stop.is-next");
   if(el) l.scrollTop+=el.getBoundingClientRect().top-l.getBoundingClientRect().top-l.clientHeight/2+el.offsetHeight/2; }
+// Anfahrt: Straßenroute vom eigenen Standort zum aktuellen Stopp, neu berechnet bei neuem Stopp oder nach 150 m Abweichung
+const approachLayer=L.layerGroup().addTo(map); let apFrom=null, apStop=-1, apBusy=false, apAt=0;
+function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; }
+async function updateApproach(){
+  if(!carPos||!tour||cur<0||!tour.stops[cur].ll||apBusy) return;
+  if(apStop===cur&&apFrom&&dist(apFrom,carPos)<150) return;
+  if(Date.now()-apAt<8000&&apStop===cur) return;
+  apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[cur].ll, stopNo=cur; let line=null;
+  for(const base of ROUTERS){ try{ line=(await routeWith(base,[from,to])).line; break; }catch(e){} }
+  apBusy=false; if(!document.body.classList.contains("drive")||stopNo!==cur) return;
+  approachLayer.clearLayers(); apFrom=from; apStop=stopNo;
+  L.polyline(line||[from,to],line?{color:"#2f6fe4",weight:6,opacity:.85}:{color:"#2f6fe4",weight:4,opacity:.6,dashArray:"6 8"}).addTo(approachLayer);
+}
 function startTour(){
   if(!tour||cur<0){ toast(tour?"Alle Stopps sind erledigt.":"Zuerst die Tour öffnen."); return; }
   stopSim();
-  if(geoPref==="nein"){ focusStop(cur); toast("Ohne Standort: Stopps bitte manuell abhaken."); return; }
   withGeo(enterDrive);
 }
 const DriveCtl=L.Control.extend({options:{position:"topright"},onAdd(){
@@ -1582,7 +1625,7 @@ async function loadFiles(files){
         pdfTour=parseAusfahrliste(await readPdfWords(new Uint8Array(await f.arrayBuffer())));
       } else {
         const text=await new Promise((ok,bad)=>{const rd=new FileReader();rd.onload=()=>ok(rd.result);rd.onerror=bad;rd.readAsText(f,"ISO-8859-1");});
-        bcrTour=parseBcr(text);
+        bcrTour=parseBcr(text); bcrTour.stops.forEach(s=>s.name=""); // Kundennamen gar nicht erst behalten
       }
     }catch(x){ $("err").textContent=`${f.name}: ${x.message||x}`; $("err").hidden=false; }
   }
@@ -1611,10 +1654,23 @@ $("setClose").addEventListener("click",()=>setOpen(false));
 $("sim").addEventListener("click",()=>{ if(simTimer){ setOpen(false); $("map").scrollIntoView({behavior:"smooth",block:"center"}); } });
 $("clear").addEventListener("click",()=>{$("confirmBox").hidden=false;});
 $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
-$("confirmYes").addEventListener("click",()=>{if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});
+$("confirmYes").addEventListener("click",()=>{try{localStorage.removeItem(TOUR_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-render(); fit(); // Karte bleibt leer, bis eine Tour geöffnet wird
+// Aktuelle Tour auf dem Handy merken (höchstens 18 Stunden, bis „Tour löschen“), damit sie ein Neuladen der Seite übersteht,
+// etwa wenn das iPhone die App beim Fotoauswählen oder im Hintergrund neu startet. Ohne Kundennamen.
+function saveTour(){ try{
+  if(!tour){ localStorage.removeItem(TOUR_KEY); return; }
+  localStorage.setItem(TOUR_KEY,JSON.stringify({t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),ll:tour.stops.map(s=>s.ll)}));
+}catch(e){} }
+(()=>{ let d=null; try{ d=JSON.parse(localStorage.getItem(TOUR_KEY)||"null"); }catch(e){}
+  if(d&&Date.now()-d.t<18*3600e3&&(d.bcr||d.pdf)){
+    bcrTour=d.bcr; pdfTour=d.pdf; const t=mergeTours();
+    if(t){ t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; if(!s.ll&&d.ll&&d.ll[i]) s.ll=d.ll[i]; }); tour=t; cur=typeof d.cur==="number"?d.cur:0;
+      loadedInfo(); render(); fit(); routeTour(); return; }
+  } else { try{ localStorage.removeItem(TOUR_KEY); }catch(e){} }
+  render(); fit(); // Karte bleibt leer, bis eine Tour geöffnet wird
+})();
 setTimeout(()=>{map.invalidateSize();fit();},200);
 })();
 </script>

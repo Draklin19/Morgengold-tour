@@ -1688,19 +1688,20 @@ async function loadFiles(files){
   if(pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
   else routeTour();
 }
-// Android: Dateien, die über „Teilen“ an die App geschickt wurden, holt der Service Worker ab (siehe sw.js)
+// Service Worker nur, damit sich die App installieren lässt. Das frühere Teilen-Ziel ist entfernt, Dateien öffnet man über „Tour öffnen“.
 if("serviceWorker" in navigator&&window.isSecureContext) navigator.serviceWorker.register("sw.js").catch(()=>{});
-(async()=>{
-  if(!new URLSearchParams(location.search).has("geteilt")||!("caches" in window)) return;
-  history.replaceState(null,"",location.pathname);
-  try{
-    const cache=await caches.open("geteilte-dateien"), files=[];
-    for(const req of await cache.keys()){ const r=await cache.match(req);
-      if(Date.now()-(+r.headers.get("X-Zeit")||0)>18*3600e3){ await cache.delete(req); continue; } // alte Tour nicht mehr anbieten
-      const b=await r.blob(); files.push(new File([b],decodeURIComponent(r.headers.get("X-Dateiname")||"datei"),{type:b.type})); }
-    if(files.length){ await loadFiles(files); toast(`${files.length===1?"Datei":files.length+" Dateien"} übernommen`); }
-  }catch(e){ toast("Die geteilte Datei konnte nicht gelesen werden."); }
-})();
+if("caches" in window) caches.delete("geteilte-dateien").catch(()=>{});
+// „Tour herunterladen“: In der installierten App die Seite im normalen Browser öffnen, damit der Download ganz normal gespeichert wird.
+$("tourLink").addEventListener("click",e=>{
+  const u=$("tourLink").href, app=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  if(!app||!/^https:\/\//i.test(u)) return; // im Browser: normaler neuer Tab
+  e.preventDefault();
+  if(/Android/i.test(navigator.userAgent))
+    location.href="intent://"+u.replace(/^https:\/\//i,"")+"#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url="+encodeURIComponent(u)+";end";
+  else if(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1))
+    location.href="x-safari-"+u;
+  else window.open(u,"_blank","noopener");
+});
 $("geoBtn").addEventListener("click",geocodeTour);
 const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o));};
 $("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));

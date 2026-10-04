@@ -783,6 +783,11 @@ footer{font-size:.8rem;color:var(--muted)}
     <span class="badge">Einstellungen</span>
     <div class="me-row"><span class="me-prev" id="mePrev"></span><label class="btn" for="meFile">Bild für deine Position wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div>
     <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
+    <label><input type="checkbox" id="voiceOn"> Sprachansage vor jedem Stopp („Gleich Hausnummer 18, Haus rechts“)</label>
+    <div class="opts"><label for="voiceSel">Stimme <select id="voiceSel"><option value="">Standard</option></select></label><button class="btn" id="voiceTry" type="button">🔊 Anhören</button></div>
+    <p class="hint" id="voiceHint">Welche Stimmen es gibt, hängt vom Handy ab. Weitere Stimmen lassen sich in den Handy-Einstellungen unter „Sprachausgabe“ bzw. „Text-in-Sprache“ herunterladen.</p>
+    <div class="opts"><button class="btn" id="sim" type="button">▶ Fahrt simulieren</button></div>
+    <p class="hint">Zeigt ohne GPS, wie die Fahrt abläuft und Stopps abgehakt werden. Die Einstellungen schließen sich dabei. Zum Beenden hier wieder auf „Simulation stoppen“ tippen.</p>
     <div class="opts"><button class="btn primary" id="setClose" type="button">Fertig</button></div>
   </section>
 
@@ -834,9 +839,9 @@ footer{font-size:.8rem;color:var(--muted)}
           <label><input type="radio" name="mode" id="modeManual" value="manual"> Nur manuell</label>
           <label for="radius">Umkreis <select id="radius"><option value="25">25 m</option><option value="50" selected>50 m</option><option value="100">100 m</option></select></label>
         </div>
-        <div class="opts"><button class="btn primary" id="gps" type="button">📍 GPS starten</button><button class="btn" id="sim" type="button">▶ Fahrt simulieren</button></div>
+        <div class="opts"><button class="btn primary" id="gps" type="button">📍 GPS starten</button></div>
         <p class="hint" id="gpsState" hidden></p>
-        <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt Kunden im Umkreis ab. Der Standort wird nicht gespeichert und nicht übertragen. „Fahrt simulieren“ zeigt das ohne GPS.</p>
+        <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt Kunden im Umkreis ab. Der Standort wird nicht gespeichert und nicht übertragen. Zum Ausprobieren ohne GPS gibt es „Fahrt simulieren“ unter ⚙ Einstellungen.</p>
       </div>
       <div class="mode" id="gTour">
         <span class="badge">Tour in Google Maps</span>
@@ -1223,17 +1228,49 @@ function pick(i){ cur=i; render(); focusStop(i); }
 function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
 function stopSim(){clearInterval(simTimer);simTimer=null;$("sim").textContent="▶ Fahrt simulieren";}
 function advanceAfterDone(){let n=tour.stops.findIndex((s,i)=>i>cur&&!s.done); if(n<0) n=tour.stops.findIndex(s=>!s.done); cur=n;}
+// Sprachansage mit der Sprachausgabe des Handys, kurz bevor man einen Stopp erreicht.
+const VOICE_KEY="navi-sprache", VOICE_NAME_KEY="navi-stimme", ANNOUNCE_M=150; let announced=-1, voiceOn=true, voiceName="";
+try{ voiceOn=localStorage.getItem(VOICE_KEY)!=="aus"; voiceName=localStorage.getItem(VOICE_NAME_KEY)||""; }catch(e){}
+const deVoices=()=>("speechSynthesis" in window?speechSynthesis.getVoices():[]).filter(v=>/^de/i.test(v.lang));
+function fillVoices(){
+  const sel=$("voiceSel"), vs=deVoices(); sel.textContent="";
+  sel.append(new Option("Standard",""));
+  vs.forEach(v=>sel.append(new Option(`${v.name}${v.localService?"":" (online)"}`,v.name)));
+  sel.value=vs.some(v=>v.name===voiceName)?voiceName:"";
+  if(!("speechSynthesis" in window)) $("voiceHint").textContent="Dieser Browser hat keine Sprachausgabe.";
+}
+try{ fillVoices(); if("speechSynthesis" in window) speechSynthesis.onvoiceschanged=fillVoices; }catch(e){} // Stimmen laden manche Handys erst später
+$("voiceSel").addEventListener("change",e=>{ voiceName=e.target.value; try{localStorage.setItem(VOICE_NAME_KEY,voiceName);}catch(x){} sayNow("Gleich Musterstraße 18, Haus rechts."); });
+$("voiceTry").addEventListener("click",()=>sayNow("Gleich Musterstraße 18, Haus rechts."));
+$("voiceOn").checked=voiceOn;
+$("voiceOn").addEventListener("change",e=>{ voiceOn=e.target.checked; try{localStorage.setItem(VOICE_KEY,voiceOn?"an":"aus");}catch(x){} if(voiceOn) say("Sprachansage ist an."); });
+function sayNow(text){
+  if(!("speechSynthesis" in window)) return;
+  const u=new SpeechSynthesisUtterance(text); u.lang="de-DE"; const vs=deVoices();
+  const v=vs.find(v=>v.name===voiceName)||vs.find(v=>v.localService)||vs[0]; if(v) u.voice=v;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+function say(text){ if(voiceOn) sayNow(text); }
+function speakPrime(){ if(voiceOn&&"speechSynthesis" in window){ const u=new SpeechSynthesisUtterance(""); speechSynthesis.speak(u); } } // iPhone gibt Ton erst nach einem Antippen frei
+function announce(i){
+  const s=tour.stops[i], m=(s.addr||"").match(/^(.*?)\s+(\d+\s*[a-zA-Z]?(?:\s*[\/-]\s*\d+[a-zA-Z]?)?)$/);
+  let t=m?`Gleich ${m[1]} ${m[2].replace(/\s*\/\s*/," Strich ")}`:`Gleich Stopp ${i+1}`;
+  if(s.side) t+=`, Haus ${s.side}`;
+  say(t+".");
+}
 function checkArrival(){
   if(!tour||cur<0||!carPos) return;
   const s=tour.stops[cur], r=+$("radius").value;
   if(!s.ll) return;
+  const dd=dist(carPos,s.ll);
+  if(dd<=ANNOUNCE_M&&announced!==cur){ announced=cur; announce(cur); }
   if(dist(carPos,s.ll)>r){ if(arrivedShown===cur) arrivedShown=-1; return; }
   if($("modeAuto").checked){ if(!s.done){ s.done=true; const no=cur+1; advanceAfterDone(); render(); toast(`Stopp ${no} automatisch abgehakt`);} }
   else if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${cur+1}. Bitte manuell abhaken.`); }
 }
 $("sim").addEventListener("click",()=>{
   if(simTimer){stopSim();return;}
-  stopGps();
+  stopGps(); speakPrime(); announced=-1;
   if(!tour||cur<0){toast("Keine offenen Stopps.");return;}
   if(!tour.line||tour.line.length<2){toast("Für die Simulation die Routendatei (.bcr) öffnen.");return;}
   const line=tour.line; simIdx=cur>0?Math.max(0,tour.stops[cur-1].li):0; carPos=line[simIdx].slice();
@@ -1256,6 +1293,7 @@ let gpsWatch=null, wakeLock=null;
 function stopGps(){ if(gpsWatch!==null) navigator.geolocation.clearWatch(gpsWatch); gpsWatch=null; $("gps").textContent="📍 GPS starten"; try{wakeLock&&wakeLock.release();}catch(e){} wakeLock=null; }
 $("gps").addEventListener("click",async()=>{
   if(gpsWatch!==null){stopGps();$("gpsState").hidden=true;return;}
+  speakPrime(); announced=-1;
   if(!("geolocation" in navigator)){$("gpsState").textContent="Dieses Gerät bietet kein GPS an.";$("gpsState").hidden=false;return;}
   stopSim();
   $("gpsState").textContent="Warte auf GPS …";$("gpsState").hidden=false;
@@ -1306,6 +1344,7 @@ $("geoBtn").addEventListener("click",geocodeTour);
 const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o));};
 $("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));
 $("setClose").addEventListener("click",()=>setOpen(false));
+$("sim").addEventListener("click",()=>{ if(simTimer){ setOpen(false); $("map").scrollIntoView({behavior:"smooth",block:"center"}); } });
 $("clear").addEventListener("click",()=>{$("confirmBox").hidden=false;});
 $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
 $("confirmYes").addEventListener("click",()=>{stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});

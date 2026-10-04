@@ -1691,15 +1691,20 @@ async function loadFiles(files){
 // Service Worker nur, damit sich die App installieren lässt. Das frühere Teilen-Ziel ist entfernt, Dateien öffnet man über „Tour öffnen“.
 if("serviceWorker" in navigator&&window.isSecureContext) navigator.serviceWorker.register("sw.js").catch(()=>{});
 if("caches" in window) caches.delete("geteilte-dateien").catch(()=>{});
-// „Tour herunterladen“: In der installierten App die Seite im normalen Browser öffnen, damit der Download ganz normal gespeichert wird.
+// „Tour herunterladen“: In der installierten App die Seite im normalen Browser öffnen (Android: Chrome, iPhone: Chrome-App), damit der Download ganz normal gespeichert wird.
 $("tourLink").addEventListener("click",e=>{
   const u=$("tourLink").href, app=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
   if(!app||!/^https:\/\//i.test(u)) return; // im Browser: normaler neuer Tab
   e.preventDefault();
   if(/Android/i.test(navigator.userAgent))
     location.href="intent://"+u.replace(/^https:\/\//i,"")+"#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url="+encodeURIComponent(u)+";end";
-  else if(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1))
-    location.href="x-safari-"+u;
+  else if(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)){
+    // iPhone: in der Chrome-App öffnen, die speichert Downloads direkt im Ordner „Chrome“.
+    // Ohne Chrome bleibt die App sichtbar, dann nach 1,5 s die Seite wie bisher öffnen.
+    let gone=false; const hide=()=>{ if(document.hidden) gone=true; };
+    document.addEventListener("visibilitychange",hide,{once:true});
+    location.href="googlechromes://"+u.replace(/^https:\/\//i,"");
+    setTimeout(()=>{ document.removeEventListener("visibilitychange",hide); if(!gone&&!document.hidden) window.open(u,"_blank","noopener"); },1500); }
   else window.open(u,"_blank","noopener");
 });
 $("geoBtn").addEventListener("click",geocodeTour);

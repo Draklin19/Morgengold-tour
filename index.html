@@ -801,7 +801,7 @@ footer{font-size:.8rem;color:var(--muted)}
         <div class="place"><span class="who" id="nextWho">–</span><span class="town" id="nextTown"></span></div>
         <span id="nextAddr"></span>
         <div class="note" id="nextNote" hidden></div>
-        <ul class="arts" id="nextArts"></ul>
+        <ul class="arts" id="nextArts" hidden></ul>
         <div class="row">
           <button class="btn" id="prev" type="button">‹ Zurück zum letzten Kunden</button>
           <button class="btn primary" id="nextDone" type="button">Stopp erledigt</button>
@@ -1146,7 +1146,7 @@ function render(){
   $("sDone").textContent=tour.stops.filter(s=>s.done).length;
   $("sTime").textContent=(!tour.time&&tour.road)?`${Math.floor(tour.road.sec/3600)}:${String(Math.round(tour.road.sec%3600/60)).padStart(2,"0")} h`:tour.time?`${Math.floor(tour.time/3600)}:${String(Math.round(tour.time%3600/60)).padStart(2,"0")} h`:"–";
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
-  $("loadBox").hidden=!(tour.load&&tour.load.length); if(tour.load) fillArts($("loadList"),tour.load);
+  $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
   renderGoogle();
   $("prev").disabled=nextIdx===0;
@@ -1158,7 +1158,7 @@ function render(){
     if(s.name){$("nextWho").textContent=`${nextIdx+1}. ${s.name}`;fillAddr($("nextAddr"),s.addr);}
     else{fillAddr($("nextWho"),s.addr);$("nextWho").prepend(`${nextIdx+1}. `);$("nextAddr").textContent="";}
     $("nextNote").hidden=!(s.notes&&s.notes.length); $("nextNote").textContent=(s.notes||[]).join("\n");
-    fillArts($("nextArts"),s.articles||[]);
+    $("nextArts").textContent=""; // Backwaren werden nicht angezeigt
     $("nextOsm").hidden=!s.ll;
     if(s.ll) $("nextOsm").href=`https://www.openstreetmap.org/?mlat=${s.ll[0].toFixed(5)}&mlon=${s.ll[1].toFixed(5)}#map=18/${s.ll[0].toFixed(5)}/${s.ll[1].toFixed(5)}`;}
 }

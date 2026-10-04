@@ -1573,8 +1573,9 @@ $("jumpForm").addEventListener("submit",e=>{ e.preventDefault(); if(!tour) retur
   const v=$("jumpNo").value.trim(); const i=tour.stops.findIndex((s,k)=>String(s.no)===v||String(k+1)===v);
   if(i<0){$("err").textContent=`Stopp Nr. ${v} gibt es in dieser Tour nicht.`;$("err").hidden=false;return;}
   $("err").hidden=true; $("jumpNo").value=""; goTo(i); });
-$("file").addEventListener("change",async e=>{
-  const files=[...e.target.files]; e.target.value=""; if(!files.length) return;
+$("file").addEventListener("change",e=>{ const files=[...e.target.files]; e.target.value=""; loadFiles(files); });
+async function loadFiles(files){
+  if(!files.length) return;
   $("err").hidden=true;
   for(const f of files){
     try{
@@ -1592,7 +1593,20 @@ $("file").addEventListener("change",async e=>{
   const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit();
   if(pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
   else routeTour();
-});
+}
+// Android: Dateien, die über „Teilen“ an die App geschickt wurden, holt der Service Worker ab (siehe sw.js)
+if("serviceWorker" in navigator&&window.isSecureContext) navigator.serviceWorker.register("sw.js").catch(()=>{});
+(async()=>{
+  if(!new URLSearchParams(location.search).has("geteilt")||!("caches" in window)) return;
+  history.replaceState(null,"",location.pathname);
+  try{
+    const cache=await caches.open("geteilte-dateien"), files=[];
+    for(const req of await cache.keys()){ const r=await cache.match(req);
+      if(Date.now()-(+r.headers.get("X-Zeit")||0)>18*3600e3){ await cache.delete(req); continue; } // alte Tour nicht mehr anbieten
+      const b=await r.blob(); files.push(new File([b],decodeURIComponent(r.headers.get("X-Dateiname")||"datei"),{type:b.type})); }
+    if(files.length){ await loadFiles(files); toast(`${files.length===1?"Datei":files.length+" Dateien"} übernommen`); }
+  }catch(e){ toast("Die geteilte Datei konnte nicht gelesen werden."); }
+})();
 $("geoBtn").addEventListener("click",geocodeTour);
 const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o));};
 $("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));
@@ -1600,7 +1614,7 @@ $("setClose").addEventListener("click",()=>setOpen(false));
 $("sim").addEventListener("click",()=>{ if(simTimer){ setOpen(false); $("map").scrollIntoView({behavior:"smooth",block:"center"}); } });
 $("clear").addEventListener("click",()=>{$("confirmBox").hidden=false;});
 $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
-$("confirmYes").addEventListener("click",()=>{stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});
+$("confirmYes").addEventListener("click",()=>{if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 render(); fit(); // Karte bleibt leer, bis eine Tour geöffnet wird

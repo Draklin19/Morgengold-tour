@@ -764,7 +764,7 @@ footer{font-size:.8rem;color:var(--muted)}
     </div>
     <div class="actions">
       <label class="btn primary" for="file">Tour öffnen (Ausfahrliste PDF / .bcr)</label>
-      <input type="file" id="file" accept=".pdf,.bcr,application/pdf,text/plain" multiple>
+      <input type="file" id="file" multiple><!-- kein accept: Android kennt .bcr nicht und graut die Datei sonst aus; Typ wird am Inhalt erkannt -->
       <button class="btn" id="clear" type="button">Tour löschen</button>
     </div>
   </header>

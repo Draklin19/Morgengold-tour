@@ -705,7 +705,8 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 .leaflet-control-scale-line{background:var(--surface);color:var(--fg);border-color:var(--muted)}
 .pin{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:700 11px var(--font-mono);background:var(--route);color:var(--surface);border:2px solid var(--surface);box-shadow:0 1px 3px rgb(0 0 0 / .35)}
 .pin.next{background:var(--accent);color:var(--accent-ink);transform:scale(1.25)}
-.pin.done{background:#9aa0a6;color:#fff;opacity:.45;box-shadow:none} /* erledigt: grau und leicht durchsichtig */
+.pin.done{background:#9aa0a6;color:#fff;opacity:.55;box-shadow:none;position:relative} /* erledigt: grau und leicht durchsichtig, mit Haken */
+.pin.done::after{content:"✓";position:absolute;right:-7px;top:-7px;width:14px;height:14px;border-radius:50%;background:var(--route);color:#fff;font:700 10px/14px var(--font-body);text-align:center;border:1px solid #fff}
 .side{display:flex;flex-direction:column;gap:10px;min-width:0}
 .next-card{background:var(--surface);border:2px solid var(--accent);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
 .next-card .lbl{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -775,11 +776,16 @@ body.drive .side{order:-1;overflow:hidden;padding:6px;height:100%;box-sizing:bor
 body.drive.dock-right .side,body.drive.dock-bottom .side{order:1}
 body.drive .side>*{zoom:var(--dz)} /* Schriftgröße der Tourleiste, 5 Stufen */
 body.drive #map{height:100%;min-height:0;border-radius:0;border:0}
-.dock-grip{display:none;touch-action:none;user-select:none;-webkit-user-select:none;text-align:center;font:600 .8rem var(--font-body);color:var(--muted);padding:2px 0;cursor:grab;flex:0 0 auto}
+.dock-grip{display:none;touch-action:none;user-select:none;-webkit-user-select:none;text-align:center;font:700 26px/1 var(--font-body);letter-spacing:2px;color:var(--muted);padding:6px 0 4px;cursor:grab;flex:0 0 auto;border-radius:8px}
+.dock-grip:active{background:color-mix(in srgb,var(--accent) 18%,transparent)}
+.dock-ghost{position:fixed;left:0;top:0;z-index:2600;pointer-events:none;border-radius:12px;background:color-mix(in srgb,var(--surface) 70%,transparent);border:2px solid var(--accent);box-shadow:0 8px 28px rgb(0 0 0 / .35);will-change:transform,width,height}
+.dock-ghost.snap{transition:transform .28s cubic-bezier(.2,.8,.2,1),width .28s cubic-bezier(.2,.8,.2,1),height .28s cubic-bezier(.2,.8,.2,1),opacity .2s}
+body.drive .side{transition:opacity .2s}
+body.drive .side.moving{opacity:.25}
 body.drive .dock-grip{display:block}
 .dock-zones{position:fixed;inset:0;z-index:2500;pointer-events:none}
-.dock-zones div{position:absolute;background:color-mix(in srgb,var(--accent) 25%,transparent);border:3px dashed var(--accent);opacity:.35}
-.dock-zones div.on{opacity:1}
+.dock-zones div{position:absolute;background:color-mix(in srgb,var(--accent) 22%,transparent);border:2px dashed var(--accent);opacity:0;transition:opacity .25s}
+.dock-zones div.on{opacity:.9}
 .dock-zones .z-left{left:0;top:0;bottom:0;width:30%}.dock-zones .z-right{right:0;top:0;bottom:0;width:30%}
 .dock-zones .z-top{left:0;right:0;top:0;height:30%}.dock-zones .z-bottom{left:0;right:0;bottom:0;height:30%}
 body.drive .side>.mode,body.drive .side>.jump,body.drive #nextOsm{display:none!important}
@@ -790,8 +796,9 @@ body.drive .next-card .who{font-size:1rem}
 body.drive .next-card .note{padding:4px 8px;font-size:.85rem}
 body.drive .next-card .row{gap:4px}
 body.drive .next-card .row .btn{padding:6px 8px;font-size:.82rem}
-body.drive .stop{grid-template-columns:28px minmax(0,1fr);padding:6px 8px;gap:6px}
-body.drive .stop .town,body.drive .stop input,body.drive .stop .snote{display:none}
+body.drive .stop{grid-template-columns:28px minmax(0,1fr) auto;padding:6px 8px;gap:6px}
+body.drive .stop .town,body.drive .stop .snote{display:none}
+body.drive .stop input{width:26px;height:26px}
 body.drive .map-start{display:none}
 body.drive .map-exit{display:inline-block}
 .ask{position:fixed;inset:0;z-index:3000;background:rgb(0 0 0 / .45);display:grid;place-items:center;padding:16px}
@@ -800,26 +807,101 @@ body.drive .map-exit{display:inline-block}
 .ask-box p{margin:0}
 [hidden]{display:none!important} /* sonst überschreiben display-Regeln das hidden-Attribut */
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ===== Modernes Erscheinungsbild ===== */
+:root{
+  --bg:#f2f4f7; --surface:#ffffff; --fg:#151b18; --muted:#66716b; --line:#e4e8ec;
+  --route:#17795f; --accent:#f0ad00; --accent-ink:#2e2100;
+  --font-display:system-ui,-apple-system,"SF Pro Display","Segoe UI",Roboto,sans-serif;
+  --font-body:system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  --radius:16px; --shadow:0 1px 2px rgb(16 24 20 / .06),0 4px 16px rgb(16 24 20 / .07);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f1312;--surface:#181e1c;--line:#262e2b;--shadow:0 1px 2px rgb(0 0 0 / .4),0 4px 16px rgb(0 0 0 / .35)}}
+:root[data-theme="dark"]{--bg:#0f1312;--surface:#181e1c;--line:#262e2b;--shadow:0 1px 2px rgb(0 0 0 / .4),0 4px 16px rgb(0 0 0 / .35)}
+body{font-size:16px;-webkit-font-smoothing:antialiased}
+.wrap{gap:16px;padding-block:0 32px}
+header{position:sticky;top:0;z-index:1200;margin-inline:-16px;padding:12px 16px;align-items:center;flex-wrap:nowrap;
+  background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{flex:0 0 auto;width:42px;height:42px;border-radius:13px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#f6c22e,#e09a00);box-shadow:0 3px 10px rgb(224 154 0 / .35)}
+.logo svg{width:24px;height:24px}
+h1{font-size:1.25rem;font-weight:750;letter-spacing:-.01em;line-height:1.15}
+.route-name{font-size:.9rem;margin:1px 0 0;font-weight:500}
+.top-icons{display:flex;gap:8px;flex:0 0 auto}
+.icon-btn{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-size:1.15rem;display:grid;place-items:center;cursor:pointer;box-shadow:var(--shadow)}
+.icon-btn[aria-expanded="true"]{background:var(--fg);color:var(--bg)}
+.btn{border-radius:12px;padding:11px 16px;font-weight:600;border-color:var(--line);transition:transform .08s,box-shadow .15s}
+.btn:active,.icon-btn:active{transform:scale(.97)}
+.btn.primary{background:linear-gradient(180deg,#f7bd1d,#eea700);border-color:transparent;box-shadow:0 2px 8px rgb(238 167 0 / .3)}
+.cta{display:grid;grid-template-columns:1fr;gap:10px}
+.btn.big{justify-content:center;padding:15px 18px;font-size:1.05rem;border-radius:14px;flex-direction:column;gap:2px;text-align:center;box-shadow:var(--shadow)}
+.btn.big small{font-size:.75rem;font-weight:500;opacity:.75}
+@media (min-width:700px){.cta{grid-template-columns:1fr 1fr}}
+.privacy{font-size:.8rem;background:color-mix(in srgb,var(--route) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--route) 18%,var(--line));border-radius:12px;padding:9px 12px;color:var(--muted)}
+.loaded:not(:empty){font-size:.82rem}
+#routeState:not([hidden]),.err{font-size:.85rem;border-radius:12px;padding:9px 12px;font-weight:600}
+#routeState:not([hidden]){background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--fg);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line))}
+.err{background:#fdecea;color:#a3221b;border:1px solid #f5c6c2}
+@media (prefers-color-scheme: dark){.err{background:#3a1715;color:#ffb4ab;border-color:#5c2421}}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:0;background:none;border:0}
+.stat{background:var(--surface);border-radius:14px;padding:10px 12px;box-shadow:var(--shadow)}
+.stat b{font-family:var(--font-body);font-weight:750;font-size:1.25rem;letter-spacing:-.01em}
+.stat span{font-size:.68rem;letter-spacing:.04em;margin-top:1px}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#map{border-radius:var(--radius);border:0;box-shadow:var(--shadow)}
+.main{gap:16px}
+.next-card{border:0;border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;gap:8px;position:relative;overflow:hidden}
+.next-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,#f7bd1d,#e09a00)}
+.next-card .lbl{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.next-card .who{font-size:1.3rem;font-weight:750;letter-spacing:-.01em}
+.next-card .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.next-card .row #nextGmaps{grid-column:1/-1;justify-content:center;background:var(--route);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgb(23 121 95 / .3)}
+.next-card .row #nextDone{justify-content:center}
+.next-card .row #prev{justify-content:center}
+.next-card .row #nextOsm{grid-column:1/-1;justify-content:center;background:none;border:0;color:var(--muted);font-weight:500;padding:4px;text-decoration:underline}
+.mode{border:0;border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;gap:10px}
+.badge{font-size:.78rem;font-weight:700;letter-spacing:.02em;text-transform:none;color:var(--fg)}
+.mode select,.jump input{border-radius:10px;padding:8px 10px}
+.jump{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px}
+.list{border:0;border-radius:var(--radius);box-shadow:var(--shadow)}
+.stop{padding:11px 14px;border-bottom-color:var(--line)}
+.stop .n{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:color-mix(in srgb,var(--route) 12%,var(--surface));color:var(--route);font:700 .8rem var(--font-body);justify-self:center}
+.stop.is-next .n{background:var(--accent);color:var(--accent-ink)}
+.stop.is-done .n{background:var(--line);color:var(--done)}
+.stop.is-next{background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+.hnr{font-family:var(--font-body);font-weight:700;border-radius:6px}
+.pin{font-family:var(--font-body)}
+.toast{border-radius:14px;box-shadow:0 8px 24px rgb(0 0 0 / .25)}
+.ask-box{border-radius:20px}
+footer{font-size:.75rem;line-height:1.5}
+body.drive .stop .n{width:24px;height:24px;font-size:.72rem}
+a.btn{text-decoration:none}
+body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),body.no-tour .jump,body.no-tour .map-start{display:none!important} /* ohne Tour nur das Nötigste */
 </style><style>body{margin:0}</style></head><body>
 
 <div class="wrap">
   <header>
-    <div>
-      <h1>Morgengold Tour</h1>
-      <p class="route-name" id="routeName">Beispieltour</p>
+    <div class="brand">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg></span>
+      <div><h1>Morgengold Tour</h1><p class="route-name" id="routeName">Keine Tour geladen</p></div>
     </div>
-    <div class="actions">
-      <label class="btn primary" for="file">Tour öffnen (Ausfahrliste PDF / .bcr)</label>
-      <input type="file" id="file" multiple><!-- kein accept: Android kennt .bcr nicht und graut die Datei sonst aus; Typ wird am Inhalt erkannt -->
-      <button class="btn" id="clear" type="button">Tour löschen</button>
-      <button class="btn" id="setBtn" type="button" aria-expanded="false" aria-controls="settings" title="Einstellungen">⚙ Einstellungen</button>
+    <div class="top-icons">
+      <button class="icon-btn" id="clear" type="button" title="Tour löschen" aria-label="Tour löschen">🗑</button>
+      <button class="icon-btn" id="setBtn" type="button" aria-expanded="false" aria-controls="settings" title="Einstellungen" aria-label="Einstellungen">⚙</button>
     </div>
   </header>
+  <div class="actions cta">
+    <label class="btn primary big" for="file">📂 Tour öffnen <small>Ausfahrliste PDF / .bcr</small></label>
+    <input type="file" id="file" multiple><!-- kein accept: Android kennt .bcr nicht und graut die Datei sonst aus; Typ wird am Inhalt erkannt -->
+    <a class="btn big" id="tourLink" href="#" target="_blank" rel="noopener" hidden>⬇ Tour herunterladen</a>
+  </div>
 
   <section class="mode" id="settings" hidden>
     <span class="badge">Einstellungen</span>
     <div class="me-row"><span class="me-prev" id="mePrev"></span><label class="btn" for="meFile">Bild für deine Position wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div>
     <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
+    <div class="opts"><label for="tourUrl">Link zur Tour-Seite <input id="tourUrl" type="url" inputmode="url" placeholder="https://…" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
+    <p class="hint">Von dieser Seite lädst du Ausfahrliste und Routendatei herunter. Danach erscheint oben der Knopf „⬇ Tour herunterladen“.</p>
     <div class="opts"><label for="fontSel">Schriftgröße Tourleiste <select id="fontSel"><option value="0">1 (sehr klein)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (groß)</option></select></label>
       <label for="dockSel">Tourleiste <select id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label></div>
     <p class="hint">Gilt für die Ansicht nach „Tour starten“. Die Tourleiste lässt sich dort auch verschieben: oben auf „⠿“ gedrückt halten und an den gewünschten Rand ziehen.</p>
@@ -838,7 +920,7 @@ body.drive .map-exit{display:inline-block}
     <button class="btn" id="confirmNo" type="button">Abbrechen</button>
   </div>
 
-  <p class="privacy"><strong>Datenschutz:</strong> Ausfahrliste und Routendatei werden nur hier auf deinem Handy gelesen. Nichts wird hochgeladen oder gespeichert, Kundennamen werden nicht angezeigt. Beim Schließen der Seite ist die Tour weg.</p>
+  <p class="privacy">🔒 Alles bleibt auf deinem Handy: Ausfahrliste und Routendatei werden nur hier gelesen, nichts wird hochgeladen, Kundennamen werden nicht angezeigt.</p>
   <p class="loaded" id="loaded"></p>
   <p class="loaded" id="routeState" hidden></p>
   <div class="geo" id="geoBox" hidden>
@@ -859,7 +941,7 @@ body.drive .map-exit{display:inline-block}
   <div class="main">
     <div id="map" role="region" aria-label="Karte der Stopps"></div>
     <div class="side">
-      <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen">⠿ Zum Verschieben halten und ziehen</div>
+      <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
       <div class="next-card" id="nextCard">
         <span class="lbl" id="nextLbl">Nächster Stopp</span>
         <div class="place"><span class="who" id="nextWho">–</span><span class="town" id="nextTown"></span></div>
@@ -906,6 +988,7 @@ body.drive .map-exit{display:inline-block}
       <div class="opts"><button class="btn primary" id="geoYes" type="button">Erlauben</button><button class="btn" id="geoNo" type="button">Ablehnen</button></div>
     </div>
   </div>
+  <div class="dock-ghost" id="dockGhost" hidden></div>
   <div class="dock-zones" id="dockZones" hidden><div class="z-left"></div><div class="z-right"></div><div class="z-top"></div><div class="z-bottom"></div></div>
   <div class="toast" id="toast" role="status" hidden></div>
   <footer>Kartendaten: OpenStreetMap-Mitwirkende und die gewählten Kartendienste. Der Kartendienst erfährt nur, welchen Kartenausschnitt du ansiehst. Google Maps bekommt beim Tippen auf die Google-Knöpfe nur Adresse bzw. Koordinaten, keine Namen. Die Fahrstrecke berechnet der Routenserver von openstreetmap.de (FOSSGIS) aus den Koordinaten der Stopps.</footer>
@@ -1200,6 +1283,7 @@ function renderGoogle(){
   }
 }
 function render(){
+  document.body.classList.toggle("no-tour",!tour);
   layer.clearLayers(); markers=[]; const list=$("list"); list.innerHTML="";
   if(!tour){
     $("routeName").textContent="Keine Tour geladen";
@@ -1386,6 +1470,17 @@ $("geoNo").addEventListener("click",()=>{ $("geoAsk").hidden=true; setGeoPref("n
 $("geoReset").addEventListener("click",()=>{ setGeoPref(""); toast("Beim nächsten „Tour starten“ fragt die App wieder."); });
 geoPrefUi();
 
+// iPhone/iPad: nur Dateiformate erlauben, dann bietet iOS keine Fotomediathek und Kamera an, sondern gleich „Dateien“.
+// application/octet-stream lässt dort alle Dateien zu, also auch .bcr. Android bleibt ohne Filter, sonst graut es .bcr aus.
+if(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1))
+  $("file").setAttribute("accept","application/pdf,.pdf,.bcr,text/plain,application/octet-stream");
+// Link zur Seite, von der die Fahrer ihre Tour herunterladen. TOUR_LINK_DEFAULT gilt für alle, in den Einstellungen kann jeder einen eigenen eintragen.
+const TOUR_LINK_DEFAULT="https://www.morgengold.de/logistik/home/menu.xhtml", TOUR_LINK_KEY="navi-tourlink";
+function tourLinkUi(){ let u=TOUR_LINK_DEFAULT; try{ u=localStorage.getItem(TOUR_LINK_KEY)||u; }catch(e){}
+  $("tourUrl").value=u; $("tourLink").hidden=!/^https?:\/\//i.test(u); if(!$("tourLink").hidden) $("tourLink").href=u; }
+$("tourUrlSave").addEventListener("click",()=>{ let u=$("tourUrl").value.trim(); if(u&&!/^https?:\/\//i.test(u)) u="https://"+u;
+  try{ u?localStorage.setItem(TOUR_LINK_KEY,u):localStorage.removeItem(TOUR_LINK_KEY); }catch(e){} tourLinkUi(); toast(u?"Link gespeichert.":"Link entfernt."); });
+tourLinkUi();
 // Tourleiste: Schriftgröße (5 Stufen, Stufe 5 = bisherige Größe) und Platz am Rand
 const FONT_KEY="navi-schrift", DOCK_KEY="navi-leiste", ZOOMS=[.6,.7,.8,.9,1];
 let fontIdx=2, dock="left"; try{ const f=localStorage.getItem(FONT_KEY); if(f!==null&&ZOOMS[+f]) fontIdx=+f; dock=localStorage.getItem(DOCK_KEY)||"left"; }catch(e){}
@@ -1399,13 +1494,37 @@ function setDock(d){ dock=d; try{localStorage.setItem(DOCK_KEY,d);}catch(e){} ap
 $("fontSel").addEventListener("change",e=>{ fontIdx=+e.target.value; try{localStorage.setItem(FONT_KEY,fontIdx);}catch(x){} applyLayout(); });
 $("dockSel").addEventListener("change",e=>setDock(e.target.value));
 applyLayout();
-// Verschieben: gedrückt halten (0,35 s), dann an einen Rand ziehen und loslassen
-(()=>{ const g=$("dockGrip"), z=$("dockZones"); let timer=null, drag=false, target=null;
+// Verschieben: kurz gedrückt halten, dann folgt eine Vorschau der Leiste dem Finger; beim Loslassen rastet sie weich am nächsten Rand ein
+(()=>{ const g=$("dockGrip"), z=$("dockZones"), gh=$("dockGhost"), side=document.querySelector(".side");
+  let timer=null, drag=false, target=null, off=[0,0], size=[0,0], last=null, raf=0, sx=0, sy=0;
   const edge=(x,y)=>{ const W=innerWidth,H=innerHeight, d={left:x/W,right:(W-x)/W,top:y/H,bottom:(H-y)/H}; return Object.keys(d).sort((a,b)=>d[a]-d[b])[0]; };
-  const show=t=>{ target=t; z.querySelectorAll("div").forEach(el=>el.classList.toggle("on",el.className.includes("z-"+t))); };
-  g.addEventListener("pointerdown",e=>{ g.setPointerCapture(e.pointerId); timer=setTimeout(()=>{ drag=true; z.hidden=false; show(edge(e.clientX,e.clientY)); if(navigator.vibrate) navigator.vibrate(30); },350); });
-  g.addEventListener("pointermove",e=>{ if(drag) show(edge(e.clientX,e.clientY)); });
-  const end=()=>{ clearTimeout(timer); if(drag&&target){ setDock(target); } drag=false; z.hidden=true; z.querySelectorAll("div").forEach(el=>el.classList.remove("on")); };
+  const show=t=>{ if(t===target) return; target=t; z.querySelectorAll("div").forEach(el=>el.classList.toggle("on",el.classList.contains("z-"+t))); };
+  const place=(x,y,w,h)=>{ gh.style.transform=`translate(${x}px,${y}px)`; if(w){ gh.style.width=w+"px"; gh.style.height=h+"px"; } };
+  const frame=()=>{ raf=0; if(!drag||!last) return; // Vorschau wird kleiner, damit man den Rand sieht
+    place(last[0]-off[0],last[1]-off[1]); show(edge(last[0],last[1])); };
+  g.addEventListener("pointerdown",e=>{
+    g.setPointerCapture(e.pointerId); sx=e.clientX; sy=e.clientY;
+    timer=setTimeout(()=>{
+      drag=true; const r=side.getBoundingClientRect(); const k=.6; size=[r.width*k,r.height*k];
+      off=[(e.clientX-r.left)*k,(e.clientY-r.top)*k]; last=[sx,sy];
+      gh.classList.remove("snap"); gh.hidden=false; gh.style.opacity="1"; place(r.left,r.top,r.width,r.height);
+      requestAnimationFrame(()=>{ gh.classList.add("snap"); place(sx-off[0],sy-off[1],size[0],size[1]); setTimeout(()=>gh.classList.remove("snap"),300); });
+      side.classList.add("moving"); z.hidden=false; target=null; show(edge(sx,sy)); if(navigator.vibrate) navigator.vibrate(20);
+    },220);
+  });
+  g.addEventListener("pointermove",e=>{
+    if(!drag){ if(Math.hypot(e.clientX-sx,e.clientY-sy)>12) clearTimeout(timer); return; }
+    last=[e.clientX,e.clientY]; if(!raf) raf=requestAnimationFrame(frame);
+  });
+  const end=()=>{
+    clearTimeout(timer); if(!drag) return; drag=false;
+    z.querySelectorAll("div").forEach(el=>el.classList.remove("on"));
+    if(target&&target!==dock) setDock(target);
+    setTimeout(()=>{ // zur neuen Position gleiten lassen, dann einblenden
+      const r=side.getBoundingClientRect(); gh.classList.add("snap"); place(r.left,r.top,r.width,r.height);
+      setTimeout(()=>{ side.classList.remove("moving"); gh.style.opacity="0"; setTimeout(()=>{ gh.hidden=true; gh.classList.remove("snap"); z.hidden=true; },200); },280);
+    },70);
+  };
   g.addEventListener("pointerup",end); g.addEventListener("pointercancel",end);
 })();
 // Tour starten: Vollbild im Querformat, Stoppliste links, Karte folgt dem Standort
@@ -1484,7 +1603,7 @@ $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
 $("confirmYes").addEventListener("click",()=>{stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-tour=parseBcr(sampleBcr()); tour.sample=true; render(); fit(); routeTour();
+render(); fit(); // Karte bleibt leer, bis eine Tour geöffnet wird
 setTimeout(()=>{map.invalidateSize();fit();},200);
 })();
 </script>

@@ -687,7 +687,9 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 .btn{font:600 .95rem var(--font-body);border-radius:8px;padding:10px 14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn:focus-visible,.stop:focus-visible{outline:3px solid var(--route);outline-offset:2px}
-#file{position:absolute;width:1px;height:1px;opacity:0}
+#file,#fileAll{position:absolute;width:1px;height:1px;opacity:0}
+.file-all{display:block;font-size:.85rem;text-align:center;text-decoration:underline;opacity:.75;padding:4px 0;cursor:pointer}
+.file-all[hidden]{display:none}
 .stats{display:flex;flex-wrap:wrap;gap:8px 22px;padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
 .stat{display:flex;flex-direction:column;min-width:0}
 .stat b{font-family:var(--font-mono);font-size:1.15rem;font-variant-numeric:tabular-nums}
@@ -893,6 +895,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
   <div class="actions cta">
     <label class="btn primary big" for="file">📂 Tour öffnen <small>Ausfahrliste PDF / .bcr</small></label>
     <input type="file" id="file" multiple><!-- kein accept: Android kennt .bcr nicht und graut die Datei sonst aus; Typ wird am Inhalt erkannt -->
+    <input type="file" id="fileAll" multiple><label class="file-all" for="fileAll" id="fileAllLbl" hidden>Datei nicht dabei? Alle Dateien zeigen</label>
     <a class="btn big" id="tourLink" href="#" target="_blank" rel="noopener" hidden>⬇ Tour herunterladen</a>
   </div>
 
@@ -1501,7 +1504,11 @@ setInterval(async()=>{
 },15000);
 
 
-// Zurückgenommen: Mit Filter blendete iOS neu heruntergeladene Dateien aus. Ohne Filter erscheint zwar wieder das Foto-Menü, dort „Datei auswählen“ tippen.
+// iPhone/iPad: Mit Dateifilter öffnet iOS gleich „Dateien“ statt Foto-Menü. Falls iOS eine neue Datei dann nicht zeigt,
+// gibt es darunter den Link „Alle Dateien zeigen“ (zweites Feld ohne Filter). Android bleibt ohne Filter, sonst graut es .bcr aus.
+if(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)){
+  $("file").setAttribute("accept","application/pdf,.pdf,.bcr,text/plain,application/octet-stream,application/*,text/*");
+  $("fileAllLbl").hidden=false; }
 // Link zur Seite, von der die Fahrer ihre Tour herunterladen. TOUR_LINK_DEFAULT gilt für alle, in den Einstellungen kann jeder einen eigenen eintragen.
 const TOUR_LINK_DEFAULT="https://www.morgengold.de/logistik/home/menu.xhtml", TOUR_LINK_KEY="navi-tourlink";
 function tourLinkUi(){ let u=TOUR_LINK_DEFAULT; try{ u=localStorage.getItem(TOUR_LINK_KEY)||u; }catch(e){}
@@ -1613,7 +1620,7 @@ $("jumpForm").addEventListener("submit",e=>{ e.preventDefault(); if(!tour) retur
   const v=$("jumpNo").value.trim(); const i=tour.stops.findIndex((s,k)=>String(s.no)===v||String(k+1)===v);
   if(i<0){$("err").textContent=`Stopp Nr. ${v} gibt es in dieser Tour nicht.`;$("err").hidden=false;return;}
   $("err").hidden=true; $("jumpNo").value=""; goTo(i); });
-$("file").addEventListener("change",e=>{ const files=[...e.target.files]; e.target.value=""; loadFiles(files); });
+["file","fileAll"].forEach(id=>$(id).addEventListener("change",e=>{ const files=[...e.target.files]; e.target.value=""; loadFiles(files); }));
 async function loadFiles(files){
   if(!files.length) return;
   $("err").hidden=true;

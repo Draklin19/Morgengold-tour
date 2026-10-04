@@ -1327,7 +1327,7 @@ function render(){
     if(s.notes&&s.notes.length){ const n=document.createElement("span"); n.className="snote"; n.textContent=s.notes.join(" "); li.querySelector(".t").append(n); }
     const cb=li.querySelector("input"); cb.checked=s.done;
     cb.addEventListener("click",e=>e.stopPropagation());
-    cb.addEventListener("change",()=>{s.done=cb.checked;if(s.done&&i===cur){const n=tour.stops.findIndex((t,k)=>k>cur&&!t.done);cur=n<0?tour.stops.findIndex(t=>!t.done):n;}render();});
+    cb.addEventListener("change",()=>{s.done=cb.checked;if(s.done&&i===cur) cur=nextOpen(); render();});
     li.addEventListener("click",()=>pick(i));
     li.addEventListener("keydown",e=>{if(e.key==="Enter")pick(i);});
     list.append(li);
@@ -1376,7 +1376,7 @@ function focusStop(i){ if(tour.stops[i].ll){ setFollow(false); map.setView(tour.
 let follow=true;
 function setFollow(on){ follow=on; const b=document.getElementById("toMe"); if(b) b.hidden=on||!carPos; }
 map.on("dragstart",()=>setFollow(false));
-function pick(i){ cur=i; render(); focusStop(i); }
+function pick(i){ markJump(i); cur=i; render(); focusStop(i); }
 
 function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
 function stopSim(){clearInterval(simTimer);simTimer=null;$("sim").textContent="▶ Fahrt simulieren";document.body.classList.remove("sim");}
@@ -1387,7 +1387,14 @@ const SIM_KEY="navi-simtempo", SIM_STEPS=[8,16,24,32,40]; let simIdxSpeed=2;
 try{ const v=localStorage.getItem(SIM_KEY); if(v!==null&&SIM_STEPS[+v]) simIdxSpeed=+v; }catch(e){}
 $("simSel").value=String(simIdxSpeed);
 $("simSel").addEventListener("change",e=>{ simIdxSpeed=+e.target.value; try{localStorage.setItem(SIM_KEY,simIdxSpeed);}catch(x){} });
-function advanceAfterDone(){let n=tour.stops.findIndex((s,i)=>i>cur&&!s.done); if(n<0) n=tour.stops.findIndex(s=>!s.done); cur=n;}
+// Springt der Fahrer zu einem späteren Haus vor, merkt sich die App den offenen Stopp davor (backTo).
+// Nach dem Abhaken geht es dorthin zurück, statt ihn zu überspringen.
+let backTo=-1;
+function markJump(i){ if(tour&&cur>=0&&i>cur&&!tour.stops[cur].done&&backTo<0) backTo=cur; }
+function nextOpen(){
+  if(backTo>=0&&backTo!==cur&&!tour.stops[backTo].done){ const b=backTo; backTo=-1; return b; }
+  backTo=-1; let n=tour.stops.findIndex((s,i)=>i>cur&&!s.done); if(n<0) n=tour.stops.findIndex(s=>!s.done); return n; }
+function advanceAfterDone(){ cur=nextOpen(); }
 // Sprachansage mit der Sprachausgabe des Handys, kurz bevor man einen Stopp erreicht.
 const VOICE_KEY="navi-sprache", VOICE_NAME_KEY="navi-stimme", ANNOUNCE_M=150; let announced=-1, voiceOn=true, voiceName="";
 try{ voiceOn=localStorage.getItem(VOICE_KEY)!=="aus"; voiceName=localStorage.getItem(VOICE_NAME_KEY)||""; }catch(e){}
@@ -1654,13 +1661,12 @@ const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
 new MeCtl().addTo(map);
 document.addEventListener("visibilitychange",async()=>{ if(gpsWatch!==null&&document.visibilityState==="visible"&&navigator.wakeLock){ try{wakeLock=await navigator.wakeLock.request("screen");}catch(e){} } });
 function goTo(i){ if(!tour) return; cur=i; render(); if(i>=0) focusStop(i); else fit(); }
-$("nextDone").addEventListener("click",()=>{ if(!tour||cur<0) return; tour.stops[cur].done=true;
-  let n=tour.stops.findIndex((s,i)=>i>cur&&!s.done); if(n<0) n=tour.stops.findIndex(s=>!s.done); goTo(n); });
+$("nextDone").addEventListener("click",()=>{ if(!tour||cur<0) return; tour.stops[cur].done=true; goTo(nextOpen()); });
 $("prev").addEventListener("click",()=>{ if(!tour) return; goTo(cur<0?tour.stops.length-1:Math.max(0,cur-1)); });
 $("jumpForm").addEventListener("submit",e=>{ e.preventDefault(); if(!tour) return;
   const v=$("jumpNo").value.trim(); const i=tour.stops.findIndex((s,k)=>String(s.no)===v||String(k+1)===v);
   if(i<0){$("err").textContent=`Stopp Nr. ${v} gibt es in dieser Tour nicht.`;$("err").hidden=false;return;}
-  $("err").hidden=true; $("jumpNo").value=""; goTo(i); });
+  $("err").hidden=true; $("jumpNo").value=""; markJump(i); goTo(i); });
 ["file","fileAll"].forEach(id=>$(id).addEventListener("change",e=>{ const files=[...e.target.files]; e.target.value=""; loadFiles(files); }));
 async function loadFiles(files){
   if(!files.length) return;

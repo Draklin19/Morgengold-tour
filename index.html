@@ -1470,10 +1470,7 @@ $("geoNo").addEventListener("click",()=>{ $("geoAsk").hidden=true; setGeoPref("n
 $("geoReset").addEventListener("click",()=>{ setGeoPref(""); toast("Beim nächsten „Tour starten“ fragt die App wieder."); });
 geoPrefUi();
 
-// iPhone/iPad: nur Dateiformate erlauben, dann bietet iOS keine Fotomediathek und Kamera an, sondern gleich „Dateien“.
-// application/octet-stream lässt dort alle Dateien zu, also auch .bcr. Android bleibt ohne Filter, sonst graut es .bcr aus.
-if(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1))
-  $("file").setAttribute("accept","application/pdf,.pdf,.bcr,text/plain,application/octet-stream");
+// Zurückgenommen: Mit Filter blendete iOS neu heruntergeladene Dateien aus. Ohne Filter erscheint zwar wieder das Foto-Menü, dort „Datei auswählen“ tippen.
 // Link zur Seite, von der die Fahrer ihre Tour herunterladen. TOUR_LINK_DEFAULT gilt für alle, in den Einstellungen kann jeder einen eigenen eintragen.
 const TOUR_LINK_DEFAULT="https://www.morgengold.de/logistik/home/menu.xhtml", TOUR_LINK_KEY="navi-tourlink";
 function tourLinkUi(){ let u=TOUR_LINK_DEFAULT; try{ u=localStorage.getItem(TOUR_LINK_KEY)||u; }catch(e){}

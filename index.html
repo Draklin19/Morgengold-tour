@@ -834,7 +834,7 @@ footer{font-size:.8rem;color:var(--muted)}
     </div>
   </div>
   <div class="toast" id="toast" role="status" hidden></div>
-  <footer>Kartendaten: OpenStreetMap-Mitwirkende und die gewählten Kartendienste. Der Kartendienst erfährt nur, welchen Kartenausschnitt du ansiehst. Google Maps bekommt beim Tippen auf die Google-Knöpfe nur Adresse bzw. Koordinaten, keine Namen.</footer>
+  <footer>Kartendaten: OpenStreetMap-Mitwirkende und die gewählten Kartendienste. Der Kartendienst erfährt nur, welchen Kartenausschnitt du ansiehst. Google Maps bekommt beim Tippen auf die Google-Knöpfe nur Adresse bzw. Koordinaten, keine Namen. Die Fahrstrecke berechnet der Routenserver von openstreetmap.de (FOSSGIS) aus den Koordinaten der Stopps.</footer>
 </div>
 
 <script>/* @preserve
@@ -1006,7 +1006,27 @@ async function geocodeTour(){
     }
     $("geoState").textContent=miss.length?`Fertig. Nicht gefunden: Stopp ${miss.join(", ")}. Diese Stopps fehlen auf der Karte, Google Maps findet sie trotzdem über die Adresse.`:"Fertig, alle Adressen gefunden. Die Punkte können einige Meter neben dem Haus liegen.";
   }catch(x){ $("geoState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal versuchen."; }
-  geoRunning=false; $("geoBtn").disabled=false; $("geoBox").hidden=!tour.stops.some(s=>!s.ll);
+  geoRunning=false; $("geoBtn").disabled=false; routeTour(); $("geoBox").hidden=!tour.stops.some(s=>!s.ll);
+}
+// Fahrstrecke über Straßen berechnen (OSRM-Routenserver der FOSSGIS / openstreetmap.de). Es gehen nur Koordinaten raus.
+const ROUTER="https://routing.openstreetmap.de/routed-car/route/v1/driving/";
+let routeSeq=0;
+async function routeTour(){
+  if(!tour) return; const seq=++routeSeq, t=tour;
+  const pts=t.stops.filter(s=>s.ll).map(s=>s.ll); if(pts.length<2) return;
+  const line=[]; let m=0, sec=0;
+  try{
+    for(let k=0;k<pts.length-1;k+=24){ // höchstens 25 Punkte pro Anfrage, Abschnitte überlappen um einen Stopp
+      const part=pts.slice(k,k+25);
+      const r=await fetch(ROUTER+part.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=false");
+      if(!r.ok) throw new Error(r.status);
+      const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code);
+      const g=j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+      line.push(...(line.length?g.slice(1):g)); m+=j.routes[0].distance; sec+=j.routes[0].duration;
+    }
+  }catch(x){ if(seq===routeSeq) toast("Straßenroute konnte nicht berechnet werden, es wird die einfache Linie gezeigt."); return; }
+  if(seq!==routeSeq||tour!==t) return;
+  t.road={line,km:m/1000,sec}; render();
 }
 function loadedInfo(){
   const parts=[]; if(pdfTour) parts.push(`Ausfahrliste: ${pdfTour.stops.length} Stopps`); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
@@ -1087,9 +1107,12 @@ function render(){
   }
   $("routeName").innerHTML=""; $("routeName").append(tour.name);
   if(tour.sample){const s=document.createElement("span");s.className="sample";s.textContent="Beispiel";$("routeName").append(s);}
-  const line=[]; tour.stops.forEach((s,i)=>{ if(!s.ll){s.li=-1;return;} if(i>0) line.push(...s.via); s.li=line.length; line.push(s.ll); }); tour.line=line;
+  let line=[]; tour.stops.forEach((s,i)=>{ if(!s.ll){s.li=-1;return;} if(i>0) line.push(...s.via); s.li=line.length; line.push(s.ll); });
+  if(tour.road){ line=tour.road.line; let from=0; // Stopps auf die Straßenroute legen (für Simulation)
+    tour.stops.forEach(s=>{ if(!s.ll){s.li=-1;return;} let best=from,bd=Infinity; for(let k=from;k<line.length;k++){const d=dist(line[k],s.ll); if(d<bd){bd=d;best=k;} if(bd<15&&d>500) break;} s.li=best; from=best; }); }
+  tour.line=line;
   const routeColor=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
-  if(line.length>1) L.polyline(line,{color:routeColor,weight:5,opacity:.85,dashArray:tour.stops.some(s=>s.via.length)?null:"6 8"}).addTo(layer);
+  if(line.length>1) L.polyline(line,{color:routeColor,weight:5,opacity:.85,dashArray:(tour.road||tour.stops.some(s=>s.via.length))?null:"6 8"}).addTo(layer);
   let km=0; for(let i=1;i<line.length;i++) km+=dist(line[i-1],line[i]);
   if(cur>=tour.stops.length||cur<0) cur=tour.stops.findIndex(s=>!s.done);
   const nextIdx=cur;
@@ -1113,7 +1136,7 @@ function render(){
   });
   $("sStops").textContent=tour.stops.length;
   $("sDone").textContent=tour.stops.filter(s=>s.done).length;
-  $("sTime").textContent=tour.time?`${Math.floor(tour.time/3600)}:${String(Math.round(tour.time%3600/60)).padStart(2,"0")} h`:"–";
+  $("sTime").textContent=(!tour.time&&tour.road)?`${Math.floor(tour.road.sec/3600)}:${String(Math.round(tour.road.sec%3600/60)).padStart(2,"0")} h`:tour.time?`${Math.floor(tour.time/3600)}:${String(Math.round(tour.time%3600/60)).padStart(2,"0")} h`:"–";
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=!(tour.load&&tour.load.length); if(tour.load) fillArts($("loadList"),tour.load);
   const nc=$("nextCard");
@@ -1214,7 +1237,8 @@ $("file").addEventListener("change",async e=>{
   }
   stopSim(); stopGps(); if(car)car.remove(); carPos=null;
   const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit();
-  if(pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen
+  if(pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
+  else routeTour();
 });
 $("geoBtn").addEventListener("click",geocodeTour);
 $("clear").addEventListener("click",()=>{$("confirmBox").hidden=false;});
@@ -1222,7 +1246,7 @@ $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
 $("confirmYes").addEventListener("click",()=>{stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-tour=parseBcr(sampleBcr()); tour.sample=true; render(); fit();
+tour=parseBcr(sampleBcr()); tour.sample=true; render(); fit(); routeTour();
 setTimeout(()=>{map.invalidateSize();fit();},200);
 })();
 </script>

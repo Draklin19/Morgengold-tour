@@ -1309,9 +1309,12 @@ function render(){
   tour.line=line;
   const routeColor=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
   const styleOn=tour.road?{color:routeColor,weight:5,opacity:.9}:{color:routeColor,weight:3,opacity:.5,dashArray:"4 8"}; // gestrichelt = nur grobe Verbindung
-  const curIdx=(cur>=0&&cur<tour.stops.length)?cur:tour.stops.findIndex(s=>!s.done), cut=curIdx>0&&tour.stops[curIdx].li>0?tour.stops[curIdx].li:0;
-  if(cut>0){ L.polyline(line.slice(0,cut+1),{color:"#9aa0a6",weight:4,opacity:.45}).addTo(layer); L.polyline(line.slice(cut),styleOn).addTo(layer); } // erledigter Teil grau, Tour ab dem aktuellen Stopp
-  else if(line.length>1) L.polyline(line,styleOn).addTo(layer);
+  // Jedes Stück bis zu einem Stopp wird erst grau, wenn dieser Stopp abgehakt ist; die gerade gefahrene Strecke bleibt in Routenfarbe.
+  if(line.length>1){ const styleDone={color:"#9aa0a6",weight:4,opacity:.45}, segs=[]; let from=0;
+    const add=(to,done)=>{ const l=segs[segs.length-1]; if(l&&l.done===done) l.to=to; else segs.push({a:from,to,done}); from=to; };
+    tour.stops.forEach(s=>{ if(s.li>from) add(s.li,!!s.done); });
+    if(from<line.length-1) add(line.length-1,false);
+    segs.forEach(g=>L.polyline(line.slice(g.a,g.to+1),g.done?styleDone:styleOn).addTo(layer)); }
   let km=0; for(let i=1;i<line.length;i++) km+=dist(line[i-1],line[i]);
   if(cur>=tour.stops.length||cur<0) cur=tour.stops.findIndex(s=>!s.done);
   const nextIdx=cur;
@@ -1642,7 +1645,8 @@ async function updateApproach(){
   if(line&&line.length>1&&tour.stops[stopNo].exact&&!(live.stop===stopNo&&live.src==="gps")){
     let k=line.length-1, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,to); if(d<bd){bd=d;k=j;} });
     setLive(stopNo, sideOnLine(to,line,k), "anfahrt"); }
-  L.polyline(line||[from,to],line?{color:"#2f6fe4",weight:6,opacity:.85}:{color:"#2f6fe4",weight:4,opacity:.6,dashArray:"6 8"}).addTo(approachLayer);
+  const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim(); // gleiche Farbe wie die Route
+  L.polyline(line||[from,to],line?{color:rc,weight:5,opacity:.9}:{color:rc,weight:4,opacity:.6,dashArray:"6 8"}).addTo(approachLayer);
 }
 function startTour(){
   if(!tour||cur<0){ toast(tour?"Alle Stopps sind erledigt.":"Zuerst die Tour öffnen."); return; }

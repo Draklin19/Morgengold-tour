@@ -688,6 +688,11 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn:focus-visible,.stop:focus-visible{outline:3px solid var(--route);outline-offset:2px}
 #file,#fileAll{position:absolute;width:1px;height:1px;opacity:0}
+/* Schmale hellgrüne Leiste am Kartenrand: auf dieser Seite liegt das Haus des nächsten Kunden */
+#sideBar{position:absolute;top:0;bottom:0;width:16px;z-index:650;pointer-events:none;background:rgba(120,220,130,.55);display:none;align-items:center;justify-content:center}
+#sideBar span{writing-mode:vertical-rl;font-size:11px;font-weight:700;letter-spacing:.08em;color:#14532d}
+#sideBar.links{left:0;box-shadow:inset -2px 0 0 rgba(20,83,45,.25)} #sideBar.rechts{right:0;box-shadow:inset 2px 0 0 rgba(20,83,45,.25)}
+body.drive #sideBar.links,body.drive #sideBar.rechts,body.sim #sideBar.links,body.sim #sideBar.rechts{display:flex}
 .file-all{display:block;font-size:.85rem;text-align:center;text-decoration:underline;opacity:.75;padding:4px 0;cursor:pointer}
 .file-all[hidden]{display:none}
 .stats{display:flex;flex-wrap:wrap;gap:8px 22px;padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
@@ -911,7 +916,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
     <label><input type="checkbox" id="voiceOn"> Sprachansage vor jedem Stopp („Gleich Hausnummer 18, Haus rechts“)</label>
     <div class="opts"><label for="voiceSel">Stimme <select id="voiceSel"><option value="">Standard</option></select></label><button class="btn" id="voiceTry" type="button">🔊 Anhören</button></div>
     <p class="hint" id="voiceHint">Welche Stimmen es gibt, hängt vom Handy ab. Weitere Stimmen lassen sich in den Handy-Einstellungen unter „Sprachausgabe“ bzw. „Text-in-Sprache“ herunterladen.</p>
-    <div class="opts"><button class="btn" id="sim" type="button">▶ Fahrt simulieren</button></div>
+    <div class="opts"><button class="btn" id="sim" type="button">▶ Fahrt simulieren</button><label for="simSel">Tempo <select id="simSel"><option value="0">1 (langsam)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (schnell)</option></select></label></div>
     <p class="hint">Zeigt ohne GPS, wie die Fahrt abläuft und Stopps abgehakt werden. Die Einstellungen schließen sich dabei. Zum Beenden hier wieder auf „Simulation stoppen“ tippen.</p>
     <div class="opts"><button class="btn primary" id="setClose" type="button">Fertig</button></div>
   </section>
@@ -1335,7 +1340,7 @@ function render(){
   const nc=$("nextCard");
   renderGoogle(); scrollCurrent(); if(document.body.classList.contains("drive")) updateApproach(); saveTour();
   $("prev").disabled=nextIdx===0;
-  if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
+  if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;setSideBar("");$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
   else{const s=tour.stops[nextIdx];nc.hidden=false;$("nextDone").hidden=false;$("nextOsm").hidden=false;$("nextGmaps").hidden=false;
     $("nextGmaps").href=gmapsUrl([s]);
     fillTown($("nextTown"),s.town||"");
@@ -1343,7 +1348,7 @@ function render(){
     if(s.name){$("nextWho").textContent=`${nextIdx+1}. ${s.name}`;fillAddr($("nextAddr"),s.addr);}
     else{fillAddr($("nextWho"),s.addr);$("nextWho").prepend(`${nextIdx+1}. `);$("nextAddr").textContent="";}
     $("nextNote").hidden=!(s.notes&&s.notes.length); $("nextNote").textContent=(s.notes||[]).join("\n");
-    $("nextSide").hidden=!s.side; $("nextSide").textContent=s.side?`Haus ${s.side}`:"";
+    $("nextSide").hidden=!s.side; $("nextSide").textContent=s.side?`Haus ${s.side}`:""; setSideBar(s.side);
     $("nextArts").textContent=""; // Backwaren werden nicht angezeigt
     $("nextOsm").hidden=!s.ll;
     if(s.ll) $("nextOsm").href=`https://www.openstreetmap.org/?mlat=${s.ll[0].toFixed(5)}&mlon=${s.ll[1].toFixed(5)}#map=18/${s.ll[0].toFixed(5)}/${s.ll[1].toFixed(5)}`;}
@@ -1370,7 +1375,14 @@ map.on("dragstart",()=>setFollow(false));
 function pick(i){ cur=i; render(); focusStop(i); }
 
 function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
-function stopSim(){clearInterval(simTimer);simTimer=null;$("sim").textContent="▶ Fahrt simulieren";}
+function stopSim(){clearInterval(simTimer);simTimer=null;$("sim").textContent="▶ Fahrt simulieren";document.body.classList.remove("sim");}
+function setSideBar(side){ let b=$("sideBar"); if(!b){ b=document.createElement("div"); b.id="sideBar"; b.innerHTML="<span></span>"; $("map").appendChild(b); }
+  b.className=side==="links"||side==="rechts"?side:""; b.firstChild.textContent=side?`HAUS ${side.toUpperCase()}`:""; }
+// Simulationstempo: 5 Stufen, Stufe 5 = bisheriges Tempo (40 m pro Takt)
+const SIM_KEY="navi-simtempo", SIM_STEPS=[8,16,24,32,40]; let simIdxSpeed=2;
+try{ const v=localStorage.getItem(SIM_KEY); if(v!==null&&SIM_STEPS[+v]) simIdxSpeed=+v; }catch(e){}
+$("simSel").value=String(simIdxSpeed);
+$("simSel").addEventListener("change",e=>{ simIdxSpeed=+e.target.value; try{localStorage.setItem(SIM_KEY,simIdxSpeed);}catch(x){} });
 function advanceAfterDone(){let n=tour.stops.findIndex((s,i)=>i>cur&&!s.done); if(n<0) n=tour.stops.findIndex(s=>!s.done); cur=n;}
 // Sprachansage mit der Sprachausgabe des Handys, kurz bevor man einen Stopp erreicht.
 const VOICE_KEY="navi-sprache", VOICE_NAME_KEY="navi-stimme", ANNOUNCE_M=150; let announced=-1, voiceOn=true, voiceName="";
@@ -1419,10 +1431,9 @@ $("sim").addEventListener("click",()=>{
   if(!tour.line||tour.line.length<2){toast("Für die Simulation die Routendatei (.bcr) öffnen.");return;}
   const line=tour.line; simIdx=cur>0?Math.max(0,tour.stops[cur-1].li):0; carPos=line[simIdx].slice();
   if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[44,54],iconAnchor:[22,54]}),zIndexOffset:2000});
-  car.setLatLng(carPos).addTo(map); $("sim").textContent="■ Simulation stoppen";
-  const step=40; // Meter pro Takt
+  car.setLatLng(carPos).addTo(map); $("sim").textContent="■ Simulation stoppen"; document.body.classList.add("sim");
   simTimer=setInterval(()=>{
-    let left=step;
+    let left=SIM_STEPS[simIdxSpeed]; // Meter pro Takt, im Tempo-Menü änderbar
     while(left>0&&simIdx<line.length-1){
       const nxt=line[simIdx+1], d=dist(carPos,nxt);
       if(d<=left){carPos=nxt.slice();simIdx++;left-=d;}
@@ -1661,7 +1672,7 @@ $("setClose").addEventListener("click",()=>setOpen(false));
 $("sim").addEventListener("click",()=>{ if(simTimer){ setOpen(false); $("map").scrollIntoView({behavior:"smooth",block:"center"}); } });
 $("clear").addEventListener("click",()=>{$("confirmBox").hidden=false;});
 $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
-$("confirmYes").addEventListener("click",()=>{try{localStorage.removeItem(TOUR_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});
+$("confirmYes").addEventListener("click",()=>{setSideBar("");try{localStorage.removeItem(TOUR_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 // Aktuelle Tour auf dem Handy merken (höchstens 18 Stunden, bis „Tour löschen“), damit sie ein Neuladen der Seite übersteht,

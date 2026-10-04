@@ -728,7 +728,8 @@ body.drive #sideBar.links,body.drive #sideBar.rechts,body.sim #sideBar.links,bod
 .stop .addr{color:var(--muted);font-size:.88rem;overflow-wrap:anywhere}
 .stop.is-next{background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
 .stop.is-done .name,.stop.is-done .addr{text-decoration:line-through;color:var(--done)}
-.stop input{width:22px;height:22px;accent-color:var(--route)}
+.stop input{width:22px;height:22px;accent-color:var(--route);touch-action:none} /* Kästchen: Ziehen hakt ab statt zu scrollen */
+#list .stop{touch-action:pan-y} /* waagrechtes Wischen kommt bei der App an */
 .jump{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .jump input{width:5.5em;font:600 1rem var(--font-mono);padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
 .badge{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -1319,7 +1320,7 @@ function render(){
     if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0}).addTo(layer);
     m.on("click",()=>pick(i)); markers.push(m); }
     const li=document.createElement("li");
-    li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":""); li.tabIndex=0;
+    li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":""); li.tabIndex=0; li.dataset.i=i;
     li.innerHTML=`<span class="n">${i+1}</span><span class="t"><span class="name"></span><br><span class="addr"></span></span><span class="town"></span><input type="checkbox" aria-label="Stopp ${i+1} erledigt">`;
     fillTown(li.querySelector(".town"),s.town);
     if(s.name){li.querySelector(".name").textContent=s.name; fillAddr(li.querySelector(".addr"),s.addr);}
@@ -1708,6 +1709,29 @@ $("tourLink").addEventListener("click",e=>{
   else window.open(u,"_blank","noopener");
 });
 $("geoBtn").addEventListener("click",geocodeTour);
+// Haken per Wischen in der Stoppliste:
+// - auf einem Kästchen anfangen und über weitere Kästchen ziehen: alle bekommen denselben Zustand (viele auf einmal an oder aus)
+// - eine Zeile waagrecht wischen: nach rechts = erledigt, nach links = Haken weg
+(()=>{ const list=$("list"); let drag=null, swipe=null, eat=false;
+  const liAt=(x,y)=>{ const el=document.elementFromPoint(x,y); return el&&el.closest?el.closest("#list .stop"):null; };
+  const mark=(li,on)=>{ const cb=li.querySelector("input"); cb.checked=on; li.classList.toggle("is-done",on); drag.touched.add(+li.dataset.i); };
+  const swallow=()=>{ eat=true; setTimeout(()=>eat=false,500); };
+  list.addEventListener("pointerdown",e=>{ const li=e.target.closest(".stop"); if(!li||!tour) return;
+    if(e.target.matches("input")){ e.preventDefault(); drag={on:!e.target.checked,touched:new Set()}; mark(li,drag.on);
+      try{ list.setPointerCapture(e.pointerId); }catch(x){} swallow(); }
+    else swipe={x:e.clientX,y:e.clientY,li}; });
+  list.addEventListener("pointermove",e=>{ if(!drag) return; e.preventDefault(); const li=liAt(e.clientX,e.clientY); if(li) mark(li,drag.on); });
+  const end=e=>{
+    if(drag){ const d=drag; drag=null; d.touched.forEach(i=>tour.stops[i].done=d.on);
+      if(d.on&&d.touched.has(cur)) cur=nextOpen(); render(); swallow();
+      if(d.touched.size>1) toast(`${d.touched.size} Stopps ${d.on?"abgehakt":"wieder offen"}`); }
+    if(swipe&&e.type==="pointerup"){ const dx=e.clientX-swipe.x, dy=e.clientY-swipe.y;
+      if(Math.abs(dx)>60&&Math.abs(dy)<40){ const i=+swipe.li.dataset.i, on=dx>0; tour.stops[i].done=on;
+        if(on&&i===cur) cur=nextOpen(); swallow(); render(); toast(on?`Stopp ${i+1} abgehakt`:`Haken bei Stopp ${i+1} entfernt`); } }
+    swipe=null; };
+  list.addEventListener("pointerup",end); list.addEventListener("pointercancel",end);
+  list.addEventListener("click",e=>{ if(eat){ e.preventDefault(); e.stopPropagation(); } },true); // Klick nach dem Wischen nicht doppelt zählen
+})();
 const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o));};
 $("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));
 $("setClose").addEventListener("click",()=>setOpen(false));

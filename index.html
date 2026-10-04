@@ -761,6 +761,28 @@ details.mode summary{cursor:pointer;font-weight:600}
 .err{color:#b3261e;font-weight:600;margin:0}
 .confirm{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.9rem}
 footer{font-size:.8rem;color:var(--muted)}
+.map-start{font:700 1.05rem var(--font-body);padding:12px 18px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer}
+.map-exit{font:700 .95rem var(--font-body);padding:9px 14px;border-radius:999px;border:0;background:var(--surface);color:var(--fg);box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;display:none}
+body.drive{overflow:hidden}
+body.drive .main{position:fixed;inset:0;z-index:1500;background:var(--bg);grid-template-columns:minmax(210px,34%) minmax(0,1fr);gap:0}
+body.drive .side{order:-1;overflow:hidden;padding:6px;height:100vh;height:100dvh;box-sizing:border-box;gap:6px;display:flex;flex-direction:column}
+body.drive #map{height:100vh;height:100dvh;min-height:0;border-radius:0;border:0}
+body.drive .side>.mode,body.drive .side>.jump,body.drive #nextOsm{display:none!important}
+body.drive .list{max-height:none;flex:1 1 auto;min-height:0;overflow:auto}
+body.drive .next-card{padding:6px 8px;gap:4px;flex:0 0 auto}
+body.drive .next-card .lbl,body.drive .next-card .town,body.drive #nextAddr:empty{display:none}
+body.drive .next-card .who{font-size:1rem}
+body.drive .next-card .note{padding:4px 8px;font-size:.85rem}
+body.drive .next-card .row{gap:4px}
+body.drive .next-card .row .btn{padding:6px 8px;font-size:.82rem}
+body.drive .stop{grid-template-columns:28px minmax(0,1fr);padding:6px 8px;gap:6px}
+body.drive .stop .town,body.drive .stop input,body.drive .stop .snote{display:none}
+body.drive .map-start{display:none}
+body.drive .map-exit{display:inline-block}
+.ask{position:fixed;inset:0;z-index:3000;background:rgb(0 0 0 / .45);display:grid;place-items:center;padding:16px}
+.ask-box{background:var(--surface);color:var(--fg);border-radius:12px;padding:18px;max-width:420px;display:flex;flex-direction:column;gap:12px;box-shadow:0 6px 24px rgb(0 0 0 / .4)}
+.ask-box h2{margin:0;font-size:1.15rem}
+.ask-box p{margin:0}
 [hidden]{display:none!important} /* sonst überschreiben display-Regeln das hidden-Attribut */
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style><style>body{margin:0}</style></head><body>
@@ -783,6 +805,7 @@ footer{font-size:.8rem;color:var(--muted)}
     <span class="badge">Einstellungen</span>
     <div class="me-row"><span class="me-prev" id="mePrev"></span><label class="btn" for="meFile">Bild für deine Position wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div>
     <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
+    <div class="opts"><span id="geoPref"></span><button class="btn" id="geoReset" type="button">Standort-Frage zurücksetzen</button></div>
     <label><input type="checkbox" id="voiceOn"> Sprachansage vor jedem Stopp („Gleich Hausnummer 18, Haus rechts“)</label>
     <div class="opts"><label for="voiceSel">Stimme <select id="voiceSel"><option value="">Standard</option></select></label><button class="btn" id="voiceTry" type="button">🔊 Anhören</button></div>
     <p class="hint" id="voiceHint">Welche Stimmen es gibt, hängt vom Handy ab. Weitere Stimmen lassen sich in den Handy-Einstellungen unter „Sprachausgabe“ bzw. „Text-in-Sprache“ herunterladen.</p>
@@ -805,8 +828,8 @@ footer{font-size:.8rem;color:var(--muted)}
     <span class="loaded" id="geoState">Sucht die Adressen aus der Ausfahrliste bei OpenStreetMap (Nominatim). Dabei gehen nur Straße, Hausnummer und Ort raus, keine Namen.</span>
   </div>
   <p class="err" id="err" hidden></p>
-  <div class="tilesel" id="tileSel" role="group" aria-label="Kartendienst"><span>Karte:</span><button type="button" class="btn" data-k="esri">Esri</button><button type="button" class="btn" data-k="carto">CARTO</button><button type="button" class="btn" data-k="osmde">OSM.de</button><button type="button" class="btn" data-k="topo">Topo</button></div>
-  <p class="err" id="mapErr" hidden>Die Kartenbilder konnten nicht geladen werden. Bitte einen anderen Kartendienst wählen. Stopps und Strecke werden trotzdem angezeigt.</p>
+  <div class="tilesel" id="tileSel" hidden role="group" aria-label="Kartendienst"><span>Karte:</span><button type="button" class="btn" data-k="esri">Esri</button><button type="button" class="btn" data-k="carto">CARTO</button><button type="button" class="btn" data-k="osmde">OSM.de</button><button type="button" class="btn" data-k="topo">Topo</button></div>
+  <p class="err" id="mapErr" hidden>Die Kartenbilder konnten nicht geladen werden. Bitte Internetverbindung prüfen. Stopps und Strecke werden trotzdem angezeigt.</p>
 
   <section class="stats" aria-label="Tourdaten">
     <div class="stat"><b id="sStops">0</b><span>Stopps</span></div>
@@ -855,6 +878,13 @@ footer{font-size:.8rem;color:var(--muted)}
         <button class="btn" type="submit">Hinfahren</button>
       </form>
       <ul class="list" id="list"></ul>
+    </div>
+  </div>
+  <div class="ask" id="geoAsk" hidden role="dialog" aria-modal="true" aria-labelledby="geoAskT">
+    <div class="ask-box">
+      <h2 id="geoAskT">Standort verwenden?</h2>
+      <p>Mit deinem Standort zeigt die App, wo du gerade bist, folgt dir auf der Karte und hakt Stopps beim Ankommen ab. Der Standort bleibt auf dem Handy und wird nicht gespeichert. Die Frage kommt nur einmal.</p>
+      <div class="opts"><button class="btn primary" id="geoYes" type="button">Erlauben</button><button class="btn" id="geoNo" type="button">Ablehnen</button></div>
     </div>
   </div>
   <div class="toast" id="toast" role="status" hidden></div>
@@ -1193,7 +1223,7 @@ function render(){
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
-  renderGoogle();
+  renderGoogle(); scrollCurrent();
   $("prev").disabled=nextIdx===0;
   if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
   else{const s=tour.stops[nextIdx];nc.hidden=false;$("nextDone").hidden=false;$("nextOsm").hidden=false;$("nextGmaps").hidden=false;
@@ -1291,8 +1321,12 @@ $("sim").addEventListener("click",()=>{
 });
 let gpsWatch=null, wakeLock=null;
 function stopGps(){ if(gpsWatch!==null) navigator.geolocation.clearWatch(gpsWatch); gpsWatch=null; $("gps").textContent="📍 GPS starten"; try{wakeLock&&wakeLock.release();}catch(e){} wakeLock=null; }
-$("gps").addEventListener("click",async()=>{
+$("gps").addEventListener("click",()=>{
   if(gpsWatch!==null){stopGps();$("gpsState").hidden=true;return;}
+  withGeo(()=>startGps());
+});
+async function startGps(){
+  if(gpsWatch!==null) return;
   speakPrime(); announced=-1;
   if(!("geolocation" in navigator)){$("gpsState").textContent="Dieses Gerät bietet kein GPS an.";$("gpsState").hidden=false;return;}
   stopSim();
@@ -1304,13 +1338,61 @@ $("gps").addEventListener("click",async()=>{
     car.setLatLng(carPos).addTo(map);
     const acc=Math.round(pos.coords.accuracy);
     $("gpsState").textContent=`GPS aktiv, Genauigkeit ca. ${acc} m`+(tour&&cur>=0&&tour.stops[cur].ll?` · noch ${Math.round(dist(carPos,tour.stops[cur].ll))} m bis Stopp ${cur+1}`:"");
+    if(document.body.classList.contains("drive")) map.panTo(carPos,{animate:true}); // Karte folgt der Position
     checkArrival();
   },err=>{
     $("gpsState").textContent=err.code===1?"GPS wurde nicht erlaubt. Bitte in den Browser-Einstellungen den Standort für diese Seite freigeben.":"Kein GPS-Signal. Ich versuche es weiter.";
-    if(err.code===1) stopGps();
+    if(err.code===1){ stopGps(); toast("Standort im Browser gesperrt. Bitte in den Browser-Einstellungen für diese Seite erlauben."); }
   },{enableHighAccuracy:true,maximumAge:2000,timeout:20000});
   $("gps").textContent="■ GPS stoppen";
-});
+}
+// Standort nur nach einmaliger Frage. Bei „Ablehnen“ wird die eigene Position nie gezeigt.
+const GEO_KEY="navi-standort"; let geoPref=""; try{ geoPref=localStorage.getItem(GEO_KEY)||""; }catch(e){}
+function setGeoPref(v){ geoPref=v; try{ v?localStorage.setItem(GEO_KEY,v):localStorage.removeItem(GEO_KEY); }catch(e){} geoPrefUi(); }
+function geoPrefUi(){ $("geoPref").textContent=geoPref==="ja"?"Standort: erlaubt":geoPref==="nein"?"Standort: abgelehnt":"Standort: noch nicht gefragt"; $("geoReset").hidden=!geoPref; $("gps").hidden=geoPref==="nein"; }
+let geoThen=null;
+function withGeo(fn){ // fn läuft nur mit Erlaubnis
+  if(geoPref==="ja") return fn();
+  if(geoPref==="nein"){ toast("Standort ist abgelehnt. Ändern unter ⚙ Einstellungen."); return; }
+  geoThen=fn; $("geoAsk").hidden=false; $("geoYes").focus();
+}
+$("geoYes").addEventListener("click",()=>{ $("geoAsk").hidden=true; setGeoPref("ja"); const f=geoThen; geoThen=null; if(f) f(); });
+$("geoNo").addEventListener("click",()=>{ $("geoAsk").hidden=true; setGeoPref("nein"); geoThen=null; stopGps(); if(car){car.remove();} carPos=null; toast("Ohne Standort: Stopps bitte manuell abhaken."); if(tour&&cur>=0) focusStop(cur); });
+$("geoReset").addEventListener("click",()=>{ setGeoPref(""); toast("Beim nächsten „Tour starten“ fragt die App wieder."); });
+geoPrefUi();
+
+// Tour starten: Vollbild im Querformat, Stoppliste links, Karte folgt dem Standort
+let fsUsed=false;
+async function enterDrive(){
+  document.body.classList.add("drive"); fsUsed=false;
+  try{ if(document.documentElement.requestFullscreen){ await document.documentElement.requestFullscreen({navigationUI:"hide"}); fsUsed=true; } }catch(e){}
+  try{ if(screen.orientation&&screen.orientation.lock) await screen.orientation.lock("landscape"); }catch(e){} // geht nicht auf jedem Handy (iPhone): dann einfach quer halten
+  setTimeout(()=>{ map.invalidateSize(); if(carPos) map.setView(carPos,17); else if(tour&&cur>=0) focusStop(cur); scrollCurrent(); },350);
+  startGps();
+}
+function leaveDrive(){
+  document.body.classList.remove("drive");
+  try{ if(screen.orientation&&screen.orientation.unlock) screen.orientation.unlock(); }catch(e){}
+  if(document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} }
+  stopGps(); $("gpsState").hidden=true;
+  setTimeout(()=>{ map.invalidateSize(); fit(); },350);
+}
+document.addEventListener("fullscreenchange",()=>{ if(fsUsed&&!document.fullscreenElement&&document.body.classList.contains("drive")) leaveDrive(); });
+function scrollCurrent(){ // nur die Liste scrollen, aktueller Stopp in die Mitte
+  if(!document.body.classList.contains("drive")) return; const l=$("list"), el=l.querySelector(".stop.is-next");
+  if(el) l.scrollTop+=el.getBoundingClientRect().top-l.getBoundingClientRect().top-l.clientHeight/2+el.offsetHeight/2; }
+function startTour(){
+  if(!tour||cur<0){ toast(tour?"Alle Stopps sind erledigt.":"Zuerst die Tour öffnen."); return; }
+  stopSim();
+  if(geoPref==="nein"){ focusStop(cur); toast("Ohne Standort: Stopps bitte manuell abhaken."); return; }
+  withGeo(enterDrive);
+}
+const DriveCtl=L.Control.extend({options:{position:"topright"},onAdd(){
+  const d=L.DomUtil.create("div"); L.DomEvent.disableClickPropagation(d);
+  const a=L.DomUtil.create("button","map-start",d); a.type="button"; a.textContent="▶ Tour starten"; a.id="tourStart"; a.onclick=startTour;
+  const b=L.DomUtil.create("button","map-exit",d); b.type="button"; b.textContent="✕ Beenden"; b.id="tourExit"; b.onclick=leaveDrive;
+  return d; }});
+new DriveCtl().addTo(map);
 document.addEventListener("visibilitychange",async()=>{ if(gpsWatch!==null&&document.visibilityState==="visible"&&navigator.wakeLock){ try{wakeLock=await navigator.wakeLock.request("screen");}catch(e){} } });
 function goTo(i){ if(!tour) return; cur=i; render(); if(i>=0) focusStop(i); else fit(); }
 $("nextDone").addEventListener("click",()=>{ if(!tour||cur<0) return; tour.stops[cur].done=true;

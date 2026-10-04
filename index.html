@@ -703,9 +703,9 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 .leaflet-control-attribution{font-size:11px}
 .leaflet-control-zoom a{background:var(--surface)!important;color:var(--fg)!important;border-color:var(--line)!important}
 .leaflet-control-scale-line{background:var(--surface);color:var(--fg);border-color:var(--muted)}
-.pin{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:700 13px var(--font-mono);background:var(--route);color:var(--surface);border:2px solid var(--surface);box-shadow:0 1px 3px rgb(0 0 0 / .35)}
+.pin{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:700 11px var(--font-mono);background:var(--route);color:var(--surface);border:2px solid var(--surface);box-shadow:0 1px 3px rgb(0 0 0 / .35)}
 .pin.next{background:var(--accent);color:var(--accent-ink);transform:scale(1.25)}
-.pin.done{background:var(--done)}
+.pin.done{background:#9aa0a6;color:#fff;opacity:.45;box-shadow:none} /* erledigt: grau und leicht durchsichtig */
 .side{display:flex;flex-direction:column;gap:10px;min-width:0}
 .next-card{background:var(--surface);border:2px solid var(--accent);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
 .next-card .lbl{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -729,7 +729,14 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 .mode label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
 .mode select{font:500 .95rem var(--font-body);padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
 .mode .hint{font-size:.82rem;color:var(--muted);margin:0}
-.car{width:18px;height:18px;border-radius:50%;background:#2f6fe4;border:3px solid #fff;box-shadow:0 0 0 6px rgb(47 111 228 / .25)}
+.me{position:relative;width:44px;height:54px}
+.me .face{position:absolute;left:0;top:0;width:44px;height:44px;border-radius:50%;background:#2f6fe4 center/cover no-repeat;border:3px solid #fff;box-shadow:0 0 0 5px rgb(47 111 228 / .3),0 2px 5px rgb(0 0 0 / .4);display:grid;place-items:center;overflow:hidden}
+.me .face svg{width:30px;height:30px;margin-top:8px}
+.me::after{content:"";position:absolute;left:16px;top:42px;border:6px solid transparent;border-top:9px solid #fff}
+.me-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.me-prev{width:40px;height:40px;border-radius:50%;background:#2f6fe4 center/cover no-repeat;border:2px solid var(--line);display:grid;place-items:center}
+.me-prev svg{width:26px;height:26px;margin-top:6px}
+#meFile{display:none}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;z-index:2000;max-width:calc(100% - 32px)}
 .hnr{font-family:var(--font-mono);font-weight:600;color:var(--fg);background:color-mix(in srgb,var(--accent) 22%,transparent);border-radius:4px;padding:0 5px;margin-left:4px;white-space:nowrap}
 .stop.is-done .hnr{background:none;color:var(--done)}
@@ -741,6 +748,7 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 .tilesel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.9rem}
 .tilesel .btn{padding:6px 10px}
 .tilesel .btn[aria-pressed="true"]{background:var(--route);color:var(--surface);border-color:var(--route)}
+.side-hint{align-self:flex-start;font-weight:700;font-size:1.05rem;padding:2px 10px;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
 .note{background:color-mix(in srgb,var(--accent) 18%,var(--surface));border-left:4px solid var(--accent);border-radius:6px;padding:8px 10px;font-weight:600;white-space:pre-line}
 .arts{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.92rem;margin:0;padding:0;list-style:none}
 .arts b{font-family:var(--font-mono);margin-right:4px}
@@ -753,6 +761,7 @@ details.mode summary{cursor:pointer;font-weight:600}
 .err{color:#b3261e;font-weight:600;margin:0}
 .confirm{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.9rem}
 footer{font-size:.8rem;color:var(--muted)}
+[hidden]{display:none!important} /* sonst überschreiben display-Regeln das hidden-Attribut */
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style><style>body{margin:0}</style></head><body>
 
@@ -766,8 +775,16 @@ footer{font-size:.8rem;color:var(--muted)}
       <label class="btn primary" for="file">Tour öffnen (Ausfahrliste PDF / .bcr)</label>
       <input type="file" id="file" multiple><!-- kein accept: Android kennt .bcr nicht und graut die Datei sonst aus; Typ wird am Inhalt erkannt -->
       <button class="btn" id="clear" type="button">Tour löschen</button>
+      <button class="btn" id="setBtn" type="button" aria-expanded="false" aria-controls="settings" title="Einstellungen">⚙ Einstellungen</button>
     </div>
   </header>
+
+  <section class="mode" id="settings" hidden>
+    <span class="badge">Einstellungen</span>
+    <div class="me-row"><span class="me-prev" id="mePrev"></span><label class="btn" for="meFile">Bild für deine Position wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div>
+    <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
+    <div class="opts"><button class="btn primary" id="setClose" type="button">Fertig</button></div>
+  </section>
 
   <div class="confirm" id="confirmBox" hidden>
     <span>Tour mit allen Namen und Adressen aus diesem Browser entfernen?</span>
@@ -800,6 +817,7 @@ footer{font-size:.8rem;color:var(--muted)}
         <span class="lbl" id="nextLbl">Nächster Stopp</span>
         <div class="place"><span class="who" id="nextWho">–</span><span class="town" id="nextTown"></span></div>
         <span id="nextAddr"></span>
+        <span class="side-hint" id="nextSide" hidden></span>
         <div class="note" id="nextNote" hidden></div>
         <ul class="arts" id="nextArts" hidden></ul>
         <div class="row">
@@ -1065,7 +1083,27 @@ function useTiles(key){
 document.querySelectorAll("#tileSel button").forEach(b=>b.addEventListener("click",()=>useTiles(b.dataset.k)));
 useTiles("esri");
 L.control.scale({imperial:false}).addTo(map);
+// Eigene Position als kleine Figur, wahlweise mit eigenem Foto. Das Foto bleibt nur in diesem Browser auf dem Handy.
+const ME_KEY="navi-me-bild", FIGURE='<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><circle cx="12" cy="7" r="5"/><path d="M2 24c0-6 4.5-10 10-10s10 4 10 10z"/></svg>';
+let meImg=""; try{ meImg=localStorage.getItem(ME_KEY)||""; }catch(e){}
+function meHtml(){ return meImg?`<div class="me"><div class="face" style="background-image:url('${meImg}')"></div></div>`:`<div class="me"><div class="face">${FIGURE}</div></div>`; }
+function meRefresh(){
+  const pv=document.getElementById("mePrev"); pv.style.backgroundImage=meImg?`url('${meImg}')`:""; pv.innerHTML=meImg?"":FIGURE;
+  document.getElementById("meClear").hidden=!meImg;
+  if(typeof car!=="undefined"&&car) car.setIcon(L.divIcon({className:"",html:meHtml(),iconSize:[44,54],iconAnchor:[22,54]}));
+}
+function meSet(v){ meImg=v; try{ v?localStorage.setItem(ME_KEY,v):localStorage.removeItem(ME_KEY); }catch(e){} meRefresh(); }
+document.getElementById("meFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  const img=new Image(), url=URL.createObjectURL(f);
+  img.onload=()=>{ const n=128, c=document.createElement("canvas"); c.width=c.height=n; const k=Math.min(img.width,img.height);
+    c.getContext("2d").drawImage(img,(img.width-k)/2,(img.height-k)/2,k,k,0,0,n,n); URL.revokeObjectURL(url); meSet(c.toDataURL("image/jpeg",0.85)); };
+  img.onerror=()=>{ URL.revokeObjectURL(url); toast("Das Bild konnte nicht geöffnet werden."); };
+  img.src=url;
+});
+document.getElementById("meClear").addEventListener("click",()=>meSet(""));
 let layer=L.layerGroup().addTo(map), tour=null, markers=[], cur=0, simTimer=null, car=null, carPos=null, simIdx=0, arrivedShown=-1;
+meRefresh();
 const $=id=>document.getElementById(id);
 
 function dist(a,b){const r=6371e3,t=Math.PI/180,dl=(b[0]-a[0])*t,dn=(b[1]-a[1])*t;
@@ -1119,7 +1157,7 @@ function render(){
   if(tour.sample){const s=document.createElement("span");s.className="sample";s.textContent="Beispiel";$("routeName").append(s);}
   let line=[]; tour.stops.forEach((s,i)=>{ if(!s.ll){s.li=-1;return;} if(i>0) line.push(...s.via); s.li=line.length; line.push(s.ll); });
   if(tour.road){ line=tour.road.line; let from=0; // Stopps auf die Straßenroute legen (für Simulation)
-    tour.stops.forEach(s=>{ if(!s.ll){s.li=-1;return;} let best=from,bd=Infinity; for(let k=from;k<line.length;k++){const d=dist(line[k],s.ll); if(d<bd){bd=d;best=k;} if(bd<15&&d>500) break;} s.li=best; from=best; }); }
+    tour.stops.forEach(s=>{ if(!s.ll){s.li=-1;return;} let best=from,bd=Infinity; for(let k=from;k<line.length;k++){const d=dist(line[k],s.ll); if(d<bd){bd=d;best=k;} if(bd<15&&d>500) break;} s.li=best; from=best; s.side=sideOf(s,line); }); }
   tour.line=line;
   const routeColor=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
   if(line.length>1) L.polyline(line,tour.road?{color:routeColor,weight:5,opacity:.9}:{color:routeColor,weight:3,opacity:.5,dashArray:"4 8"}).addTo(layer); // gestrichelt = nur grobe Verbindung
@@ -1128,7 +1166,7 @@ function render(){
   const nextIdx=cur;
   tour.stops.forEach((s,i)=>{
     const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"");
-    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[30,30],iconAnchor:[15,15]}),zIndexOffset:i===nextIdx?1000:0}).addTo(layer);
+    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0}).addTo(layer);
     m.on("click",()=>pick(i)); markers.push(m); }
     const li=document.createElement("li");
     li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":""); li.tabIndex=0;
@@ -1152,7 +1190,7 @@ function render(){
   const nc=$("nextCard");
   renderGoogle();
   $("prev").disabled=nextIdx===0;
-  if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
+  if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
   else{const s=tour.stops[nextIdx];nc.hidden=false;$("nextDone").hidden=false;$("nextOsm").hidden=false;$("nextGmaps").hidden=false;
     $("nextGmaps").href=gmapsUrl([s]);
     fillTown($("nextTown"),s.town||"");
@@ -1160,9 +1198,23 @@ function render(){
     if(s.name){$("nextWho").textContent=`${nextIdx+1}. ${s.name}`;fillAddr($("nextAddr"),s.addr);}
     else{fillAddr($("nextWho"),s.addr);$("nextWho").prepend(`${nextIdx+1}. `);$("nextAddr").textContent="";}
     $("nextNote").hidden=!(s.notes&&s.notes.length); $("nextNote").textContent=(s.notes||[]).join("\n");
+    $("nextSide").hidden=!s.side; $("nextSide").textContent=s.side?`Haus ${s.side}`:"";
     $("nextArts").textContent=""; // Backwaren werden nicht angezeigt
     $("nextOsm").hidden=!s.ll;
     if(s.ll) $("nextOsm").href=`https://www.openstreetmap.org/?mlat=${s.ll[0].toFixed(5)}&mlon=${s.ll[1].toFixed(5)}#map=18/${s.ll[0].toFixed(5)}/${s.ll[1].toFixed(5)}`;}
+}
+// Straßenseite: Hauspunkt aus der .bcr gegen die Fahrtrichtung der Straßenroute bei der Ankunft.
+// Liegt der Punkt fast auf der Straße (unter 4 m) oder weit weg (über 60 m), lieber nichts anzeigen als raten.
+function sideOf(s,line){
+  if(!s.exact||!s.ll||s.li<1) return "";
+  const c=Math.cos(s.ll[0]*Math.PI/180), m=p=>[p[1]*111320*c,p[0]*110540], P=m(s.ll); let best=null;
+  for(let k=Math.max(1,s.li-8);k<=s.li;k++){
+    const A=m(line[k-1]),B=m(line[k]),dx=B[0]-A[0],dy=B[1]-A[1],L2=dx*dx+dy*dy; if(L2<0.25) continue;
+    const t=Math.max(0,Math.min(1,((P[0]-A[0])*dx+(P[1]-A[1])*dy)/L2)), d=Math.hypot(P[0]-A[0]-t*dx,P[1]-A[1]-t*dy);
+    if(!best||d<best.d) best={d,cr:dx*(P[1]-A[1])-dy*(P[0]-A[0])};
+  }
+  if(!best||best.d<4||best.d>60) return "";
+  return best.cr>0?"links":"rechts";
 }
 function fit(){ const p=tour?tour.stops.filter(s=>s.ll).map(s=>s.ll):[]; if(p.length) map.fitBounds(L.latLngBounds(p).pad(0.12)); else map.setView([48.166,8.627],12); }
 function focusStop(i){ if(tour.stops[i].ll) map.setView(tour.stops[i].ll,16); }
@@ -1185,7 +1237,7 @@ $("sim").addEventListener("click",()=>{
   if(!tour||cur<0){toast("Keine offenen Stopps.");return;}
   if(!tour.line||tour.line.length<2){toast("Für die Simulation die Routendatei (.bcr) öffnen.");return;}
   const line=tour.line; simIdx=cur>0?Math.max(0,tour.stops[cur-1].li):0; carPos=line[simIdx].slice();
-  if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:'<div class="car"></div>',iconSize:[18,18],iconAnchor:[9,9]}),zIndexOffset:2000});
+  if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[44,54],iconAnchor:[22,54]}),zIndexOffset:2000});
   car.setLatLng(carPos).addTo(map); $("sim").textContent="■ Simulation stoppen";
   const step=40; // Meter pro Takt
   simTimer=setInterval(()=>{
@@ -1210,7 +1262,7 @@ $("gps").addEventListener("click",async()=>{
   try{ if(navigator.wakeLock) wakeLock=await navigator.wakeLock.request("screen"); }catch(e){}
   gpsWatch=navigator.geolocation.watchPosition(pos=>{
     carPos=[pos.coords.latitude,pos.coords.longitude];
-    if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:'<div class="car"></div>',iconSize:[18,18],iconAnchor:[9,9]}),zIndexOffset:2000});
+    if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[44,54],iconAnchor:[22,54]}),zIndexOffset:2000});
     car.setLatLng(carPos).addTo(map);
     const acc=Math.round(pos.coords.accuracy);
     $("gpsState").textContent=`GPS aktiv, Genauigkeit ca. ${acc} m`+(tour&&cur>=0&&tour.stops[cur].ll?` · noch ${Math.round(dist(carPos,tour.stops[cur].ll))} m bis Stopp ${cur+1}`:"");
@@ -1251,6 +1303,9 @@ $("file").addEventListener("change",async e=>{
   else routeTour();
 });
 $("geoBtn").addEventListener("click",geocodeTour);
+const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o));};
+$("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));
+$("setClose").addEventListener("click",()=>setOpen(false));
 $("clear").addEventListener("click",()=>{$("confirmBox").hidden=false;});
 $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
 $("confirmYes").addEventListener("click",()=>{stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});

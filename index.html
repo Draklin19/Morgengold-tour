@@ -762,11 +762,26 @@ details.mode summary{cursor:pointer;font-weight:600}
 .confirm{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.9rem}
 footer{font-size:.8rem;color:var(--muted)}
 .map-start{font:700 1.05rem var(--font-body);padding:12px 18px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer}
+.to-me{font:600 .85rem var(--font-body);padding:7px 12px;border-radius:999px;border:1px solid rgb(0 0 0 / .15);background:rgb(255 255 255 / .7);color:#1d2421;box-shadow:0 1px 4px rgb(0 0 0 / .25);cursor:pointer;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
 .map-exit{font:700 .95rem var(--font-body);padding:9px 14px;border-radius:999px;border:0;background:var(--surface);color:var(--fg);box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;display:none}
 body.drive{overflow:hidden}
-body.drive .main{position:fixed;inset:0;z-index:1500;background:var(--bg);grid-template-columns:minmax(210px,34%) minmax(0,1fr);gap:0}
-body.drive .side{order:-1;overflow:hidden;padding:6px;height:100vh;height:100dvh;box-sizing:border-box;gap:6px;display:flex;flex-direction:column}
-body.drive #map{height:100vh;height:100dvh;min-height:0;border-radius:0;border:0}
+body{--dz:.8}
+body.drive .main{position:fixed;inset:0;z-index:1500;background:var(--bg);gap:0;height:100vh;height:100dvh;--pw:clamp(140px,calc(300px * var(--dz)),36%);--ph:clamp(120px,calc(230px * var(--dz)),45%)}
+body.drive.dock-left .main{grid-template-columns:var(--pw) minmax(0,1fr);grid-template-rows:100%}
+body.drive.dock-right .main{grid-template-columns:minmax(0,1fr) var(--pw);grid-template-rows:100%}
+body.drive.dock-top .main{grid-template-columns:100%;grid-template-rows:var(--ph) minmax(0,1fr)}
+body.drive.dock-bottom .main{grid-template-columns:100%;grid-template-rows:minmax(0,1fr) var(--ph)}
+body.drive .side{order:-1;overflow:hidden;padding:6px;height:100%;box-sizing:border-box;gap:6px;display:flex;flex-direction:column;min-width:0;min-height:0}
+body.drive.dock-right .side,body.drive.dock-bottom .side{order:1}
+body.drive .side>*{zoom:var(--dz)} /* Schriftgröße der Tourleiste, 5 Stufen */
+body.drive #map{height:100%;min-height:0;border-radius:0;border:0}
+.dock-grip{display:none;touch-action:none;user-select:none;-webkit-user-select:none;text-align:center;font:600 .8rem var(--font-body);color:var(--muted);padding:2px 0;cursor:grab;flex:0 0 auto}
+body.drive .dock-grip{display:block}
+.dock-zones{position:fixed;inset:0;z-index:2500;pointer-events:none}
+.dock-zones div{position:absolute;background:color-mix(in srgb,var(--accent) 25%,transparent);border:3px dashed var(--accent);opacity:.35}
+.dock-zones div.on{opacity:1}
+.dock-zones .z-left{left:0;top:0;bottom:0;width:30%}.dock-zones .z-right{right:0;top:0;bottom:0;width:30%}
+.dock-zones .z-top{left:0;right:0;top:0;height:30%}.dock-zones .z-bottom{left:0;right:0;bottom:0;height:30%}
 body.drive .side>.mode,body.drive .side>.jump,body.drive #nextOsm{display:none!important}
 body.drive .list{max-height:none;flex:1 1 auto;min-height:0;overflow:auto}
 body.drive .next-card{padding:6px 8px;gap:4px;flex:0 0 auto}
@@ -805,6 +820,9 @@ body.drive .map-exit{display:inline-block}
     <span class="badge">Einstellungen</span>
     <div class="me-row"><span class="me-prev" id="mePrev"></span><label class="btn" for="meFile">Bild für deine Position wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div>
     <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
+    <div class="opts"><label for="fontSel">Schriftgröße Tourleiste <select id="fontSel"><option value="0">1 (sehr klein)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (groß)</option></select></label>
+      <label for="dockSel">Tourleiste <select id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label></div>
+    <p class="hint">Gilt für die Ansicht nach „Tour starten“. Die Tourleiste lässt sich dort auch verschieben: oben auf „⠿“ gedrückt halten und an den gewünschten Rand ziehen.</p>
     <div class="opts"><span id="geoPref"></span><button class="btn" id="geoReset" type="button">Standort-Frage zurücksetzen</button></div>
     <label><input type="checkbox" id="voiceOn"> Sprachansage vor jedem Stopp („Gleich Hausnummer 18, Haus rechts“)</label>
     <div class="opts"><label for="voiceSel">Stimme <select id="voiceSel"><option value="">Standard</option></select></label><button class="btn" id="voiceTry" type="button">🔊 Anhören</button></div>
@@ -841,6 +859,7 @@ body.drive .map-exit{display:inline-block}
   <div class="main">
     <div id="map" role="region" aria-label="Karte der Stopps"></div>
     <div class="side">
+      <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen">⠿ Zum Verschieben halten und ziehen</div>
       <div class="next-card" id="nextCard">
         <span class="lbl" id="nextLbl">Nächster Stopp</span>
         <div class="place"><span class="who" id="nextWho">–</span><span class="town" id="nextTown"></span></div>
@@ -887,6 +906,7 @@ body.drive .map-exit{display:inline-block}
       <div class="opts"><button class="btn primary" id="geoYes" type="button">Erlauben</button><button class="btn" id="geoNo" type="button">Ablehnen</button></div>
     </div>
   </div>
+  <div class="dock-zones" id="dockZones" hidden><div class="z-left"></div><div class="z-right"></div><div class="z-top"></div><div class="z-bottom"></div></div>
   <div class="toast" id="toast" role="status" hidden></div>
   <footer>Kartendaten: OpenStreetMap-Mitwirkende und die gewählten Kartendienste. Der Kartendienst erfährt nur, welchen Kartenausschnitt du ansiehst. Google Maps bekommt beim Tippen auf die Google-Knöpfe nur Adresse bzw. Koordinaten, keine Namen. Die Fahrstrecke berechnet der Routenserver von openstreetmap.de (FOSSGIS) aus den Koordinaten der Stopps.</footer>
 </div>
@@ -1252,7 +1272,11 @@ function sideOf(s,line){
   return best.cr>0?"links":"rechts";
 }
 function fit(){ const p=tour?tour.stops.filter(s=>s.ll).map(s=>s.ll):[]; if(p.length) map.fitBounds(L.latLngBounds(p).pad(0.12)); else map.setView([48.166,8.627],12); }
-function focusStop(i){ if(tour.stops[i].ll) map.setView(tour.stops[i].ll,16); }
+function focusStop(i){ if(tour.stops[i].ll){ setFollow(false); map.setView(tour.stops[i].ll,16); } }
+// Nachführen: aus, sobald man selbst einen Stopp wählt oder die Karte verschiebt; der Knopf „Zur aktuellen Position“ schaltet es wieder ein
+let follow=true;
+function setFollow(on){ follow=on; const b=document.getElementById("toMe"); if(b) b.hidden=on||!carPos; }
+map.on("dragstart",()=>setFollow(false));
 function pick(i){ cur=i; render(); focusStop(i); }
 
 function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
@@ -1300,7 +1324,7 @@ function checkArrival(){
 }
 $("sim").addEventListener("click",()=>{
   if(simTimer){stopSim();return;}
-  stopGps(); speakPrime(); announced=-1;
+  stopGps(); speakPrime(); announced=-1; follow=true;
   if(!tour||cur<0){toast("Keine offenen Stopps.");return;}
   if(!tour.line||tour.line.length<2){toast("Für die Simulation die Routendatei (.bcr) öffnen.");return;}
   const line=tour.line; simIdx=cur>0?Math.max(0,tour.stops[cur-1].li):0; carPos=line[simIdx].slice();
@@ -1314,7 +1338,7 @@ $("sim").addEventListener("click",()=>{
       if(d<=left){carPos=nxt.slice();simIdx++;left-=d;}
       else{const f=left/d;carPos=[carPos[0]+(nxt[0]-carPos[0])*f,carPos[1]+(nxt[1]-carPos[1])*f];left=0;}
     }
-    car.setLatLng(carPos); map.panTo(carPos,{animate:false}); checkArrival();
+    car.setLatLng(carPos); if(follow) map.panTo(carPos,{animate:false}); checkArrival();
     if(simIdx>=line.length-1||cur<0){stopSim(); if(cur<0) toast("Tour abgeschlossen");}
   },120);
   map.setView(carPos,16);
@@ -1338,7 +1362,8 @@ async function startGps(){
     car.setLatLng(carPos).addTo(map);
     const acc=Math.round(pos.coords.accuracy);
     $("gpsState").textContent=`GPS aktiv, Genauigkeit ca. ${acc} m`+(tour&&cur>=0&&tour.stops[cur].ll?` · noch ${Math.round(dist(carPos,tour.stops[cur].ll))} m bis Stopp ${cur+1}`:"");
-    if(document.body.classList.contains("drive")) map.panTo(carPos,{animate:true}); // Karte folgt der Position
+    if(document.body.classList.contains("drive")&&follow) map.panTo(carPos,{animate:true}); // Karte folgt der Position, außer man schaut sich gerade woanders um
+    setFollow(follow);
     checkArrival();
   },err=>{
     $("gpsState").textContent=err.code===1?"GPS wurde nicht erlaubt. Bitte in den Browser-Einstellungen den Standort für diese Seite freigeben.":"Kein GPS-Signal. Ich versuche es weiter.";
@@ -1361,13 +1386,35 @@ $("geoNo").addEventListener("click",()=>{ $("geoAsk").hidden=true; setGeoPref("n
 $("geoReset").addEventListener("click",()=>{ setGeoPref(""); toast("Beim nächsten „Tour starten“ fragt die App wieder."); });
 geoPrefUi();
 
+// Tourleiste: Schriftgröße (5 Stufen, Stufe 5 = bisherige Größe) und Platz am Rand
+const FONT_KEY="navi-schrift", DOCK_KEY="navi-leiste", ZOOMS=[.6,.7,.8,.9,1];
+let fontIdx=2, dock="left"; try{ const f=localStorage.getItem(FONT_KEY); if(f!==null&&ZOOMS[+f]) fontIdx=+f; dock=localStorage.getItem(DOCK_KEY)||"left"; }catch(e){}
+function applyLayout(){
+  document.body.style.setProperty("--dz",ZOOMS[fontIdx]);
+  ["left","right","top","bottom"].forEach(d=>document.body.classList.toggle("dock-"+d,d===dock));
+  $("fontSel").value=String(fontIdx); $("dockSel").value=dock;
+  if(document.body.classList.contains("drive")) setTimeout(()=>{ map.invalidateSize(); if(carPos) map.panTo(carPos); scrollCurrent(); },60);
+}
+function setDock(d){ dock=d; try{localStorage.setItem(DOCK_KEY,d);}catch(e){} applyLayout(); }
+$("fontSel").addEventListener("change",e=>{ fontIdx=+e.target.value; try{localStorage.setItem(FONT_KEY,fontIdx);}catch(x){} applyLayout(); });
+$("dockSel").addEventListener("change",e=>setDock(e.target.value));
+applyLayout();
+// Verschieben: gedrückt halten (0,35 s), dann an einen Rand ziehen und loslassen
+(()=>{ const g=$("dockGrip"), z=$("dockZones"); let timer=null, drag=false, target=null;
+  const edge=(x,y)=>{ const W=innerWidth,H=innerHeight, d={left:x/W,right:(W-x)/W,top:y/H,bottom:(H-y)/H}; return Object.keys(d).sort((a,b)=>d[a]-d[b])[0]; };
+  const show=t=>{ target=t; z.querySelectorAll("div").forEach(el=>el.classList.toggle("on",el.className.includes("z-"+t))); };
+  g.addEventListener("pointerdown",e=>{ g.setPointerCapture(e.pointerId); timer=setTimeout(()=>{ drag=true; z.hidden=false; show(edge(e.clientX,e.clientY)); if(navigator.vibrate) navigator.vibrate(30); },350); });
+  g.addEventListener("pointermove",e=>{ if(drag) show(edge(e.clientX,e.clientY)); });
+  const end=()=>{ clearTimeout(timer); if(drag&&target){ setDock(target); } drag=false; z.hidden=true; z.querySelectorAll("div").forEach(el=>el.classList.remove("on")); };
+  g.addEventListener("pointerup",end); g.addEventListener("pointercancel",end);
+})();
 // Tour starten: Vollbild im Querformat, Stoppliste links, Karte folgt dem Standort
 let fsUsed=false;
 async function enterDrive(){
-  document.body.classList.add("drive"); fsUsed=false;
+  document.body.classList.add("drive"); fsUsed=false; setFollow(true);
   try{ if(document.documentElement.requestFullscreen){ await document.documentElement.requestFullscreen({navigationUI:"hide"}); fsUsed=true; } }catch(e){}
   try{ if(screen.orientation&&screen.orientation.lock) await screen.orientation.lock("landscape"); }catch(e){} // geht nicht auf jedem Handy (iPhone): dann einfach quer halten
-  setTimeout(()=>{ map.invalidateSize(); if(carPos) map.setView(carPos,17); else if(tour&&cur>=0) focusStop(cur); scrollCurrent(); },350);
+  setTimeout(()=>{ map.invalidateSize(); if(carPos) map.setView(carPos,17); else if(tour&&cur>=0&&tour.stops[cur].ll) map.setView(tour.stops[cur].ll,16); scrollCurrent(); },350);
   startGps();
 }
 function leaveDrive(){
@@ -1393,6 +1440,11 @@ const DriveCtl=L.Control.extend({options:{position:"topright"},onAdd(){
   const b=L.DomUtil.create("button","map-exit",d); b.type="button"; b.textContent="✕ Beenden"; b.id="tourExit"; b.onclick=leaveDrive;
   return d; }});
 new DriveCtl().addTo(map);
+const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
+  const b=L.DomUtil.create("button","to-me"); b.type="button"; b.id="toMe"; b.hidden=true; b.textContent="◎ Zur aktuellen Position";
+  L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ setFollow(true); if(carPos) map.setView(carPos,Math.max(map.getZoom(),16)); };
+  return b; }});
+new MeCtl().addTo(map);
 document.addEventListener("visibilitychange",async()=>{ if(gpsWatch!==null&&document.visibilityState==="visible"&&navigator.wakeLock){ try{wakeLock=await navigator.wakeLock.request("screen");}catch(e){} } });
 function goTo(i){ if(!tour) return; cur=i; render(); if(i>=0) focusStop(i); else fit(); }
 $("nextDone").addEventListener("click",()=>{ if(!tour||cur<0) return; tour.stops[cur].done=true;

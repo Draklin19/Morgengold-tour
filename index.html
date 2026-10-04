@@ -963,7 +963,7 @@ function mergeTours(){
   const old=tour&&tour.stops;
   let t=null;
   if(bcrTour){
-    t={name:bcrTour.name,time:bcrTour.time,stops:bcrTour.stops.map((s,i)=>({...s,name:"",notes:[],articles:[],town:s.town||""}))};
+    t={name:bcrTour.name,time:bcrTour.time,stops:bcrTour.stops.map((s,i)=>({...s,name:"",notes:[],articles:[],town:s.town||"",exact:true}))};
     if(pdfTour){
       t.name=pdfTour.name+(pdfTour.date?" · "+pdfTour.date:"");
       t.stops.forEach((s,i)=>{ const q=pdfTour.stops.find(q=>String(q.no)===String(i+1)); if(q){ s.addr=q.addr; s.town=q.town; s.notes=q.notes; s.articles=q.articles; } });
@@ -1085,7 +1085,9 @@ function fillTown(el,town){
   const p=document.createElement("span");p.className="plz";p.textContent=m[1];el.append(p,m[2]);
 }
 const ll=p=>p[0].toFixed(6)+","+p[1].toFixed(6);
-const gdest=s=>s.town?`${s.addr}, ${s.town}`:(s.ll?ll(s.ll):s.addr); // Adresse aus der Ausfahrliste, sonst Koordinaten
+// Punkt aus der Routendatei ist genau (Haustür) -> Koordinaten, damit Google nicht an unbekannten Hausnummern scheitert.
+// Ohne Routendatei: Adresse aus der Ausfahrliste, sonst Koordinaten.
+const gdest=s=>s.exact&&s.ll?ll(s.ll):s.town?`${s.addr}, ${s.town}`:(s.ll?ll(s.ll):s.addr);
 function gmapsUrl(stops){ // letzter Stopp = Ziel, davor bis zu 9 Zwischenziele; Start = eigener Standort
   const dest=stops[stops.length-1], way=stops.slice(0,-1);
   let u="https://www.google.com/maps/dir/?api=1&travelmode=driving&destination="+encodeURIComponent(gdest(dest));

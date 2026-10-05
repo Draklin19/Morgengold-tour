@@ -774,6 +774,11 @@ details.mode summary{cursor:pointer;font-weight:600}
 .empty{padding:16px;color:var(--muted)}
 .err{color:#b3261e;font-weight:600;margin:0}
 .confirm{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.9rem}
+.list-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line)}
+.all-chk{display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}
+.all-chk input{width:22px;height:22px;accent-color:var(--route)}
+body.drive #listTools,body.no-tour #listTools{display:none}
+#lastTour[hidden]{display:none}
 footer{font-size:.8rem;color:var(--muted)}
 .map-start{font:700 1.05rem var(--font-body);padding:12px 18px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer}
 .to-me{font:600 .85rem var(--font-body);padding:7px 12px;border-radius:999px;border:1px solid rgb(0 0 0 / .15);background:rgb(255 255 255 / .7);color:#1d2421;box-shadow:0 1px 4px rgb(0 0 0 / .25);cursor:pointer;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
@@ -907,6 +912,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
     <label class="btn primary big" for="file">📂 Tour öffnen <small>Ausfahrliste PDF / .bcr</small></label>
     <input type="file" id="file" multiple><!-- kein accept: Android kennt .bcr nicht und graut die Datei sonst aus; Typ wird am Inhalt erkannt -->
     <input type="file" id="fileAll" multiple><label class="file-all" for="fileAll" id="fileAllLbl" hidden>Datei nicht dabei? Alle Dateien zeigen</label>
+    <button class="btn big" id="lastTour" type="button" hidden>↺ Letzte Tour laden</button>
     <a class="btn big" id="tourLink" href="#" target="_blank" rel="noopener" hidden>⬇ Tour herunterladen</a>
   </div>
 
@@ -992,6 +998,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
         <input id="jumpNo" type="number" inputmode="numeric" min="1" placeholder="z. B. 12">
         <button class="btn" type="submit">Hinfahren</button>
       </form>
+      <div class="list-tools" id="listTools"><label class="all-chk"><input type="checkbox" id="allChk"> Alle</label><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button></div>
       <ul class="list" id="list"></ul>
     </div>
   </div>
@@ -1298,6 +1305,7 @@ function renderGoogle(){
   }
 }
 function render(){
+  if(tour) $("lastTour").hidden=true;
   document.body.classList.toggle("no-tour",!tour);
   layer.clearLayers(); markers=[]; const list=$("list"); list.innerHTML="";
   if(!tour){
@@ -1344,6 +1352,7 @@ function render(){
   });
   $("sStops").textContent=tour.stops.length;
   $("sDone").textContent=tour.stops.filter(s=>s.done).length;
+  { const nd=tour.stops.filter(s=>s.done).length, a=$("allChk"); a.checked=nd===tour.stops.length&&nd>0; a.indeterminate=nd>0&&nd<tour.stops.length; }
   $("sTime").textContent=(!tour.time&&tour.road)?`${Math.floor(tour.road.sec/3600)}:${String(Math.round(tour.road.sec%3600/60)).padStart(2,"0")} h`:tour.time?`${Math.floor(tour.time/3600)}:${String(Math.round(tour.time%3600/60)).padStart(2,"0")} h`:"–";
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
@@ -1795,24 +1804,46 @@ const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expande
 $("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));
 $("setClose").addEventListener("click",()=>setOpen(false));
 $("sim").addEventListener("click",()=>{ if(simTimer){ setOpen(false); $("map").scrollIntoView({behavior:"smooth",block:"center"}); } });
-$("clear").addEventListener("click",()=>{$("confirmBox").hidden=false;});
+$("clear").addEventListener("click",async()=>{
+  if(!await ask("Tour löschen?","Die Tour mit allen Adressen und Haken wird von diesem Handy entfernt.","Ja, löschen","Abbrechen")) return;
+  $("confirmYes").click(); toast("Tour gelöscht"); });
 $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
-$("confirmYes").addEventListener("click",()=>{setSideBar("");try{localStorage.removeItem(TOUR_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();});
+$("confirmYes").addEventListener("click",()=>{setSideBar("");try{localStorage.removeItem(TOUR_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();lastTourUi();});
+// Alle abhaken / alle Haken weg (Liste vor der Fahrt)
+$("allChk").addEventListener("change",e=>{ if(!tour) return; const on=e.target.checked; tour.stops.forEach(s=>s.done=on); backTo=-1;
+  cur=on?-1:0; render(); toast(on?"Alle Stopps abgehakt":"Alle Haken entfernt"); });
+// Tour neu starten: gleiche Dateien, alle Haken und Ansagen zurück, wieder ab Stopp 1
+$("restartBtn").addEventListener("click",async()=>{ if(!tour) return;
+  if(!await ask("Tour neu starten?","Alle Haken werden entfernt und die Tour beginnt wieder bei Stopp 1. Die geladenen Dateien bleiben.","Neu starten","Abbrechen")) return;
+  stopSim(); tour.stops.forEach(s=>{ s.done=false; s.said=false; }); cur=0; backTo=-1; announced=-1; live={stop:-1,side:"",src:""}; turnSaid=new Set(); turnStop=-1;
+  render(); fit(); toast("Tour beginnt wieder bei Stopp 1"); });
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 // Aktuelle Tour auf dem Handy merken (höchstens 18 Stunden, bis „Tour löschen“), damit sie ein Neuladen der Seite übersteht,
 // etwa wenn das iPhone die App beim Fotoauswählen oder im Hintergrund neu startet. Ohne Kundennamen.
 function saveTour(){ try{
-  if(!tour){ localStorage.removeItem(TOUR_KEY); return; }
+  if(!tour) return; // gelöscht wird nur über „Tour löschen“
   localStorage.setItem(TOUR_KEY,JSON.stringify({t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),said:tour.stops.map(s=>!!s.said),ll:tour.stops.map(s=>s.ll)}));
 }catch(e){} }
-(()=>{ let d=null; try{ d=JSON.parse(localStorage.getItem(TOUR_KEY)||"null"); }catch(e){}
-  if(d&&Date.now()-d.t<18*3600e3&&(d.bcr||d.pdf)){
-    bcrTour=d.bcr; pdfTour=d.pdf; const t=mergeTours();
-    if(t){ t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; if(!s.ll&&d.ll&&d.ll[i]) s.ll=d.ll[i]; }); tour=t; cur=typeof d.cur==="number"?d.cur:0;
-      loadedInfo(); render(); fit(); routeTour(); return; }
-  } else { try{ localStorage.removeItem(TOUR_KEY); }catch(e){} }
-  render(); fit(); // Karte bleibt leer, bis eine Tour geöffnet wird
+// Gespeicherte Tour: Wurde die App vor weniger als 10 Minuten benutzt (z. B. iPhone hat die Seite neu geladen), geht es direkt weiter.
+// Sonst bleibt die Karte leer, und der Knopf „Letzte Tour laden“ bietet die Tour an (höchstens 18 Stunden alt).
+function savedTour(){ let d=null; try{ d=JSON.parse(localStorage.getItem(TOUR_KEY)||"null"); }catch(e){}
+  if(d&&Date.now()-d.t<18*3600e3&&(d.bcr||d.pdf)) return d;
+  try{ localStorage.removeItem(TOUR_KEY); }catch(e){} return null; }
+function restoreTour(d){
+  bcrTour=d.bcr; pdfTour=d.pdf; const t=mergeTours(); if(!t) return false;
+  t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; if(!s.ll&&d.ll&&d.ll[i]) s.ll=d.ll[i]; }); tour=t; cur=typeof d.cur==="number"?d.cur:0;
+  $("lastTour").hidden=true; loadedInfo(); render(); fit(); routeTour(); return true; }
+// Zeitstempel aktuell halten, solange die App offen ist, damit ein Neuladen mitten in der Fahrt (< 10 Min.) direkt weitermacht
+setInterval(()=>{ if(tour&&!document.hidden) saveTour(); },60000);
+document.addEventListener("visibilitychange",()=>{ if(tour) saveTour(); });
+function lastTourUi(){ const d=tour?null:savedTour(), b=$("lastTour"); b.hidden=!d; if(!d) return;
+  const n=((d.bcr||d.pdf).stops||[]).length, tm=new Date(d.t).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+  b.textContent=`↺ Letzte Tour laden (von ${tm} Uhr, ${n} Stopps)`; }
+$("lastTour").addEventListener("click",()=>{ const d=savedTour(); if(!d||!restoreTour(d)){ toast("Keine gespeicherte Tour mehr vorhanden."); lastTourUi(); } });
+(()=>{ const d=savedTour();
+  if(d&&Date.now()-d.t<10*60e3&&restoreTour(d)) return;
+  render(); fit(); lastTourUi(); // Karte bleibt leer, bis eine Tour geöffnet oder die letzte Tour geladen wird
 })();
 setTimeout(()=>{map.invalidateSize();fit();},200);
 })();

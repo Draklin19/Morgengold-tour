@@ -692,9 +692,11 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 /* Große, verblasste Hausnummer oben auf der Karte, wenn man dem Kunden nahe kommt */
 #houseNo{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:640;pointer-events:none;font-size:72px;font-weight:800;line-height:1;color:#14532d;text-shadow:0 0 8px #fff,0 0 2px #fff;opacity:0;transition:opacity .6s;display:none}
 body.drive #houseNo,body.sim #houseNo{display:block}
-#sideBar{position:absolute;top:0;bottom:0;width:16px;z-index:650;pointer-events:none;background:rgba(120,220,130,.55);display:none;align-items:center;justify-content:center}
-#sideBar span{writing-mode:vertical-rl;font-size:11px;font-weight:700;letter-spacing:.08em;color:#14532d}
-#sideBar.links{left:0;box-shadow:inset -2px 0 0 rgba(20,83,45,.25)} #sideBar.rechts{right:0;box-shadow:inset 2px 0 0 rgba(20,83,45,.25)}
+#sideBar{position:absolute;top:0;bottom:0;width:48px;z-index:650;pointer-events:none;display:none;align-items:center}
+#sideBar span{writing-mode:vertical-rl;font-size:12px;font-weight:800;letter-spacing:.08em;color:#14532d;padding:0 4px}
+/* gleiches Hellgrün, am Rand kräftig, zur Bildschirmmitte hin verblassend */
+#sideBar.links{left:0;justify-content:flex-start;background:linear-gradient(to right,rgba(120,220,130,.75),rgba(120,220,130,.35) 45%,rgba(120,220,130,0))}
+#sideBar.rechts{right:0;justify-content:flex-end;background:linear-gradient(to left,rgba(120,220,130,.75),rgba(120,220,130,.35) 45%,rgba(120,220,130,0))}
 body.drive #sideBar.links,body.drive #sideBar.rechts,body.sim #sideBar.links,body.sim #sideBar.rechts{display:flex}
 .file-all{display:block;font-size:.85rem;text-align:center;text-decoration:underline;opacity:.75;padding:4px 0;cursor:pointer}
 .file-all[hidden]{display:none}

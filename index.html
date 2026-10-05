@@ -920,6 +920,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
       <label for="dockSel">Tourleiste <select id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label></div>
     <p class="hint">Gilt für die Ansicht nach „Tour starten“. Die Tourleiste lässt sich dort auch verschieben: oben auf „⠿“ gedrückt halten und an den gewünschten Rand ziehen.</p>
     <label><input type="checkbox" id="voiceOn"> Sprachansage vor jedem Stopp („Gleich Hausnummer 18, Haus rechts“)</label>
+    <label><input type="checkbox" id="turnOn"> Abbiege-Ansagen nach „Tour starten“ („In 200 Metern rechts abbiegen auf Musterstraße“)</label>
     <div class="opts"><label for="voiceSel">Stimme <select id="voiceSel"><option value="">Standard</option></select></label><button class="btn" id="voiceTry" type="button">🔊 Anhören</button></div>
     <p class="hint" id="voiceHint">Welche Stimmen es gibt, hängt vom Handy ab. Weitere Stimmen lassen sich in den Handy-Einstellungen unter „Sprachausgabe“ bzw. „Text-in-Sprache“ herunterladen.</p>
     <div class="opts"><button class="btn" id="sim" type="button">▶ Fahrt simulieren</button><label for="simSel">Tempo <select id="simSel"><option value="0">1 (langsam)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (schnell)</option></select></label></div>
@@ -1411,6 +1412,42 @@ function nextOpen(){
   backTo=-1; let n=tour.stops.findIndex((s,i)=>i>cur&&!s.done); if(n<0) n=tour.stops.findIndex(s=>!s.done); return n; }
 function advanceAfterDone(){ cur=nextOpen(); }
 // Sprachansage mit der Sprachausgabe des Handys, kurz bevor man einen Stopp erreicht.
+// Abbiege-Ansagen: Route ab dem Standort mit Abbiegehinweisen (OSRM steps), Text auf Deutsch, jede Ansage nur einmal.
+let turns=[], turnSaid=new Set(), turnStop=-1, turnOn=true;
+try{ turnOn=localStorage.getItem("navi-abbiegen")!=="aus"; }catch(e){}
+async function routeSteps(base,from,to){
+  const r=await fetch(base+[from,to].map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true");
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code||"keine Route");
+  const rt=j.routes[0], line=rt.geometry.coordinates.map(c=>[c[1],c[0]]), steps=[];
+  (rt.legs||[]).forEach(l=>(l.steps||[]).forEach(st=>{ const t=turnText(st); if(t) steps.push({ll:[st.maneuver.location[1],st.maneuver.location[0]],t,s:t.replace(/ auf .*$/,"")}); }));
+  return {line,steps};
+}
+function turnText(st){
+  const m=st.maneuver||{}, ty=m.type, mo=m.modifier||"", name=st.name?` auf ${st.name}`:"";
+  const dir={"left":"links","right":"rechts","slight left":"halb links","slight right":"halb rechts","sharp left":"scharf links","sharp right":"scharf rechts","uturn":"wenden"}[mo];
+  if(ty==="depart"||ty==="arrive"||ty==="new name") return "";
+  if(ty==="roundabout"||ty==="rotary"||ty==="roundabout turn") return m.exit?`im Kreisverkehr die ${m.exit}. Ausfahrt nehmen${name}`:`in den Kreisverkehr fahren`;
+  if(ty==="exit roundabout"||ty==="exit rotary") return "";
+  if(!dir) return ""; // geradeaus: keine Ansage
+  if(mo==="uturn") return "wenden";
+  if(ty==="fork") return `${/links/.test(dir)?"links":"rechts"} halten${name}`;
+  if(ty==="on ramp") return `Auffahrt ${dir} nehmen${name}`;
+  if(ty==="off ramp") return `Ausfahrt ${dir} nehmen${name}`;
+  if(ty==="merge") return `${dir} einfädeln${name}`;
+  if(/halb/.test(dir)&&ty==="continue") return "";
+  return `${dir} abbiegen${name}`;
+}
+function checkTurns(){
+  if(!turnOn||!carPos||!turns.length||!document.body.classList.contains("drive")&&!simTimer) return;
+  if(document.body.classList.contains("drive")) updateApproach();
+  for(const tn of turns){ const k=tn.ll[0].toFixed(5)+","+tn.ll[1].toFixed(5), d=dist(carPos,tn.ll);
+    if(turnSaid.has(k+"!")) continue;
+    if(d<=40){ turnSaid.add(k+"!"); turnSaid.add(k); say(`Jetzt ${tn.s}.`); return; }
+    if(d<=220&&!turnSaid.has(k)){ if(d<60) continue; turnSaid.add(k); say(`In ${Math.max(50,Math.round(d/50)*50)} Metern ${tn.t}.`); return; }
+    if(d<=220) return; // diese Abbiegung kommt als Nächstes
+  }
+}
 const VOICE_KEY="navi-sprache", VOICE_NAME_KEY="navi-stimme", ANNOUNCE_M=150; let announced=-1, voiceOn=true, voiceName="";
 try{ voiceOn=localStorage.getItem(VOICE_KEY)!=="aus"; voiceName=localStorage.getItem(VOICE_NAME_KEY)||""; }catch(e){}
 const deVoices=()=>("speechSynthesis" in window?speechSynthesis.getVoices():[]).filter(v=>/^de/i.test(v.lang));
@@ -1425,14 +1462,16 @@ try{ fillVoices(); if("speechSynthesis" in window) speechSynthesis.onvoiceschang
 $("voiceSel").addEventListener("change",e=>{ voiceName=e.target.value; try{localStorage.setItem(VOICE_NAME_KEY,voiceName);}catch(x){} sayNow("Gleich Musterstraße 18, Haus rechts."); });
 $("voiceTry").addEventListener("click",()=>sayNow("Gleich Musterstraße 18, Haus rechts."));
 $("voiceOn").checked=voiceOn;
+$("turnOn").checked=turnOn;
+$("turnOn").addEventListener("change",e=>{ turnOn=e.target.checked; try{localStorage.setItem("navi-abbiegen",turnOn?"an":"aus");}catch(x){} });
 $("voiceOn").addEventListener("change",e=>{ voiceOn=e.target.checked; try{localStorage.setItem(VOICE_KEY,voiceOn?"an":"aus");}catch(x){} if(voiceOn) say("Sprachansage ist an."); });
-function sayNow(text){
+function sayNow(text,queue){ // queue: nicht unterbrechen, sondern hinten anstellen (Haus- und Abbiege-Ansage kurz nacheinander)
   if(!("speechSynthesis" in window)) return;
   const u=new SpeechSynthesisUtterance(text); u.lang="de-DE"; const vs=deVoices();
   const v=vs.find(v=>v.name===voiceName)||vs.find(v=>v.localService)||vs[0]; if(v) u.voice=v;
-  speechSynthesis.cancel(); speechSynthesis.speak(u);
+  if(!queue) speechSynthesis.cancel(); speechSynthesis.speak(u);
 }
-function say(text){ if(voiceOn) sayNow(text); }
+function say(text){ if(voiceOn) sayNow(text,true); }
 function speakPrime(){ if(voiceOn&&"speechSynthesis" in window){ const u=new SpeechSynthesisUtterance(""); speechSynthesis.speak(u); } } // iPhone gibt Ton erst nach einem Antippen frei
 function announce(i){
   const s=tour.stops[i], m=(s.addr||"").match(/^(.*?)\s+(\d+\s*[a-zA-Z]?(?:\s*[\/-]\s*\d+[a-zA-Z]?)?)$/);
@@ -1465,7 +1504,7 @@ function trackSide(){
   setLive(cur, dx*(P[1]-a[1])-dy*(P[0]-a[0])>0?"links":"rechts","gps");
 }
 function checkArrival(){
-  updateHouseNo();
+  updateHouseNo(); checkTurns();
   if(!tour||cur<0||!carPos) return;
   trackSide();
   const s=tour.stops[cur], r=+$("radius").value;
@@ -1647,15 +1686,17 @@ function scrollCurrent(){ // nur die Liste scrollen, aktueller Stopp in die Mitt
   if(el) l.scrollTop+=el.getBoundingClientRect().top-l.getBoundingClientRect().top-l.clientHeight/2+el.offsetHeight/2; }
 // Anfahrt: Straßenroute vom eigenen Standort zum aktuellen Stopp, neu berechnet bei neuem Stopp oder nach 150 m Abweichung
 const approachLayer=L.layerGroup().addTo(map); let apFrom=null, apStop=-1, apBusy=false, apAt=0;
-function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; }
+function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; turns=[]; }
 async function updateApproach(){
   if(!carPos||!tour||cur<0||!tour.stops[cur].ll||apBusy) return;
   if(apStop===cur&&apFrom&&dist(apFrom,carPos)<150) return;
   if(Date.now()-apAt<8000&&apStop===cur) return;
   apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[cur].ll, stopNo=cur; let line=null;
-  for(const base of ROUTERS){ try{ line=(await routeWith(base,[from,to])).line; break; }catch(e){} }
+  let steps=[];
+  for(const base of ROUTERS){ try{ const r=await routeSteps(base,from,to); line=r.line; steps=r.steps; break; }catch(e){} }
   apBusy=false; if(!document.body.classList.contains("drive")||stopNo!==cur) return;
   approachLayer.clearLayers(); apFrom=from; apStop=stopNo;
+  if(turnStop!==stopNo){ turnSaid=new Set(); turnStop=stopNo; } turns=steps;
   if(line&&line.length>1&&tour.stops[stopNo].exact&&!(live.stop===stopNo&&live.src==="gps")){
     let k=line.length-1, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,to); if(d<bd){bd=d;k=j;} });
     setLive(stopNo, sideOnLine(to,line,k), "anfahrt"); }

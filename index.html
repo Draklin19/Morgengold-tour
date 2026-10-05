@@ -995,9 +995,9 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
       </div>
       <details class="mode" id="loadBox" hidden><summary>Ladeliste für die ganze Tour</summary><ul class="arts" id="loadList"></ul></details>
       <form class="jump" id="jumpForm">
-        <label for="jumpNo">Zu Stopp Nr.</label>
+        <label for="jumpNo">Fahrt beginnen ab Nr.</label>
         <input id="jumpNo" type="number" inputmode="numeric" min="1" placeholder="z. B. 12">
-        <button class="btn" type="submit">Hinfahren</button>
+        <button class="btn" type="submit">Ab hier starten</button>
       </form>
       <div class="list-tools" id="listTools"><label class="all-chk"><input type="checkbox" id="allChk"> Alle</label><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button></div>
       <ul class="list" id="list"></ul>
@@ -1736,7 +1736,9 @@ $("prev").addEventListener("click",()=>{ if(!tour) return; goTo(cur<0?tour.stops
 $("jumpForm").addEventListener("submit",e=>{ e.preventDefault(); if(!tour) return;
   const v=$("jumpNo").value.trim(); const i=tour.stops.findIndex((s,k)=>String(s.no)===v||String(k+1)===v);
   if(i<0){$("err").textContent=`Stopp Nr. ${v} gibt es in dieser Tour nicht.`;$("err").hidden=false;return;}
-  $("err").hidden=true; $("jumpNo").value=""; markJump(i); goTo(i); });
+  // Ab hier starten: alle Stopps davor gelten als erledigt
+  $("err").hidden=true; $("jumpNo").value=""; tour.stops.forEach((s,k)=>{ if(k<i) s.done=true; }); backTo=-1; goTo(i);
+  toast(i>0?`Stopps 1–${i} abgehakt, Start bei ${i+1}`:"Start bei Stopp 1"); });
 ["file","fileAll"].forEach(id=>$(id).addEventListener("change",e=>{ const files=[...e.target.files]; e.target.value=""; loadFiles(files); }));
 async function loadFiles(files){
   if(!files.length) return;

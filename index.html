@@ -1399,7 +1399,7 @@ map.on("dragstart",()=>setFollow(false));
 function pick(i){ markJump(i); cur=i; render(); focusStop(i); }
 
 function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
-function stopSim(){clearInterval(simTimer);simTimer=null;$("sim").textContent="▶ Fahrt simulieren";document.body.classList.remove("sim");}
+function stopSim(){clearInterval(simTimer);simTimer=null;if(!document.body.classList.contains("drive")) try{ clearApproach(); }catch(e){}$("sim").textContent="▶ Fahrt simulieren";document.body.classList.remove("sim");}
 const HOUSE_M=150; // ab dieser Entfernung erscheint die Hausnummer
 function updateHouseNo(){ let el=$("houseNo"); if(!el){ el=document.createElement("div"); el.id="houseNo"; $("map").appendChild(el); }
   const s=tour&&cur>=0?tour.stops[cur]:null; let op=0;
@@ -1449,11 +1449,11 @@ function turnText(st){
   return `${dir} abbiegen${name}`;
 }
 function checkTurns(){
-  if(!turnOn||!carPos||!turns.length||!document.body.classList.contains("drive")&&!simTimer) return;
-  if(document.body.classList.contains("drive")) updateApproach();
+  if(!turnOn||!carPos||!(document.body.classList.contains("drive")||simTimer)) return;
+  updateApproach(); if(!turns.length) return;
   for(const tn of turns){ const k=tn.ll[0].toFixed(5)+","+tn.ll[1].toFixed(5), d=dist(carPos,tn.ll);
     if(turnSaid.has(k+"!")) continue;
-    if(d<=40){ turnSaid.add(k+"!"); turnSaid.add(k); say(`Jetzt ${tn.s}.`); return; }
+    if(d<=40){ turnSaid.add(k+"!"); turnSaid.add(k); say(`Jetzt ${tn.t}.`); return; }
     if(d<=220&&!turnSaid.has(k)){ if(d<60) continue; turnSaid.add(k); say(`In ${Math.max(50,Math.round(d/50)*50)} Metern ${tn.t}.`); return; }
     if(d<=220) return; // diese Abbiegung kommt als Nächstes
   }
@@ -1704,7 +1704,7 @@ async function updateApproach(){
   apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[cur].ll, stopNo=cur; let line=null;
   let steps=[];
   for(const base of ROUTERS){ try{ const r=await routeSteps(base,from,to); line=r.line; steps=r.steps; break; }catch(e){} }
-  apBusy=false; if(!document.body.classList.contains("drive")||stopNo!==cur) return;
+  apBusy=false; if(!(document.body.classList.contains("drive")||simTimer)||stopNo!==cur) return; // auch in der Simulation (Abbiege-Ansagen testen)
   approachLayer.clearLayers(); apFrom=from; apStop=stopNo;
   if(turnStop!==stopNo){ turnSaid=new Set(); turnStop=stopNo; } turns=steps;
   if(line&&line.length>1&&tour.stops[stopNo].exact&&!(live.stop===stopNo&&live.src==="gps")){

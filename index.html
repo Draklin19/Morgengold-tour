@@ -1305,6 +1305,8 @@ function renderGoogle(){
     box.append(a);
   }
 }
+// Sekunden als Stunden:Minuten. Erst auf ganze Minuten runden, dann teilen, damit es nie „1:60 h“ gibt, sondern „2:00 h“.
+function hm(sec){ const t=Math.round(sec/60); return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")} h`; }
 function render(){
   if(tour) $("lastTour").hidden=true;
   document.body.classList.toggle("no-tour",!tour);
@@ -1354,7 +1356,7 @@ function render(){
   $("sStops").textContent=tour.stops.length;
   $("sDone").textContent=tour.stops.filter(s=>s.done).length;
   { const nd=tour.stops.filter(s=>s.done).length, a=$("allChk"); a.checked=nd===tour.stops.length&&nd>0; a.indeterminate=nd>0&&nd<tour.stops.length; }
-  $("sTime").textContent=(!tour.time&&tour.road)?`${Math.floor(tour.road.sec/3600)}:${String(Math.round(tour.road.sec%3600/60)).padStart(2,"0")} h`:tour.time?`${Math.floor(tour.time/3600)}:${String(Math.round(tour.time%3600/60)).padStart(2,"0")} h`:"–";
+  $("sTime").textContent=(!tour.time&&tour.road)?hm(tour.road.sec):tour.time?hm(tour.time):"–";
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");

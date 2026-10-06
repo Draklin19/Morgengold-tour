@@ -768,6 +768,12 @@ body.drive #sideBar.links,body.drive #sideBar.rechts,body.sim #sideBar.links,bod
 .arts b{font-family:var(--font-mono);margin-right:4px}
 .stop .snote{display:block;font-size:.82rem;color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:4px;padding:1px 5px;margin-top:2px;overflow-wrap:anywhere}
 .stop.is-done .snote{background:none;color:var(--done)}
+.pin.warn{box-shadow:0 0 0 3px #f59e0b}
+.osmpin{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:700 12px var(--font-body);background:#f59e0b;color:#1f1300;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0 / .4)}
+.stop .pwarn{display:block;font-size:.82rem;color:#7a4b00;background:color-mix(in srgb,#f59e0b 22%,transparent);border-radius:4px;padding:1px 5px;margin-top:2px}
+.stop .pfix{display:block;font-size:.78rem;color:var(--muted,#667);margin-top:2px}
+@media (prefers-color-scheme: dark){.stop .pwarn{color:#ffd28a}}
+.posbox{display:grid;gap:6px;min-width:12em}.posbox b{font-size:.9rem}.posbox .btn{width:100%;text-align:left}
 details.mode summary{cursor:pointer;font-weight:600}
 .loaded{font-size:.85rem;color:var(--muted);margin:0}
 .geo{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -932,6 +938,8 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
     <p class="hint" id="voiceHint">Welche Stimmen es gibt, hängt vom Handy ab. Weitere Stimmen lassen sich in den Handy-Einstellungen unter „Sprachausgabe“ bzw. „Text-in-Sprache“ herunterladen.</p>
     <div class="opts"><button class="btn" id="sim" type="button">▶ Fahrt simulieren</button><label for="simSel">Tempo <select id="simSel"><option value="0">1 (langsam)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (schnell)</option></select></label></div>
     <p class="hint">Zeigt ohne GPS, wie die Fahrt abläuft und Stopps abgehakt werden. Die Einstellungen schließen sich dabei. Zum Beenden hier wieder auf „Simulation stoppen“ tippen.</p>
+    <div class="opts"><span id="corrInfo">Eigene Hauspunkte: 0</span><button class="btn" id="corrClear" type="button">Eigene Hauspunkte löschen</button></div>
+    <p class="hint">Liegt ein Haus auf der Karte falsch: lange auf das richtige Haus drücken und „Hauspunkt hier setzen“ tippen. Der Punkt bleibt nur auf diesem Handy und gilt für jede weitere Tour mit dieser Adresse. Stopps mit ⚠ liegen weit weg von der Stelle, die OpenStreetMap für die Adresse kennt.</p>
     <div class="opts"><button class="btn primary" id="setClose" type="button">Fertig</button></div>
   </section>
 
@@ -1151,7 +1159,8 @@ function mergeTours(){
        stops:pdfTour.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,articles:q.articles,ll:null,via:[],done:false}))};
   }
   if(t){ t.load=pdfTour?pdfTour.load:[]; t.km=pdfTour?pdfTour.km:"";
-    if(old&&old.length===t.stops.length) t.stops.forEach((s,i)=>s.done=old[i].done); }
+    if(old&&old.length===t.stops.length) t.stops.forEach((s,i)=>s.done=old[i].done);
+    applyCorr(t); }
   return t;
 }
 function fillArts(ul,cols){ ul.textContent=""; cols.flatMap(artItems).forEach(it=>{ const li=document.createElement("li"); if(it.qty){const b=document.createElement("b");b.textContent=it.qty+"×";li.append(b);} li.append(it.name); ul.append(li); }); }
@@ -1186,6 +1195,48 @@ async function geocodeTour(){
     $("geoState").textContent=miss.length?`Fertig. Nicht gefunden: Stopp ${miss.join(", ")}. Diese Stopps fehlen auf der Karte, Google Maps findet sie trotzdem über die Adresse.`:"Fertig, alle Adressen gefunden. Die Punkte können einige Meter neben dem Haus liegen.";
   }catch(x){ $("geoState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal versuchen."; }
   geoRunning=false; $("geoBtn").disabled=false; routeTour(); $("geoBox").hidden=!tour.stops.some(s=>!s.ll);
+}
+// Eigene Hauspunkte: pro Adresse nur auf diesem Handy gespeichert (localStorage navi-korrektur) und bei jeder Tour
+// mit derselben Adresse benutzt, für Karte, Google-Link, Haus links/rechts und Ansage.
+const CORR_KEY="navi-korrektur", OSM_KEY="navi-osmpunkte", WARN_M=80;
+const jget=k=>{ try{ return JSON.parse(localStorage.getItem(k)||"{}")||{}; }catch(e){ return {}; } };
+const jset=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} };
+const addrKey=s=>s.addr?(s.addr+"|"+(((s.town||"").match(/\d{5}/)||[""])[0])).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/[^a-z0-9äöü|]/g,""):"";
+function applyCorr(t){ const c=jget(CORR_KEY);
+  t.stops.forEach(s=>{ const k=addrKey(s), p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; } }); }
+function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s.ll;
+  s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.said=false;
+  if(k){ const c=jget(CORR_KEY); c[k]=s.ll; jset(CORR_KEY,c); }
+  map.closePopup(); corrUi(); render(); routeTour(); toast(`Hauspunkt für Stopp ${i+1} gespeichert`); }
+function resetPos(i){ const s=tour.stops[i], k=addrKey(s), c=jget(CORR_KEY); delete c[k]; jset(CORR_KEY,c);
+  if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; s.said=false;
+  map.closePopup(); corrUi(); render(); routeTour(); checkTour(); toast(`Stopp ${i+1}: Punkt aus der Routendatei`); }
+function corrUi(){ $("corrInfo").textContent="Eigene Hauspunkte: "+Object.keys(jget(CORR_KEY)).length; }
+// Abgleich: jede Adresse bei OpenStreetMap suchen (nur Straße, Hausnummer, Ort) und mit dem Punkt aus der .bcr vergleichen.
+// Nur wenn OpenStreetMap genau dieses Haus kennt; mehr als 80 m Abstand = ⚠. Ergebnisse bleiben auf dem Handy, damit
+// dieselbe Adresse nicht jeden Tag neu gesucht wird.
+let checkSeq=0, lastAsk=0;
+async function checkOne(s){
+  const m=(s.town||"").match(/^(\d{5})\s+(.+)$/), u=new URL("https://nominatim.openstreetmap.org/search");
+  Object.entries({street:s.addr,postalcode:m?m[1]:"",city:m?m[2]:s.town,format:"jsonv2",limit:"1",countrycodes:"de",addressdetails:"1","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
+  const w=lastAsk+1100-Date.now(); if(w>0) await new Promise(ok=>setTimeout(ok,w)); lastAsk=Date.now();
+  const r=await fetch(u.toString()); if(!r.ok) throw new Error("HTTP "+r.status);
+  const h=(await r.json())[0];
+  return h&&h.address&&h.address.house_number?[+h.lat,+h.lon]:0; // 0: OpenStreetMap kennt das Haus nicht genau
+}
+async function checkTour(){
+  if(!tour||!bcrTour||!pdfTour) return; const seq=++checkSeq, t=tour, cache=jget(OSM_KEY);
+  for(const s of t.stops){
+    if(!s.ll||!s.addr||!s.town||s.fixed) continue;
+    const k=addrKey(s); let p=cache[k];
+    if(p===undefined){ try{ p=await checkOne(s); }catch(e){ break; }
+      if(seq!==checkSeq) return; const ks=Object.keys(cache); if(ks.length>3000) delete cache[ks[0]]; cache[k]=p; jset(OSM_KEY,cache); }
+    if(tour!==t) return;
+    if(p&&!s.fixed){ s.osm=p; s.warn=dist(p,s.ll)>WARN_M; }
+  }
+  if(seq!==checkSeq||tour!==t) return;
+  const w=t.stops.map((s,i)=>s.warn&&!s.fixed?i+1:0).filter(Boolean); render();
+  if(w.length) toast(`⚠ Hauspunkt prüfen bei Stopp ${w.join(", ")}`);
 }
 // Fahrstrecke über Straßen berechnen (OSRM-Routenserver). Es gehen nur Koordinaten raus.
 // Erst der Server von openstreetmap.de (FOSSGIS), bei Problemen der OSRM-Demoserver.
@@ -1336,7 +1387,11 @@ function render(){
   if(cur>=tour.stops.length||cur<0) cur=tour.stops.findIndex(s=>!s.done);
   const nextIdx=cur;
   tour.stops.forEach((s,i)=>{
-    const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"");
+    const warn=s.warn&&!s.fixed&&s.osm;
+    const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn?" warn":"");
+    if(warn&&!s.done){ L.polyline([s.ll,s.osm],{color:"#f59e0b",weight:2,dashArray:"4 6"}).addTo(layer);
+      L.marker(s.osm,{icon:L.divIcon({className:"",html:'<div class="osmpin">?</div>',iconSize:[20,20],iconAnchor:[10,10]}),title:`Stopp ${i+1} laut OpenStreetMap`}).addTo(layer)
+        .on("click",async()=>{ if(await ask(`Hauspunkt für Stopp ${i+1} übernehmen?`,`Der orange Punkt ist die Stelle, die OpenStreetMap für ${s.addr} kennt. Er wird nur auf diesem Handy für diese Adresse gespeichert. Liegt das Haus woanders: lange auf das richtige Haus drücken.`,"Übernehmen","Abbrechen")) setPos(i,s.osm); }); }
     if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0}).addTo(layer);
     m.on("click",()=>pick(i)); markers.push(m); }
     const li=document.createElement("li");
@@ -1346,6 +1401,8 @@ function render(){
     if(s.name){li.querySelector(".name").textContent=s.name; fillAddr(li.querySelector(".addr"),s.addr);}
     else{fillAddr(li.querySelector(".name"),s.addr); li.querySelector("br").remove(); li.querySelector(".addr").remove();}
     if(s.notes&&s.notes.length){ const n=document.createElement("span"); n.className="snote"; n.textContent=s.notes.join(" "); li.querySelector(".t").append(n); }
+    if(warn||s.fixed){ const n=document.createElement("span"); n.className=warn?"pwarn":"pfix";
+      n.textContent=warn?`⚠ Hauspunkt prüfen: OpenStreetMap zeigt das Haus ca. ${Math.round(dist(s.ll,s.osm))} m entfernt`:"📍 Eigener Hauspunkt"; li.querySelector(".t").append(n); }
     const cb=li.querySelector("input"); cb.checked=s.done;
     cb.addEventListener("click",e=>e.stopPropagation());
     cb.addEventListener("change",()=>{s.done=cb.checked;if(s.done&&i===cur) cur=nextOpen(); render();});
@@ -1393,7 +1450,19 @@ function sideOnLine(ll,line,li){
   return best.cr>0?"links":"rechts";
 }
 function fit(){ const p=tour?tour.stops.filter(s=>s.ll).map(s=>s.ll):[]; if(p.length) map.fitBounds(L.latLngBounds(p).pad(0.12)); else map.setView([48.166,8.627],12); }
-function focusStop(i){ if(tour.stops[i].ll){ setFollow(false); map.setView(tour.stops[i].ll,16); } }
+function focusStop(i){ const s=tour.stops[i]; if(!s.ll) return; setFollow(false);
+  if(s.warn&&!s.fixed&&s.osm) map.fitBounds(L.latLngBounds([s.ll,s.osm]).pad(.6),{maxZoom:18}); else map.setView(s.ll,16); }
+// Lange auf die Karte drücken: Hauspunkt für den aktuellen oder den nächstgelegenen Stopp hierher setzen
+map.on("contextmenu",e=>{ if(!tour) return; const p=[e.latlng.lat,e.latlng.lng], c=[];
+  if(cur>=0) c.push(cur);
+  let ni=-1,nd=400; tour.stops.forEach((s,i)=>{ if(s.ll){ const d=dist(p,s.ll); if(d<nd){nd=d;ni=i;} } });
+  if(ni>=0&&!c.includes(ni)) c.push(ni);
+  if(!c.length) return;
+  const box=document.createElement("div"); box.className="posbox"; const b=document.createElement("b"); b.textContent="Hauspunkt hier setzen für:"; box.append(b);
+  c.forEach(i=>{ const s=tour.stops[i], x=document.createElement("button"); x.type="button"; x.className="btn";
+    x.textContent=`Stopp ${i+1} · ${s.addr||""}`; x.addEventListener("click",()=>setPos(i,p)); box.append(x);
+    if(s.fixed){ const r=document.createElement("button"); r.type="button"; r.className="btn"; r.textContent=`Stopp ${i+1}: eigenen Punkt entfernen`; r.addEventListener("click",()=>resetPos(i)); box.append(r); } });
+  L.popup({closeButton:true}).setLatLng(e.latlng).setContent(box).openOn(map); });
 // Nachführen: aus, sobald man selbst einen Stopp wählt oder die Karte verschiebt; der Knopf „Zur aktuellen Position“ schaltet es wieder ein
 let follow=true;
 function setFollow(on){ follow=on; const b=document.getElementById("toMe"); if(b) b.hidden=on||!carPos; }
@@ -1762,7 +1831,7 @@ async function loadFiles(files){
   if(!(tour&&files.length===1&&((isPdfOnly(files)&&!hadPdf)||(!isPdfOnly(files)&&!hadBcr)))) curId=null; // neue Tour, außer es wurde nur die fehlende Datei ergänzt
   const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit();
   if(pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
-  else routeTour();
+  else{ routeTour(); checkTour(); }
 }
 // Service Worker nur, damit sich die App installieren lässt. Das frühere Teilen-Ziel ist entfernt, Dateien öffnet man über „Tour öffnen“.
 if("serviceWorker" in navigator&&window.isSecureContext) navigator.serviceWorker.register("sw.js").catch(()=>{});
@@ -1784,6 +1853,12 @@ $("tourLink").addEventListener("click",e=>{
   else window.open(u,"_blank","noopener");
 });
 $("geoBtn").addEventListener("click",geocodeTour);
+corrUi();
+$("corrClear").addEventListener("click",async()=>{
+  if(!await ask("Eigene Hauspunkte löschen?","Alle selbst gesetzten Hauspunkte und gemerkten Adressen werden von diesem Handy entfernt. Danach gelten wieder die Punkte aus der Routendatei.","Löschen","Abbrechen")) return;
+  try{ localStorage.removeItem(CORR_KEY); localStorage.removeItem(OSM_KEY); }catch(e){}
+  if(tour) tour.stops.forEach(s=>{ if(s.fixed){ if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; } s.warn=false; s.osm=null; });
+  corrUi(); if(tour){ render(); routeTour(); checkTour(); } toast("Eigene Hauspunkte gelöscht"); });
 // Haken per Wischen in der Stoppliste:
 // - auf einem Kästchen anfangen und über weitere Kästchen ziehen: alle bekommen denselben Zustand (viele auf einmal an oder aus)
 // - eine Zeile waagrecht wischen: nach rechts = erledigt, nach links = Haken weg
@@ -1812,7 +1887,7 @@ $("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));
 $("setClose").addEventListener("click",()=>setOpen(false));
 $("sim").addEventListener("click",()=>{ if(simTimer){ setOpen(false); $("map").scrollIntoView({behavior:"smooth",block:"center"}); } });
 $("clear").addEventListener("click",async()=>{
-  if(!await ask("Tour löschen?","Die aktuelle und alle gespeicherten Touren (bis zu 3) werden mit allen Adressen und Haken von diesem Handy entfernt.","Ja, löschen","Abbrechen")) return;
+  if(!await ask("Tour löschen?","Die aktuelle und alle gespeicherten Touren (bis zu 3) werden mit allen Adressen und Haken von diesem Handy entfernt. Eigene Hauspunkte bleiben, die lassen sich in den Einstellungen löschen.","Ja, löschen","Abbrechen")) return;
   $("confirmYes").click(); toast("Tour gelöscht"); });
 $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
 $("confirmYes").addEventListener("click",()=>{setSideBar("");curId=null;try{localStorage.removeItem(TOUR_KEY);localStorage.removeItem(TOURS_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();lastTourUi();});
@@ -1858,7 +1933,7 @@ function saveTour(){ try{
 function restoreTour(d){
   bcrTour=d.bcr; pdfTour=d.pdf; const t=mergeTours(); if(!t) return false;
   t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; if(!s.ll&&d.ll&&d.ll[i]) s.ll=d.ll[i]; }); tour=t; cur=typeof d.cur==="number"?d.cur:0; curId=d.id;
-  $("lastTour").hidden=true; loadedInfo(); render(); fit(); routeTour(); return true; }
+  $("lastTour").hidden=true; loadedInfo(); render(); fit(); routeTour(); checkTour(); return true; }
 const WD=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
 function dayLabel(day){ const m=String(day||"").match(/(\d{4})-(\d\d)-(\d\d)/); if(!m) return "";
   const d=new Date(+m[1],+m[2]-1,+m[3]); return `${WD[d.getDay()]}, ${m[3]}.${m[2]}.`; }

@@ -769,6 +769,11 @@ body.drive #sideBar.links,body.drive #sideBar.rechts,body.sim #sideBar.links,bod
 .stop .snote{display:block;font-size:.82rem;color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:4px;padding:1px 5px;margin-top:2px;overflow-wrap:anywhere}
 .stop.is-done .snote{background:none;color:var(--done)}
 .pin.warn{box-shadow:0 0 0 3px #f59e0b}
+.stop{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.pinbar{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));z-index:2100;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;max-width:calc(100vw - 32px);background:var(--surface);color:var(--fg);padding:10px 12px;border-radius:14px;box-shadow:0 8px 24px rgb(0 0 0 / .25);font-weight:600}
+.pinbar[hidden]{display:none}
+.dragpin{font-size:38px;line-height:1;filter:drop-shadow(0 2px 2px rgb(0 0 0 / .4))}
+.footman{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;line-height:1;background:#fff;border:1.5px solid #3d5a80;box-shadow:0 1px 2px rgb(0 0 0 / .3)}
 .osmpin{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:700 12px var(--font-body);background:#f59e0b;color:#1f1300;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0 / .4)}
 .stop .pwarn{display:block;font-size:.82rem;color:#7a4b00;background:color-mix(in srgb,#f59e0b 22%,transparent);border-radius:4px;padding:1px 5px;margin-top:2px}
 .stop .pfix{display:block;font-size:.78rem;color:var(--muted,#667);margin-top:2px}
@@ -939,7 +944,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
     <div class="opts"><button class="btn" id="sim" type="button">▶ Fahrt simulieren</button><label for="simSel">Tempo <select id="simSel"><option value="0">1 (langsam)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (schnell)</option></select></label></div>
     <p class="hint">Zeigt ohne GPS, wie die Fahrt abläuft und Stopps abgehakt werden. Die Einstellungen schließen sich dabei. Zum Beenden hier wieder auf „Simulation stoppen“ tippen.</p>
     <div class="opts"><span id="corrInfo">Eigene Hauspunkte: 0</span><button class="btn" id="corrClear" type="button">Eigene Hauspunkte löschen</button></div>
-    <p class="hint">Liegt ein Haus auf der Karte falsch: lange auf das richtige Haus drücken und „Hauspunkt hier setzen“ tippen. Der Punkt bleibt nur auf diesem Handy und gilt für jede weitere Tour mit dieser Adresse. Stopps mit ⚠ liegen weit weg von der Stelle, die OpenStreetMap für die Adresse kennt.</p>
+    <p class="hint">Liegt ein Haus auf der Karte falsch: lange auf die Adresse in der Liste drücken und den Pin auf das richtige Haus ziehen, oder lange auf das richtige Haus in der Karte drücken und „Hauspunkt hier setzen“ tippen. Der Punkt bleibt nur auf diesem Handy und gilt für jede weitere Tour mit dieser Adresse. Stopps mit ⚠ liegen weit weg von der Stelle, die OpenStreetMap für die Adresse kennt.</p>
     <div class="opts"><button class="btn primary" id="setClose" type="button">Fertig</button></div>
   </section>
 
@@ -1021,6 +1026,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
   <div class="dock-ghost" id="dockGhost" hidden></div>
   <div class="dock-zones" id="dockZones" hidden><div class="z-left"></div><div class="z-right"></div><div class="z-top"></div><div class="z-bottom"></div></div>
   <div class="toast" id="toast" role="status" hidden></div>
+  <div class="pinbar" id="pinBar" hidden><span id="pinTxt">Pin auf das richtige Haus ziehen</span><button class="btn primary" id="pinSave" type="button">Speichern</button><button class="btn" id="pinCancel" type="button">Abbrechen</button></div>
   <footer>Kartendaten: OpenStreetMap-Mitwirkende und die gewählten Kartendienste. Der Kartendienst erfährt nur, welchen Kartenausschnitt du ansiehst. Google Maps bekommt beim Tippen auf die Google-Knöpfe nur Adresse bzw. Koordinaten, keine Namen. Die Fahrstrecke berechnet der Routenserver von openstreetmap.de (FOSSGIS) aus den Koordinaten der Stopps.</footer>
 </div>
 
@@ -1418,6 +1424,7 @@ function render(){
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
   renderGoogle(); scrollCurrent(); if(document.body.classList.contains("drive")) updateApproach(); saveTour();
+  if(nextIdx>=0) loadFoot(nextIdx);
   $("prev").disabled=nextIdx===0;
   if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;setSideBar("");$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
   else{const s=tour.stops[nextIdx];nc.hidden=false;$("nextDone").hidden=false;$("nextOsm").hidden=false;$("nextGmaps").hidden=false;
@@ -1448,6 +1455,38 @@ function sideOnLine(ll,line,li){
   }
   if(!best||best.d<4||best.d>60) return "";
   return best.cr>0?"links":"rechts";
+}
+// Fußwege: rund um den aktuellen und den nächsten Stopp Fußwege, Pfade und Treppen aus OpenStreetMap (Overpass) laden.
+// Es geht nur der Kartenausschnitt raus (Mittelpunkt + 250 m), keine Adresse. Gezeigt erst ab Zoomstufe 16.
+const OVERPASS=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
+const footLayer=L.layerGroup(), footWays=new Set(), footDone=[]; let footBusy=false;
+const FOOT_ZOOM=16;
+function footShow(){ const on=map.getZoom()>=FOOT_ZOOM; if(on&&!map.hasLayer(footLayer)) footLayer.addTo(map); else if(!on&&map.hasLayer(footLayer)) map.removeLayer(footLayer); }
+map.on("zoomend",footShow);
+function drawFoot(w){
+  const g=w.geometry.map(q=>[q.lat,q.lon]); if(g.length<2) return;
+  L.polyline(g,{color:"#fff",weight:6,opacity:.75,interactive:false}).addTo(footLayer);
+  L.polyline(g,{color:"#3d5a80",weight:3,dashArray:"3 7",lineCap:"round",interactive:false}).addTo(footLayer);
+  let len=0; const seg=[]; for(let k=1;k<g.length;k++){ const d=dist(g[k-1],g[k]); seg.push(d); len+=d; }
+  if(len<20) return;
+  let h=len/2, k=0; while(k<seg.length-1&&h>seg[k]){ h-=seg[k]; k++; } const f=seg[k]?h/seg[k]:0;
+  const mid=[g[k][0]+(g[k+1][0]-g[k][0])*f, g[k][1]+(g[k+1][1]-g[k][1])*f];
+  L.marker(mid,{icon:L.divIcon({className:"",html:'<div class="footman">🚶</div>',iconSize:[20,20],iconAnchor:[10,10]}),interactive:false,keyboard:false}).addTo(footLayer);
+}
+async function loadFoot(i){
+  if(footBusy||!tour) return; const s=tour.stops[i]; if(!s||!s.ll) return;
+  if(footDone.some(c=>dist(c,s.ll)<120)) return;
+  footBusy=true; const at=s.ll.slice();
+  const q=`[out:json][timeout:20];way["highway"~"^(footway|path|steps|pedestrian)$"]["access"!~"^(private|no)$"](around:250,${at[0].toFixed(5)},${at[1].toFixed(5)});out geom;`;
+  try{
+    for(const u of OVERPASS){ try{
+      const r=await fetch(u,{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
+      if(!r.ok) continue; const j=await r.json();
+      (j.elements||[]).forEach(w=>{ if(w.type==="way"&&w.geometry&&!footWays.has(w.id)){ footWays.add(w.id); drawFoot(w); } });
+      footDone.push(at); break; }catch(e){} }
+  } finally{ footBusy=false; }
+  footShow();
+  if(tour&&cur>=0){ const n=[cur,cur+1].find(k=>tour.stops[k]&&tour.stops[k].ll&&!footDone.some(c=>dist(c,tour.stops[k].ll)<120)); if(n!==undefined&&n!==i) loadFoot(n); }
 }
 function fit(){ const p=tour?tour.stops.filter(s=>s.ll).map(s=>s.ll):[]; if(p.length) map.fitBounds(L.latLngBounds(p).pad(0.12)); else map.setView([48.166,8.627],12); }
 function focusStop(i){ const s=tour.stops[i]; if(!s.ll) return; setFollow(false);
@@ -1859,19 +1898,33 @@ $("corrClear").addEventListener("click",async()=>{
   try{ localStorage.removeItem(CORR_KEY); localStorage.removeItem(OSM_KEY); }catch(e){}
   if(tour) tour.stops.forEach(s=>{ if(s.fixed){ if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; } s.warn=false; s.osm=null; });
   corrUi(); if(tour){ render(); routeTour(); checkTour(); } toast("Eigene Hauspunkte gelöscht"); });
+// Pin verschieben: lange auf eine Adresse in der Liste drücken, dann den Pin auf das richtige Haus ziehen (oder auf die Karte tippen).
+let pinEdit=null;
+function startPin(i){ if(!tour) return; const s=tour.stops[i]; endPin();
+  const at=s.ll||(carPos?carPos.slice():[map.getCenter().lat,map.getCenter().lng]);
+  const m=L.marker(at,{draggable:true,autoPan:true,zIndexOffset:3000,icon:L.divIcon({className:"",html:'<div class="dragpin">📍</div>',iconSize:[38,38],iconAnchor:[19,36]})}).addTo(map);
+  const tap=e=>m.setLatLng(e.latlng); map.on("click",tap);
+  pinEdit={i,m,tap}; setFollow(false);
+  $("pinTxt").textContent=`Stopp ${i+1}: Pin auf das richtige Haus ziehen`; $("pinBar").hidden=false;
+  if(!document.body.classList.contains("drive")) $("map").scrollIntoView({behavior:"smooth",block:"center"});
+  map.setView(at,Math.max(map.getZoom(),18)); if(navigator.vibrate) try{navigator.vibrate(30);}catch(e){} }
+function endPin(){ if(!pinEdit) return; map.off("click",pinEdit.tap); pinEdit.m.remove(); pinEdit=null; $("pinBar").hidden=true; }
+$("pinCancel").addEventListener("click",endPin);
+$("pinSave").addEventListener("click",()=>{ if(!pinEdit) return; const {i,m}=pinEdit, q=m.getLatLng(); endPin(); setPos(i,[q.lat,q.lng]); });
 // Haken per Wischen in der Stoppliste:
 // - auf einem Kästchen anfangen und über weitere Kästchen ziehen: alle bekommen denselben Zustand (viele auf einmal an oder aus)
 // - eine Zeile waagrecht wischen: nach rechts = erledigt, nach links = Haken weg
-(()=>{ const list=$("list"); let drag=null, swipe=null, eat=false;
+(()=>{ const list=$("list"); let drag=null, swipe=null, eat=false, hold=null, held=false;
   const liAt=(x,y)=>{ const el=document.elementFromPoint(x,y); return el&&el.closest?el.closest("#list .stop"):null; };
   const mark=(li,on)=>{ const cb=li.querySelector("input"); cb.checked=on; li.classList.toggle("is-done",on); drag.touched.add(+li.dataset.i); };
   const swallow=()=>{ eat=true; setTimeout(()=>eat=false,500); };
   list.addEventListener("pointerdown",e=>{ const li=e.target.closest(".stop"); if(!li||!tour) return;
     if(e.target.matches("input")){ e.preventDefault(); drag={on:!e.target.checked,touched:new Set()}; mark(li,drag.on);
       try{ list.setPointerCapture(e.pointerId); }catch(x){} swallow(); }
-    else swipe={x:e.clientX,y:e.clientY,li}; });
-  list.addEventListener("pointermove",e=>{ if(!drag) return; e.preventDefault(); const li=liAt(e.clientX,e.clientY); if(li) mark(li,drag.on); });
-  const end=e=>{
+    else{ swipe={x:e.clientX,y:e.clientY,li}; clearTimeout(hold); hold=setTimeout(()=>{ hold=null; swipe=null; held=true; eat=true; startPin(+li.dataset.i); },600); } });
+  list.addEventListener("contextmenu",e=>{ if(e.target.closest(".stop")) e.preventDefault(); });
+  list.addEventListener("pointermove",e=>{ if(hold&&swipe&&Math.hypot(e.clientX-swipe.x,e.clientY-swipe.y)>10){ clearTimeout(hold); hold=null; } if(!drag) return; e.preventDefault(); const li=liAt(e.clientX,e.clientY); if(li) mark(li,drag.on); });
+  const end=e=>{ clearTimeout(hold); hold=null; if(held){ held=false; swallow(); }
     if(drag){ const d=drag; drag=null; d.touched.forEach(i=>tour.stops[i].done=d.on);
       if(d.on&&d.touched.has(cur)) cur=nextOpen(); render(); swallow();
       if(d.touched.size>1) toast(`${d.touched.size} Stopps ${d.on?"abgehakt":"wieder offen"}`); }
@@ -1880,6 +1933,7 @@ $("corrClear").addEventListener("click",async()=>{
         if(on&&i===cur) cur=nextOpen(); swallow(); render(); toast(on?`Stopp ${i+1} abgehakt`:`Haken bei Stopp ${i+1} entfernt`); } }
     swipe=null; };
   list.addEventListener("pointerup",end); list.addEventListener("pointercancel",end);
+  ["pointerup","pointercancel"].forEach(t=>window.addEventListener(t,()=>{ clearTimeout(hold); hold=null; if(held){ held=false; swallow(); } })); // Finger kann nach dem Scrollen zur Karte woanders losgelassen werden
   list.addEventListener("click",e=>{ if(eat){ e.preventDefault(); e.stopPropagation(); } },true); // Klick nach dem Wischen nicht doppelt zählen
 })();
 const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o));};
@@ -1890,7 +1944,7 @@ $("clear").addEventListener("click",async()=>{
   if(!await ask("Tour löschen?","Die aktuelle und alle gespeicherten Touren (bis zu 3) werden mit allen Adressen und Haken von diesem Handy entfernt. Eigene Hauspunkte bleiben, die lassen sich in den Einstellungen löschen.","Ja, löschen","Abbrechen")) return;
   $("confirmYes").click(); toast("Tour gelöscht"); });
 $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
-$("confirmYes").addEventListener("click",()=>{setSideBar("");curId=null;try{localStorage.removeItem(TOUR_KEY);localStorage.removeItem(TOURS_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();lastTourUi();});
+$("confirmYes").addEventListener("click",()=>{setSideBar("");footLayer.clearLayers();footWays.clear();footDone.length=0;endPin();curId=null;try{localStorage.removeItem(TOUR_KEY);localStorage.removeItem(TOURS_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();lastTourUi();});
 // Alle abhaken / alle Haken weg (Liste vor der Fahrt)
 $("allChk").addEventListener("change",e=>{ if(!tour) return; const on=e.target.checked; tour.stops.forEach(s=>s.done=on); backTo=-1;
   cur=on?-1:0; render(); toast(on?"Alle Stopps abgehakt":"Alle Haken entfernt"); });

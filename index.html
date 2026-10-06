@@ -1140,6 +1140,8 @@ function parseAusfahrliste(words){
       const dy=l.y-head.y;
       if(dy<=25.5){ const r=right(l); codes.push(...l.w.filter(w=>w.x>=320).map(w=>w.s)); if(!town&&/^\d{5}\s/.test(r)) town=r;
         const t=left(l); if(t&&!l.w.some(w=>/^\d+$/.test(w.s)&&[79,169,260,351].some(q=>Math.abs(w.x-q)<5))) notes.push(t); }
+      // Hinweis geht weiter, wenn die Zeile klein beginnt und keine Mengenzahl hat (z. B. „die Türe.“); Backwaren beginnen groß
+      else if(notes.length&&!art.length&&/^[a-zäöüß]/.test(left(l))&&!l.w.some(w=>/^\d+$/.test(w.s))) notes.push(left(l));
       else art.push(l);
     });
     return {no:head.w[0].s, addr:left(head), town, notes, tags:tagsOf(codes), articles:colsOf(art.map(l=>({w:l.w.filter(w=>w.x>=70)})),[165,255,345,1e9])};

@@ -769,6 +769,13 @@ body.drive #sideBar.links,body.drive #sideBar.rechts,body.sim #sideBar.links,bod
 .stop .snote{display:block;font-size:.82rem;color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:4px;padding:1px 5px;margin-top:2px;overflow-wrap:anywhere}
 .stop.is-done .snote{background:none;color:var(--done)}
 .pin.warn{box-shadow:0 0 0 3px #f59e0b}
+.stop.tag-pro:not(.is-next){background:color-mix(in srgb,#facc15 24%,var(--surface))}
+.stop.tag-rkl:not(.is-next){background:color-mix(in srgb,#ef4444 15%,var(--surface))}
+.stop.tag-trk:not(.is-next){background:color-mix(in srgb,#22c55e 17%,var(--surface))}
+.stop.tag-pro{box-shadow:inset 6px 0 0 #eab308}.stop.tag-rkl{box-shadow:inset 6px 0 0 #ef4444}.stop.tag-trk{box-shadow:inset 6px 0 0 #22c55e}
+.tags{display:block}.tagchip{display:inline-block;font-size:.75rem;font-weight:700;line-height:1.3;padding:1px 7px;border-radius:999px;margin:3px 4px 0 0}
+.tagchip.pro{background:#fde68a;color:#713f12}.tagchip.rkl{background:#fecaca;color:#7f1d1d}.tagchip.trk{background:#bbf7d0;color:#14532d}
+#nextTags:empty{display:none}
 .stop{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .pinbar{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));z-index:2100;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;max-width:calc(100vw - 32px);background:var(--surface);color:var(--fg);padding:10px 12px;border-radius:14px;box-shadow:0 8px 24px rgb(0 0 0 / .25);font-weight:600}
 .pinbar[hidden]{display:none}
@@ -979,6 +986,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
       <div class="next-card" id="nextCard">
         <span class="lbl" id="nextLbl">Nächster Stopp</span>
         <div class="place"><span class="who" id="nextWho">–</span><span class="town" id="nextTown"></span></div>
+        <span class="tags" id="nextTags"></span>
         <span id="nextAddr"></span>
         <span class="side-hint" id="nextSide" hidden></span>
         <div class="note" id="nextNote" hidden></div>
@@ -1096,6 +1104,11 @@ async function readPdfWords(data){
   }
   return words;
 }
+// Kennzeichen in der Kopfzeile eines Stopps (rechts neben dem Namen): PRO… = Probekunde, RKL = Reklamation, TRK/TKR = Trinkgeld
+const TAGS=[{re:/^RKL/,k:"rkl",t:"Reklamation"},{re:/^PRO/,k:"pro",t:"Probe"},{re:/^(TRK|TKR)/,k:"trk",t:"Trinkgeld"}];
+function tagsOf(tokens){ const out=[]; tokens.forEach(x=>{ if(!/^[A-Z0-9]{3,8}$/.test(x)) return; const T=TAGS.find(T=>T.re.test(x)); if(T&&!out.includes(T.k)) out.push(T.k); });
+  return TAGS.map(T=>T.k).filter(k=>out.includes(k)); } // Reihenfolge: Reklamation, Probe, Trinkgeld
+function fillTags(el,tags){ el.textContent=""; (tags||[]).forEach(k=>{ const T=TAGS.find(T=>T.k===k), c=document.createElement("span"); c.className="tagchip "+k; c.textContent=T.t; el.append(c); }); }
 function parseAusfahrliste(words){
   // Wörter zu Zeilen gruppieren
   words.sort((a,b)=>a.y-b.y||a.x-b.x);
@@ -1122,14 +1135,14 @@ function parseAusfahrliste(words){
     const head=body[hi], block=body.slice(hi+1,k+1<heads.length?heads[k+1]:body.length);
     const left=l=>l.w.filter(w=>w.x>=80&&w.x<320).map(w=>w.s).join(" ");
     const right=l=>l.w.filter(w=>w.x>=320).map(w=>w.s).join(" ");
-    let town=""; const notes=[], art=[];
+    let town=""; const notes=[], art=[], codes=head.w.filter(w=>w.x>=320).map(w=>w.s);
     block.forEach(l=>{
       const dy=l.y-head.y;
-      if(dy<=25.5){ const r=right(l); if(!town&&/^\d{5}\s/.test(r)) town=r;
+      if(dy<=25.5){ const r=right(l); codes.push(...l.w.filter(w=>w.x>=320).map(w=>w.s)); if(!town&&/^\d{5}\s/.test(r)) town=r;
         const t=left(l); if(t&&!l.w.some(w=>/^\d+$/.test(w.s)&&[79,169,260,351].some(q=>Math.abs(w.x-q)<5))) notes.push(t); }
       else art.push(l);
     });
-    return {no:head.w[0].s, addr:left(head), town, notes, articles:colsOf(art.map(l=>({w:l.w.filter(w=>w.x>=70)})),[165,255,345,1e9])};
+    return {no:head.w[0].s, addr:left(head), town, notes, tags:tagsOf(codes), articles:colsOf(art.map(l=>({w:l.w.filter(w=>w.x>=70)})),[165,255,345,1e9])};
   });
   return {name:tm?tm[1]:"Tour", date:dm?dm[2]:"", km:km?km[1]:"", load, stops};
 }
@@ -1158,11 +1171,11 @@ function mergeTours(){
     t={name:bcrTour.name,time:bcrTour.time,stops:bcrTour.stops.map((s,i)=>({...s,name:"",notes:[],articles:[],town:s.town||"",exact:true}))};
     if(pdfTour){
       t.name=pdfTour.name+(pdfTour.date?" · "+pdfTour.date:"");
-      t.stops.forEach((s,i)=>{ const q=pdfTour.stops.find(q=>String(q.no)===String(i+1)); if(q){ s.addr=q.addr; s.town=q.town; s.notes=q.notes; s.articles=q.articles; } });
+      t.stops.forEach((s,i)=>{ const q=pdfTour.stops.find(q=>String(q.no)===String(i+1)); if(q){ s.addr=q.addr; s.town=q.town; s.notes=q.notes; s.articles=q.articles; s.tags=q.tags||[]; } });
     }
   } else if(pdfTour){
     t={name:pdfTour.name+(pdfTour.date?" · "+pdfTour.date:""),time:null,
-       stops:pdfTour.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,articles:q.articles,ll:null,via:[],done:false}))};
+       stops:pdfTour.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,tags:q.tags||[],articles:q.articles,ll:null,via:[],done:false}))};
   }
   if(t){ t.load=pdfTour?pdfTour.load:[]; t.km=pdfTour?pdfTour.km:"";
     if(old&&old.length===t.stops.length) t.stops.forEach((s,i)=>s.done=old[i].done);
@@ -1401,11 +1414,12 @@ function render(){
     if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0}).addTo(layer);
     m.on("click",()=>pick(i)); markers.push(m); }
     const li=document.createElement("li");
-    li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":""); li.tabIndex=0; li.dataset.i=i;
+    li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":"")+(s.tags&&s.tags.length?" tag-"+s.tags[0]:""); li.tabIndex=0; li.dataset.i=i;
     li.innerHTML=`<span class="n">${i+1}</span><span class="t"><span class="name"></span><br><span class="addr"></span></span><span class="town"></span><input type="checkbox" aria-label="Stopp ${i+1} erledigt">`;
     fillTown(li.querySelector(".town"),s.town);
     if(s.name){li.querySelector(".name").textContent=s.name; fillAddr(li.querySelector(".addr"),s.addr);}
     else{fillAddr(li.querySelector(".name"),s.addr); li.querySelector("br").remove(); li.querySelector(".addr").remove();}
+    if(s.tags&&s.tags.length){ const g=document.createElement("span"); g.className="tags"; fillTags(g,s.tags); li.querySelector(".t").append(g); }
     if(s.notes&&s.notes.length){ const n=document.createElement("span"); n.className="snote"; n.textContent=s.notes.join(" "); li.querySelector(".t").append(n); }
     if(warn||s.fixed){ const n=document.createElement("span"); n.className=warn?"pwarn":"pfix";
       n.textContent=warn?`⚠ Hauspunkt prüfen: OpenStreetMap zeigt das Haus ca. ${Math.round(dist(s.ll,s.osm))} m entfernt`:"📍 Eigener Hauspunkt"; li.querySelector(".t").append(n); }
@@ -1426,10 +1440,10 @@ function render(){
   renderGoogle(); scrollCurrent(); if(document.body.classList.contains("drive")) updateApproach(); saveTour();
   if(nextIdx>=0) loadFoot(nextIdx);
   $("prev").disabled=nextIdx===0;
-  if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;setSideBar("");$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
+  if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTags").textContent="";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;setSideBar("");$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
   else{const s=tour.stops[nextIdx];nc.hidden=false;$("nextDone").hidden=false;$("nextOsm").hidden=false;$("nextGmaps").hidden=false;
     $("nextGmaps").href=gmapsUrl([s]);
-    fillTown($("nextTown"),s.town||"");
+    fillTown($("nextTown"),s.town||""); fillTags($("nextTags"),s.tags);
     $("nextLbl").textContent=s.done?"Aktueller Stopp · bereits erledigt":"Aktueller Stopp";
     if(s.name){$("nextWho").textContent=`${nextIdx+1}. ${s.name}`;fillAddr($("nextAddr"),s.addr);}
     else{fillAddr($("nextWho"),s.addr);$("nextWho").prepend(`${nextIdx+1}. `);$("nextAddr").textContent="";}

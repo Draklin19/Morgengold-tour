@@ -2010,7 +2010,7 @@ function saveTour(){ try{
   let a=loadTours(); const day=tourDay(), title=tourTitle(), key=title+"|"+day;
   let d=curId&&a.find(x=>x.id===curId) || a.find(x=>x.key===key);
   if(!d){ d={id:"t"+Date.now()}; a.unshift(d); }
-  curId=d.id; Object.assign(d,{key,day,title,t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),said:tour.stops.map(s=>!!s.said),at:tour.stops.map(s=>s.at||0),ll:tour.stops.map(s=>s.ll)});
+  curId=d.id; Object.assign(d,{key,day,title,t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),said:tour.stops.map(s=>!!s.said),at:tour.stops.map(s=>s.at||0),drive:document.body.classList.contains("drive"),ll:tour.stops.map(s=>s.ll)});
   a=[d,...a.filter(x=>x!==d)].slice(0,MAX_TOURS); // zuletzt benutzte vorne, die 4. fällt weg
   storeTours(a);
 }catch(e){} }
@@ -2032,8 +2032,15 @@ function lastTourUi(){ const box=$("lastTour"), a=tour?[]:loadTours(); box.inner
     b.textContent=`↺ ${dayLabel(d.day)||"Gespeicherte Tour"} · Tour ${d.title||""} (${n} Stopps)`.replace(" ·  (","("); 
     b.addEventListener("click",()=>{ const x=loadTours().find(q=>q.id===d.id); if(!x||!restoreTour(x)){ toast("Diese Tour ist nicht mehr gespeichert."); lastTourUi(); } });
     box.append(b); }); }
+// Neustart (z. B. Handy hat die App im Hintergrund beendet): Eine heute benutzte, noch nicht fertige Tour geht direkt weiter.
+// War man im Fahrmodus, fragt die App „Fahrt fortsetzen?“ (zugleich die Standortfrage).
 (()=>{ const a=loadTours(), d=a.slice().sort((x,y)=>y.t-x.t)[0];
-  if(d&&Date.now()-d.t<10*60e3&&restoreTour(d)) return;
+  const sameDay=d&&new Date(d.t).toDateString()===new Date().toDateString(), open=d&&(d.done||[]).some(x=>!x)||(d&&!(d.done||[]).length);
+  if(d&&(Date.now()-d.t<10*60e3||(sameDay&&open))&&restoreTour(d)){
+    if(d.drive&&tour&&cur>=0) setTimeout(async()=>{
+      if(await ask("Fahrt fortsetzen?","Die App wurde neu gestartet. Mit „Fortsetzen“ geht es im Fahrmodus bei Stopp "+(cur+1)+" weiter. Dafür wird wieder dein Standort verwendet, er bleibt auf dem Handy. GPS schaltet sich spätestens um 10 Uhr automatisch aus.","Fortsetzen","Nein")){ stopSim(); enterDrive(); }
+      else saveTour(); },400);
+    return; }
   render(); fit(); lastTourUi(); // Karte bleibt leer, bis eine Tour geöffnet oder eine gespeicherte Tour geladen wird
 })();
 setTimeout(()=>{map.invalidateSize();fit();},200);

@@ -1379,7 +1379,7 @@ function renderGoogle(){
   }
 }
 // Sekunden als Stunden:Minuten. Erst auf ganze Minuten runden, dann teilen, damit es nie „1:60 h“ gibt, sondern „2:00 h“.
-// Uhrzeit beim Abhaken eines einzelnen Stopps merken; sie bleibt auch, wenn der Haken wieder entfernt wird
+// Uhrzeit nur beim automatischen Abhaken beim Ankommen merken (nicht von Hand); sie bleibt auch, wenn der Haken wieder entfernt wird
 function stamp(s){ if(s&&!s.at) s.at=Date.now(); }
 const hhmm=t=>{ const d=new Date(t); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); };
 function hm(sec){ const t=Math.round(sec/60); return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")} h`; }
@@ -1431,7 +1431,7 @@ function render(){
       n.textContent=warn?`⚠ Hauspunkt prüfen: OpenStreetMap zeigt das Haus ca. ${Math.round(dist(s.ll,s.osm))} m entfernt`:"📍 Eigener Hauspunkt"; li.querySelector(".t").append(n); }
     const cb=li.querySelector("input"); cb.checked=s.done;
     cb.addEventListener("click",e=>e.stopPropagation());
-    cb.addEventListener("change",()=>{s.done=cb.checked;if(s.done) stamp(s);if(s.done&&i===cur) cur=nextOpen(); render();});
+    cb.addEventListener("change",()=>{s.done=cb.checked;if(s.done&&i===cur) cur=nextOpen(); render();});
     li.addEventListener("click",()=>pick(i));
     li.addEventListener("keydown",e=>{if(e.key==="Enter")pick(i);});
     list.append(li);
@@ -1861,7 +1861,7 @@ const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
 new MeCtl().addTo(map);
 document.addEventListener("visibilitychange",async()=>{ if(gpsWatch!==null&&document.visibilityState==="visible"&&navigator.wakeLock){ try{wakeLock=await navigator.wakeLock.request("screen");}catch(e){} } });
 function goTo(i){ if(!tour) return; cur=i; render(); if(i>=0) focusStop(i); else fit(); }
-$("nextDone").addEventListener("click",()=>{ if(!tour||cur<0) return; tour.stops[cur].done=true; stamp(tour.stops[cur]); goTo(nextOpen()); });
+$("nextDone").addEventListener("click",()=>{ if(!tour||cur<0) return; tour.stops[cur].done=true; goTo(nextOpen()); });
 $("prev").addEventListener("click",()=>{ if(!tour) return; goTo(cur<0?tour.stops.length-1:Math.max(0,cur-1)); });
 $("jumpForm").addEventListener("submit",e=>{ e.preventDefault(); if(!tour) return;
   const v=$("jumpNo").value.trim(); const i=tour.stops.findIndex((s,k)=>String(s.no)===v||String(k+1)===v);
@@ -1945,11 +1945,11 @@ $("pinSave").addEventListener("click",()=>{ if(!pinEdit) return; const {i,m}=pin
   list.addEventListener("contextmenu",e=>{ if(e.target.closest(".stop")) e.preventDefault(); });
   list.addEventListener("pointermove",e=>{ if(hold&&swipe&&Math.hypot(e.clientX-swipe.x,e.clientY-swipe.y)>10){ clearTimeout(hold); hold=null; } if(!drag) return; e.preventDefault(); const li=liAt(e.clientX,e.clientY); if(li) mark(li,drag.on); });
   const end=e=>{ clearTimeout(hold); hold=null; if(held){ held=false; swallow(); }
-    if(drag){ const d=drag; drag=null; d.touched.forEach(i=>{ tour.stops[i].done=d.on; if(d.on&&d.touched.size===1) stamp(tour.stops[i]); });
+    if(drag){ const d=drag; drag=null; d.touched.forEach(i=>tour.stops[i].done=d.on);
       if(d.on&&d.touched.has(cur)) cur=nextOpen(); render(); swallow();
       if(d.touched.size>1) toast(`${d.touched.size} Stopps ${d.on?"abgehakt":"wieder offen"}`); }
     if(swipe&&e.type==="pointerup"){ const dx=e.clientX-swipe.x, dy=e.clientY-swipe.y;
-      if(Math.abs(dx)>60&&Math.abs(dy)<40){ const i=+swipe.li.dataset.i, on=dx>0; tour.stops[i].done=on; if(on) stamp(tour.stops[i]);
+      if(Math.abs(dx)>60&&Math.abs(dy)<40){ const i=+swipe.li.dataset.i, on=dx>0; tour.stops[i].done=on;
         if(on&&i===cur) cur=nextOpen(); swallow(); render(); toast(on?`Stopp ${i+1} abgehakt`:`Haken bei Stopp ${i+1} entfernt`); } }
     swipe=null; };
   list.addEventListener("pointerup",end); list.addEventListener("pointercancel",end);
@@ -1971,7 +1971,7 @@ $("allChk").addEventListener("change",e=>{ if(!tour) return; const on=e.target.c
 // Bericht: Tabelle (CSV, Semikolon für deutsches Excel) mit Nr., Adresse, Ort, erledigt und Uhrzeit. Ohne Kundennamen.
 $("reportBtn").addEventListener("click",async()=>{ if(!tour) return;
   const q=v=>{ v=String(v==null?"":v); return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
-  const day=dayLabel(tourDay())||tourDay(), rows=[["Bericht",tourTitle(),day],[],["Nr.","Straße und Hausnummer","Ort","Erledigt","Uhrzeit"]];
+  const day=dayLabel(tourDay())||tourDay(), rows=[["Bericht",tourTitle(),day],[],["Nr.","Straße und Hausnummer","Ort","Erledigt","Ankunft"]];
   tour.stops.forEach((s,i)=>rows.push([i+1,s.addr||"",s.town||"",s.done?"ja":"nein",s.at?hhmm(s.at):""]));
   const n=tour.stops.filter(s=>s.done).length, ts=tour.stops.filter(s=>s.at).map(s=>s.at);
   rows.push([],["Erledigt",`${n} von ${tour.stops.length}`]); if(ts.length) rows.push(["Erster Stopp",hhmm(Math.min(...ts))],["Letzter Stopp",hhmm(Math.max(...ts))]);

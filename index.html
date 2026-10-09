@@ -781,6 +781,10 @@ body.drive #sideBar.links,body.drive #sideBar.rechts,body.sim #sideBar.links,bod
 .pinbar{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));z-index:2100;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;max-width:calc(100vw - 32px);background:var(--surface);color:var(--fg);padding:10px 12px;border-radius:14px;box-shadow:0 8px 24px rgb(0 0 0 / .25);font-weight:600}
 .pinbar[hidden]{display:none}
 .dragpin{font-size:38px;line-height:1;filter:drop-shadow(0 2px 2px rgb(0 0 0 / .4))}
+body.drive .foot-halo{display:none}
+body.drive .foot-line{stroke:#8a9099;stroke-width:1.5px;stroke-opacity:.55}
+body.drive .footman{transform:scale(.7);opacity:.55;filter:grayscale(1)}
+.walkman{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;background:#fff;border:2px solid var(--route);box-shadow:0 1px 3px rgb(0 0 0 / .35)}
 .footman{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;line-height:1;background:#fff;border:1.5px solid #3d5a80;box-shadow:0 1px 2px rgb(0 0 0 / .3)}
 .osmpin{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:700 12px var(--font-body);background:#f59e0b;color:#1f1300;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0 / .4)}
 .stop .pwarn{display:block;font-size:.82rem;color:#7a4b00;background:color-mix(in srgb,#f59e0b 22%,transparent);border-radius:4px;padding:1px 5px;margin-top:2px}
@@ -1485,8 +1489,8 @@ function footShow(){ const on=map.getZoom()>=FOOT_ZOOM; if(on&&!map.hasLayer(foo
 map.on("zoomend",footShow);
 function drawFoot(w){
   const g=w.geometry.map(q=>[q.lat,q.lon]); if(g.length<2) return;
-  L.polyline(g,{color:"#fff",weight:6,opacity:.75,interactive:false}).addTo(footLayer);
-  L.polyline(g,{color:"#3d5a80",weight:3,dashArray:"3 7",lineCap:"round",interactive:false}).addTo(footLayer);
+  L.polyline(g,{color:"#fff",weight:6,opacity:.75,interactive:false,className:"foot-halo"}).addTo(footLayer);
+  L.polyline(g,{color:"#3d5a80",weight:3,dashArray:"3 7",lineCap:"round",interactive:false,className:"foot-line"}).addTo(footLayer);
   let len=0; const seg=[]; for(let k=1;k<g.length;k++){ const d=dist(g[k-1],g[k]); seg.push(d); len+=d; }
   if(len<20) return;
   let h=len/2, k=0; while(k<seg.length-1&&h>seg[k]){ h-=seg[k]; k++; } const f=seg[k]?h/seg[k]:0;
@@ -1555,13 +1559,13 @@ function advanceAfterDone(){ cur=nextOpen(); }
 // Abbiege-Ansagen: Route ab dem Standort mit Abbiegehinweisen (OSRM steps), Text auf Deutsch, jede Ansage nur einmal.
 let turns=[], turnSaid=new Set(), turnStop=-1, turnOn=true;
 try{ turnOn=localStorage.getItem("navi-abbiegen")!=="aus"; }catch(e){}
-async function routeSteps(base,from,to){
-  const r=await fetch(base+[from,to].map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true");
+async function routeSteps(base,pts){
+  const r=await fetch(base+pts.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true");
   if(!r.ok) throw new Error("HTTP "+r.status);
   const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code||"keine Route");
   const rt=j.routes[0], line=rt.geometry.coordinates.map(c=>[c[1],c[0]]), steps=[];
-  (rt.legs||[]).forEach(l=>(l.steps||[]).forEach(st=>{ const t=turnText(st); if(t) steps.push({ll:[st.maneuver.location[1],st.maneuver.location[0]],t,s:t.replace(/ auf .*$/,"")}); }));
-  return {line,steps};
+  (rt.legs||[]).forEach((l,li)=>(l.steps||[]).forEach(st=>{ const t=turnText(st); if(t) steps.push({ll:[st.maneuver.location[1],st.maneuver.location[0]],t,s:t.replace(/ auf .*$/,""),leg:li}); }));
+  return {line,steps,legs:(rt.legs||[]).map(l=>l.distance)};
 }
 function turnText(st){
   const m=st.maneuver||{}, ty=m.type, mo=m.modifier||"", name=st.name?` auf ${st.name}`:"";
@@ -1649,9 +1653,9 @@ function checkArrival(){
   trackSide();
   const s=tour.stops[cur], r=+$("radius").value;
   if(!s.ll) return;
-  const dd=dist(carPos,s.ll);
+  const dd=Math.min(dist(carPos,s.ll),s.park?dist(carPos,s.park):Infinity); // am Anfahrpunkt geparkt zählt als angekommen
   if(dd<=ANNOUNCE_M&&!s.said){ s.said=true; announced=cur; announce(cur); saveTour(); } // jedes Haus genau einmal ansagen, auch nach Neustart
-  if(dist(carPos,s.ll)>r){ if(arrivedShown===cur) arrivedShown=-1; return; }
+  if(dd>r){ if(arrivedShown===cur) arrivedShown=-1; return; }
   if($("modeAuto").checked){ if(!s.done){ s.done=true; stamp(s); const no=cur+1; advanceAfterDone(); render(); toast(`Stopp ${no} automatisch abgehakt`);} }
   else if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${cur+1}. Bitte manuell abhaken.`); }
 }
@@ -1830,10 +1834,21 @@ function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; t
 async function updateApproach(){
   if(!carPos||!tour||cur<0||!tour.stops[cur].ll||apBusy) return;
   if(apStop===cur&&apFrom&&dist(apFrom,carPos)<150) return;
+  { const q=tour.stops[cur]; if(apStop===cur&&q.park&&dist(carPos,q.park)<80) return; } // am Parkpunkt: nicht neu berechnen
   if(Date.now()-apAt<8000&&apStop===cur) return;
   apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[cur].ll, stopNo=cur; let line=null;
   let steps=[];
-  for(const base of ROUTERS){ try{ const r=await routeSteps(base,from,to); line=r.line; steps=r.steps; break; }catch(e){} }
+  // Anfahrpunkt aus der Routendatei: Die Morgengold-Strecke endet auf der Straße, von der aus das Haus erreicht wird.
+  // Liegt das Haus 40–300 m davon weg, fährt die App über diesen Punkt. Müsste das Auto danach erst um den Block,
+  // um näher ans Haus zu kommen, endet die Fahrt dort und das letzte Stück wird zu Fuß gezeigt.
+  const sx=tour.stops[stopNo], ap=approachPt(sx,from); let legs=[];
+  for(const base of ROUTERS){ try{ const r=await routeSteps(base,ap?[from,ap,to]:[from,to]); line=r.line; steps=r.steps; legs=r.legs; break; }catch(e){} }
+  if(ap) sx.park=null;
+  if(ap&&line&&legs.length===2){
+    if(legs[1]>dist(ap,to)*1.6+60){ // Umweg nötig: am Anfahrpunkt parken
+      let k=0, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,ap); if(d<bd){bd=d;k=j;} });
+      line=line.slice(0,k+1); steps=steps.filter(t=>t.leg===0); sx.park=ap.slice(); }
+  }
   apBusy=false; if(!(document.body.classList.contains("drive")||simTimer)||stopNo!==cur) return; // auch in der Simulation (Abbiege-Ansagen testen)
   approachLayer.clearLayers(); apFrom=from; apStop=stopNo;
   if(turnStop!==stopNo){ turnSaid=new Set(); turnStop=stopNo; } turns=steps;
@@ -1842,7 +1857,13 @@ async function updateApproach(){
     setLive(stopNo, sideOnLine(to,line,k), "anfahrt"); }
   const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim(); // gleiche Farbe wie die Route
   L.polyline(line||[from,to],line?{color:rc,weight:5,opacity:.9}:{color:rc,weight:4,opacity:.6,dashArray:"6 8"}).addTo(approachLayer);
+  if(sx.park){ L.polyline([sx.park,to],{color:rc,weight:4,opacity:.9,dashArray:"2 8",lineCap:"round"}).addTo(approachLayer);
+    const m=[(sx.park[0]+to[0])/2,(sx.park[1]+to[1])/2];
+    L.marker(m,{icon:L.divIcon({className:"",html:'<div class="walkman">🚶</div>',iconSize:[22,22],iconAnchor:[11,11]}),interactive:false,keyboard:false}).addTo(approachLayer); }
 }
+function approachPt(s,from){ // letzter Streckenpunkt der Morgengold-Route vor dem Haus; nur solange man noch nicht daran vorbei ist
+  if(!s||!s.exact||s.fixed||!s.ll||!s.via||!s.via.length) return null;
+  const v=s.via[s.via.length-1], d=dist(v,s.ll); return d>40&&d<300&&(!from||dist(from,s.ll)>d+30)?v:null; }
 function startTour(){
   if(!tour||cur<0){ toast(tour?"Alle Stopps sind erledigt.":"Zuerst die Tour öffnen."); return; }
   stopSim();

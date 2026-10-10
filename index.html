@@ -1376,7 +1376,9 @@ function fillTown(el,town){
 const ll=p=>p[0].toFixed(6)+","+p[1].toFixed(6);
 // Punkt aus der Routendatei ist genau (Haustür) -> Koordinaten, damit Google nicht an unbekannten Hausnummern scheitert.
 // Ohne Routendatei: Adresse aus der Ausfahrliste, sonst Koordinaten.
-const gdest=s=>s.exact&&s.ll?ll(s.ll):s.town?`${s.addr}, ${s.town}`:(s.ll?ll(s.ll):s.addr);
+// Google bekommt die Adresse (Google findet das Haus selbst; die .bcr-Punkte liegen manchmal neben dem Haus oder an der Nachbarstraße).
+// Nur ein selbst gesetzter Hauspunkt wird als Punkt geschickt. Namen werden nie übertragen.
+const gdest=s=>s.fixed&&s.ll?ll(s.ll):s.addr&&s.town?`${s.addr}, ${s.town}, Deutschland`:(s.ll?ll(s.ll):s.addr);
 function gmapsUrl(stops){ // letzter Stopp = Ziel, davor bis zu 9 Zwischenziele; Start = eigener Standort
   const dest=stops[stops.length-1], way=stops.slice(0,-1);
   let u="https://www.google.com/maps/dir/?api=1&travelmode=driving&destination="+encodeURIComponent(gdest(dest));

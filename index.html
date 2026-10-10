@@ -1745,13 +1745,13 @@ function checkArrival(){
   if($("modeAuto").checked){
     // Automatisch abhaken erst beim Wegfahren: Ankunft im Umkreis merken (nächster Punkt = Ankunftszeit),
     // abgehakt wird, sobald man sich wieder entfernt (aus dem Umkreis raus oder 25 m weiter weg als am nächsten Punkt). Kein Zeitzähler.
-    if(arr.i!==cur){ if(dd>r) return; arr={i:cur,min:dd,at:Date.now()}; }
+    if(arr.i!==cur){ if(dd>r) return; arr={i:cur,min:dd,at:Date.now()}; updateApproach(); } // angekommen: grüne Linie zeigt schon zum nächsten Kunden
     if(dd<arr.min){ arr.min=dd; arr.at=Date.now(); }
     if(gpsAcc>25) return; // ungenaues GPS: nicht abhaken
     if(dd>r+15||dd>arr.min+25){ arr.i=-1; if(!s.done){ s.done=true; if(!s.at) s.at=arr.at; const no=cur+1; advanceAfterDone(); render(); toast(`Stopp ${no} automatisch abgehakt`); } }
     return; }
   if(dd>r){ if(arrivedShown===cur) arrivedShown=-1; return; }
-  if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${cur+1}. Bitte manuell abhaken.`); }
+  if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${cur+1}. Bitte manuell abhaken.`); updateApproach(); }
 }
 $("sim").addEventListener("click",()=>{
   if(simTimer){stopSim();return;}
@@ -1928,11 +1928,12 @@ function scrollCurrent(){ // nur die Liste scrollen, aktueller Stopp in die Mitt
 const approachLayer=L.layerGroup().addTo(map); let apFrom=null, apStop=-1, apBusy=false, apAt=0;
 function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; turns=[]; apLine=null; apPoly=null; }
 async function updateApproach(){
-  if(!carPos||!tour||cur<0||!tour.stops[cur].ll||apBusy) return;
-  if(apStop===cur&&apLine){ if(apRouted){ const b=nearOnAp(carPos); if(b&&b.d<50) return; } else if(apFrom&&dist(apFrom,carPos)<150) return; } // nur bei Abweichung von der Strecke neu berechnen
-  { const q=tour.stops[cur]; if(apStop===cur&&q.park&&dist(carPos,q.park)<80) return; } // am Parkpunkt: nicht neu berechnen
-  if(Date.now()-apAt<8000&&apStop===cur) return;
-  apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[cur].ll, stopNo=cur; let line=null;
+  const T=apTarget();
+  if(!carPos||!tour||T<0||!tour.stops[T].ll||apBusy) return;
+  if(apStop===T&&apLine){ if(apRouted){ const b=nearOnAp(carPos); if(b&&b.d<50) return; } else if(apFrom&&dist(apFrom,carPos)<150) return; } // nur bei Abweichung von der Strecke neu berechnen
+  { const q=tour.stops[T]; if(apStop===T&&q.park&&dist(carPos,q.park)<80) return; } // am Parkpunkt: nicht neu berechnen
+  if(Date.now()-apAt<8000&&apStop===T) return;
+  apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[T].ll, stopNo=T; let line=null;
   let steps=[];
   // Anfahrpunkt aus der Routendatei: Die Morgengold-Strecke endet auf der Straße, von der aus das Haus erreicht wird.
   // Liegt das Haus 40–300 m davon weg, fährt die App über diesen Punkt. Müsste das Auto danach erst um den Block,
@@ -1945,7 +1946,7 @@ async function updateApproach(){
       let k=0, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,ap); if(d<bd){bd=d;k=j;} });
       line=line.slice(0,k+1); steps=steps.filter(t=>t.leg===0); sx.park=ap.slice(); }
   }
-  apBusy=false; if(!(document.body.classList.contains("drive")||simTimer)||stopNo!==cur) return; // auch in der Simulation (Abbiege-Ansagen testen)
+  apBusy=false; if(!(document.body.classList.contains("drive")||simTimer)||stopNo!==apTarget()) return; // auch in der Simulation (Abbiege-Ansagen testen)
   approachLayer.clearLayers(); apFrom=from; apStop=stopNo;
   if(turnStop!==stopNo){ turnSaid=new Set(); turnStop=stopNo; } turns=steps;
   if(line&&line.length>1&&tour.stops[stopNo].exact&&!(live.stop===stopNo&&live.src==="gps")){
@@ -1959,6 +1960,10 @@ async function updateApproach(){
     const m=[(sx.park[0]+to[0])/2,(sx.park[1]+to[1])/2];
     L.marker(m,{icon:L.divIcon({className:"",html:'<div class="walkman">🚶</div>',iconSize:[22,22],iconAnchor:[11,11]}),interactive:false,keyboard:false}).addTo(approachLayer); }
 }
+function apTarget(){ // Ziel der grünen Anfahrt: beim aktuellen Kunden angekommen (noch nicht abgehakt) → schon der Weg zum nächsten
+  if(!tour||cur<0) return cur; if(arr.i!==cur&&arrivedShown!==cur) return cur;
+  if(backTo>=0&&backTo!==cur&&!tour.stops[backTo].done) return backTo;
+  let n=tour.stops.findIndex((q,i)=>i>cur&&!q.done); if(n<0) n=tour.stops.findIndex((q,i)=>i!==cur&&!q.done); return n<0?cur:n; }
 function approachPt(s,from){ // letzter Streckenpunkt der Morgengold-Route vor dem Haus; nur solange man noch nicht daran vorbei ist
   if(!s||!s.exact||s.fixed||!s.ll||!s.via||!s.via.length) return null;
   const v=s.via[s.via.length-1], d=dist(v,s.ll); return d>40&&d<300&&(!from||dist(from,s.ll)>d+30)?v:null; }

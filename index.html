@@ -1018,13 +1018,13 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
       <div class="mode" role="group" aria-labelledby="modeLbl">
         <span class="badge" id="modeLbl">Abhaken</span>
         <div class="opts">
-          <label><input type="radio" name="mode" id="modeAuto" value="auto" checked> Automatisch beim Ranfahren</label>
+          <label><input type="radio" name="mode" id="modeAuto" value="auto" checked> Automatisch beim Wegfahren vom Haus</label>
           <label><input type="radio" name="mode" id="modeManual" value="manual"> Nur manuell</label>
           <label for="radius">Umkreis <select id="radius"><option value="25">25 m</option><option value="50" selected>50 m</option><option value="100">100 m</option></select></label>
         </div>
         <div class="opts"><button class="btn primary" id="gps" type="button">📍 GPS starten</button></div>
         <p class="hint" id="gpsState" hidden></p>
-        <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt Kunden im Umkreis ab. Der Standort wird nicht gespeichert und nicht übertragen. Zum Ausprobieren ohne GPS gibt es „Fahrt simulieren“ unter ⚙ Einstellungen.</p>
+        <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt einen Kunden ab, sobald du nach der Ankunft wieder wegfährst. Der Standort wird nicht gespeichert und nicht übertragen. Zum Ausprobieren ohne GPS gibt es „Fahrt simulieren“ unter ⚙ Einstellungen.</p>
       </div>
       <div class="mode" id="gTour">
         <span class="badge">Tour in Google Maps</span>
@@ -1353,7 +1353,7 @@ document.getElementById("meFile").addEventListener("change",e=>{
 });
 document.getElementById("meClear").addEventListener("click",()=>meSet(""));
 const TOUR_KEY="navi-tour";
-let layer=L.layerGroup().addTo(map), tour=null, markers=[], cur=0, simTimer=null, car=null, carPos=null, simIdx=0, arrivedShown=-1;
+let layer=L.layerGroup().addTo(map), tour=null, markers=[], cur=0, simTimer=null, car=null, carPos=null, simIdx=0, arrivedShown=-1, arr={i:-1,min:Infinity,at:0};
 meRefresh();
 const $=id=>document.getElementById(id);
 
@@ -1742,9 +1742,16 @@ function checkArrival(){
   if(!s.ll) return;
   const dd=Math.min(dist(carPos,s.ll),s.park?dist(carPos,s.park):Infinity); // am Anfahrpunkt geparkt zählt als angekommen
   if(dd<=ANNOUNCE_M&&!s.said){ s.said=true; announced=cur; announce(cur); saveTour(); } // jedes Haus genau einmal ansagen, auch nach Neustart
+  if($("modeAuto").checked){
+    // Automatisch abhaken erst beim Wegfahren: Ankunft im Umkreis merken (nächster Punkt = Ankunftszeit),
+    // abgehakt wird, sobald man sich wieder entfernt (aus dem Umkreis raus oder 25 m weiter weg als am nächsten Punkt). Kein Zeitzähler.
+    if(arr.i!==cur){ if(dd>r) return; arr={i:cur,min:dd,at:Date.now()}; }
+    if(dd<arr.min){ arr.min=dd; arr.at=Date.now(); }
+    if(gpsAcc>25) return; // ungenaues GPS: nicht abhaken
+    if(dd>r+15||dd>arr.min+25){ arr.i=-1; if(!s.done){ s.done=true; if(!s.at) s.at=arr.at; const no=cur+1; advanceAfterDone(); render(); toast(`Stopp ${no} automatisch abgehakt`); } }
+    return; }
   if(dd>r){ if(arrivedShown===cur) arrivedShown=-1; return; }
-  if($("modeAuto").checked){ if(!s.done){ s.done=true; stamp(s); const no=cur+1; advanceAfterDone(); render(); toast(`Stopp ${no} automatisch abgehakt`);} }
-  else if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${cur+1}. Bitte manuell abhaken.`); }
+  if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${cur+1}. Bitte manuell abhaken.`); }
 }
 $("sim").addEventListener("click",()=>{
   if(simTimer){stopSim();return;}

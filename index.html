@@ -818,6 +818,18 @@ body.drive .side{order:-1;overflow:hidden;padding:6px;height:100%;box-sizing:bor
 body.drive.dock-right .side,body.drive.dock-bottom .side{order:1}
 body.drive .side>*{zoom:var(--dz)} /* Schriftgröße der Tourleiste, 5 Stufen */
 body.drive #map{height:100%;min-height:0;border-radius:0;border:0}
+#map{position:relative;overflow:hidden}
+#mapIn{position:absolute;left:0;top:0;width:100%;height:100%;z-index:0;transform-origin:50% 50%;transition:transform .8s ease-out;border-radius:inherit}
+#mapIn .leaflet-marker-icon>*{rotate:var(--cr,0deg);transition:rotate .8s ease-out} /* Markierungen bleiben aufrecht, wenn die Karte gedreht ist */
+#mapIn .leaflet-marker-icon>.me{transform-origin:50% 100%}
+.leaflet-ctl{position:absolute;inset:0;pointer-events:none;background:none!important;overflow:visible;z-index:1}
+#compass{position:absolute;left:10px;top:92px;z-index:1000;width:40px;height:40px;border-radius:50%;border:1px solid rgb(0 0 0 / .15);background:rgb(255 255 255 / .85);box-shadow:0 1px 4px rgb(0 0 0 / .25);display:grid;place-items:center;padding:0;cursor:pointer}
+#compass[hidden]{display:none}
+#compass i{position:absolute;inset:4px;transition:transform .8s ease-out} /* Nadel: rot zeigt nach Norden */
+#compass i::before,#compass i::after{content:"";position:absolute;left:50%;margin-left:-5px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent}
+#compass i::before{top:0;border-bottom:16px solid #c62828}
+#compass i::after{bottom:0;border-top:16px solid #9aa0a6}
+#compass b{position:relative;font:800 10px/1 var(--font-body);color:#1d2421;background:rgb(255 255 255 / .9);border-radius:50%;padding:2px 2px}
 .dock-grip{display:none;touch-action:none;user-select:none;-webkit-user-select:none;text-align:center;font:700 26px/1 var(--font-body);letter-spacing:2px;color:var(--muted);padding:6px 0 4px;cursor:grab;flex:0 0 auto;border-radius:8px;width:100%;box-sizing:border-box;background:color-mix(in srgb,var(--muted) 14%,transparent);border:1px solid color-mix(in srgb,var(--muted) 30%,transparent)} /* ganze Breite als Griff, gut mit dem Finger zu treffen */
 .dock-grip:active{background:color-mix(in srgb,var(--accent) 18%,transparent)}
 .dock-ghost{position:fixed;left:0;top:0;z-index:2600;pointer-events:none;border-radius:12px;background:color-mix(in srgb,var(--surface) 70%,transparent);border:2px solid var(--accent);box-shadow:0 8px 28px rgb(0 0 0 / .35);will-change:transform,width,height}
@@ -985,7 +997,7 @@ body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),bod
   </section>
 
   <div class="main">
-    <div id="map" role="region" aria-label="Karte der Stopps"></div>
+    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
       <div class="next-card" id="nextCard">
@@ -1298,7 +1310,8 @@ function loadedInfo(){
   $("loaded").textContent=t;
   $("geoBox").hidden=!(pdfTour&&!bcrTour&&tour&&tour.stops.some(s=>!s.ll));
 }
-const map=L.map("map",{zoomControl:true,attributionControl:true});
+const map=L.map("mapIn",{zoomControl:true,attributionControl:true});
+map.createPane("apPane").style.zIndex=450; // Anfahrt liegt immer über der restlichen Route
 // Kartendienste zur Auswahl; als Datei geoeffnet schickt der Browser keinen Referer, den tile.openstreetmap.org verlangt.
 const OSM_ATTR="&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>-Mitwirkende";
 const TILE_SOURCES={
@@ -1407,7 +1420,11 @@ function render(){
   const routeColor=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
   const styleOn=tour.road?{color:routeColor,weight:5,opacity:.9}:{color:routeColor,weight:3,opacity:.5,dashArray:"4 8"}; // gestrichelt = nur grobe Verbindung
   // Jedes Stück bis zu einem Stopp wird erst grau, wenn dieser Stopp abgehakt ist; die gerade gefahrene Strecke bleibt in Routenfarbe.
-  if(line.length>1){ const styleDone={color:"#9aa0a6",weight:4,opacity:.45}, segs=[]; let from=0;
+  const driveView=document.body.classList.contains("drive")||document.body.classList.contains("sim");
+  if(line.length>1&&driveView){ // Fahrt: nur die Anfahrt zum nächsten Kunden ist grün (eigene Linie), spätere Strecke hellgrau, Gefahrenes verschwindet
+    const styleLater=tour.road?{color:"#8f969c",weight:4,opacity:.45}:{color:"#8f969c",weight:3,opacity:.4,dashArray:"4 8"}; let a=-1;
+    tour.stops.forEach((s,i)=>{ if(s.li<0) return; if(a>=0&&cur>=0&&i>cur&&!s.done&&s.li>a) L.polyline(line.slice(a,s.li+1),styleLater).addTo(layer); a=s.li; }); }
+  else if(line.length>1){ const styleDone={color:"#9aa0a6",weight:4,opacity:.45}, segs=[]; let from=0;
     const add=(to,done)=>{ const l=segs[segs.length-1]; if(l&&l.done===done) l.to=to; else segs.push({a:from,to,done}); from=to; };
     tour.stops.forEach(s=>{ if(s.li>from) add(s.li,!!s.done); });
     if(from<line.length-1) add(line.length-1,false);
@@ -1447,7 +1464,7 @@ function render(){
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
-  renderGoogle(); scrollCurrent(); if(document.body.classList.contains("drive")) updateApproach(); saveTour();
+  renderGoogle(); scrollCurrent(); if(driveView) updateApproach(); saveTour();
   if(nextIdx>=0) loadFoot(nextIdx);
   $("prev").disabled=nextIdx===0;
   if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTags").textContent="";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;setSideBar("");$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
@@ -1512,9 +1529,9 @@ async function loadFoot(i){
   footShow();
   if(tour&&cur>=0){ const n=[cur,cur+1].find(k=>tour.stops[k]&&tour.stops[k].ll&&!footDone.some(c=>dist(c,tour.stops[k].ll)<120)); if(n!==undefined&&n!==i) loadFoot(n); }
 }
-function fit(){ const p=tour?tour.stops.filter(s=>s.ll).map(s=>s.ll):[]; if(p.length) map.fitBounds(L.latLngBounds(p).pad(0.12)); else map.setView([48.166,8.627],12); }
+function fit(){ const p=tour?tour.stops.filter(s=>s.ll).map(s=>s.ll):[]; if(p.length) fitVis(L.latLngBounds(p).pad(0.12)); else map.setView([48.166,8.627],12); }
 function focusStop(i){ const s=tour.stops[i]; if(!s.ll) return; setFollow(false);
-  if(s.warn&&!s.fixed&&s.osm) map.fitBounds(L.latLngBounds([s.ll,s.osm]).pad(.6),{maxZoom:18}); else map.setView(s.ll,16); }
+  if(s.warn&&!s.fixed&&s.osm) fitVis(L.latLngBounds([s.ll,s.osm]).pad(.6),{maxZoom:18}); else map.setView(s.ll,16); }
 // Lange auf die Karte drücken: Hauspunkt für den aktuellen oder den nächstgelegenen Stopp hierher setzen
 map.on("contextmenu",e=>{ if(!tour) return; const p=[e.latlng.lat,e.latlng.lng], c=[];
   if(cur>=0) c.push(cur);
@@ -1526,17 +1543,55 @@ map.on("contextmenu",e=>{ if(!tour) return; const p=[e.latlng.lat,e.latlng.lng],
     x.textContent=`Stopp ${i+1} · ${s.addr||""}`; x.addEventListener("click",()=>setPos(i,p)); box.append(x);
     if(s.fixed){ const r=document.createElement("button"); r.type="button"; r.className="btn"; r.textContent=`Stopp ${i+1}: eigenen Punkt entfernen`; r.addEventListener("click",()=>resetPos(i)); box.append(r); } });
   L.popup({closeButton:true}).setLatLng(e.latlng).setContent(box).openOn(map); });
+// Karte in Fahrtrichtung: Die Leaflet-Karte (#mapIn) ist beim Fahren ein Quadrat so groß wie die Diagonale des sichtbaren Felds (#map)
+// und wird als Ganzes gedreht, sodass die Straße vor einem nach oben zeigt. Markierungen werden zurückgedreht und bleiben aufrecht.
+// Norden oben, sobald man die Karte selbst verschiebt; „Zur aktuellen Position“ dreht wieder in Fahrtrichtung.
+const mapBox=document.getElementById("map"), mapIn=document.getElementById("mapIn"); let head=null, headFrom=null, brg=0;
+{ const ctl=document.createElement("div"); ctl.className=mapIn.className.split(/\s+/).filter(c=>/^leaflet-(container|touch|retina|fade-anim)/.test(c)).join(" ")+" leaflet-ctl";
+  ctl.append(map._controlContainer); mapBox.append(ctl); // Knöpfe drehen nicht mit
+  const c=document.createElement("button"); c.type="button"; c.id="compass"; c.hidden=true; c.title="Norden oben"; c.setAttribute("aria-label","Norden oben"); c.innerHTML="<i></i><b>N</b>";
+  c.addEventListener("click",()=>setFollow(false)); mapBox.append(c); }
+function rotMode(){ const b=document.body.classList; return b.contains("drive")||b.contains("sim"); }
+function rotOn(){ let pe=false; try{ pe=!!pinEdit; }catch(e){} return rotMode()&&follow&&!pe&&head!==null; }
+function sizeInner(){ const w=mapBox.clientWidth, h=mapBox.clientHeight;
+  if(rotMode()&&w&&h){ const q=Math.ceil(Math.hypot(w,h)); Object.assign(mapIn.style,{width:q+"px",height:q+"px",left:(w-q)/2+"px",top:(h-q)/2+"px"}); }
+  else Object.assign(mapIn.style,{width:"",height:"",left:"",top:""}); }
+function applyRot(now){ const t=rotOn()?head:0, d=((t-brg)%360+540)%360-180; brg+=d; // kürzester Drehweg
+  if(Math.abs(brg)>=360&&!d){ brg=((brg%360)+360)%360; now=true; }
+  if(now){ mapIn.style.transition="none"; requestAnimationFrame(()=>requestAnimationFrame(()=>{ mapIn.style.transition=""; })); }
+  brg=Math.round(brg); const r=brg%360?-brg:0; mapIn.style.transform=r?`rotate(${r}deg)`:""; mapIn.style.setProperty("--cr",(r?brg:0)+"deg");
+  const c=document.getElementById("compass"); if(c){ c.hidden=!r; c.firstChild.style.transform=`rotate(${-brg}deg)`; } }
+function bearingDeg(a,b){ const c=Math.cos(a[0]*Math.PI/180); return (Math.atan2((b[1]-a[1])*c,b[0]-a[0])*180/Math.PI+360)%360; }
+function setHead(p,gh,speed,acc){ // Fahrtrichtung aus GPS (ab ca. 7 km/h) oder aus mindestens 12 m Bewegung
+  let h=null;
+  if(gh!=null&&!isNaN(gh)&&speed>2){ h=gh; headFrom=p.slice(); }
+  else if(!headFrom||(acc||0)>25){ headFrom=p.slice(); }
+  else if(dist(headFrom,p)>=12){ h=bearingDeg(headFrom,p); headFrom=p.slice(); }
+  if(h!==null&&(head===null||Math.abs(((h-head)%360+540)%360-180)>4)) head=Math.round(h)%360;
+  applyRot(); }
+function followPt(z){ // Mittelpunkt beim Nachführen: mit Drehung etwas vor dem Auto, damit man mehr von der Straße voraus sieht
+  if(!carPos) return null; z=z??map.getZoom(); if(!rotOn()) return carPos;
+  const k=mapBox.clientHeight*.22, b=head*Math.PI/180;
+  return map.unproject(map.project(carPos,z).add(L.point(Math.sin(b)*k,-Math.cos(b)*k)),z); }
+function fitVis(b,opt){ // fitBounds nur auf den sichtbaren Teil der (beim Fahren größeren) Karte
+  const px=Math.max(0,(mapIn.offsetWidth-mapBox.clientWidth)/2), py=Math.max(0,(mapIn.offsetHeight-mapBox.clientHeight)/2);
+  map.fitBounds(b,Object.assign({},opt||{},px||py?{paddingTopLeft:[px,py],paddingBottomRight:[px,py]}:{})); }
+{ const m2c=map.mouseEventToContainerPoint.bind(map); // Tippen und Zoomen auf der gedrehten Karte an die richtige Stelle umrechnen
+  map.mouseEventToContainerPoint=function(e){ if(!(brg%360)) return m2c(e);
+    const a=brg*Math.PI/180, r=mapBox.getBoundingClientRect(), x=e.clientX-(r.left+r.width/2), y=e.clientY-(r.top+r.height/2), c=Math.cos(a), s=Math.sin(a);
+    return L.point(x*c-y*s+mapIn.offsetWidth/2, x*s+y*c+mapIn.offsetHeight/2); }; }
+new MutationObserver(()=>{ sizeInner(); applyRot(true); }).observe(document.body,{attributes:true,attributeFilter:["class"]});
 // Nachführen: aus, sobald man selbst einen Stopp wählt oder die Karte verschiebt; der Knopf „Zur aktuellen Position“ schaltet es wieder ein
 let follow=true;
-function setFollow(on){ follow=on; const b=document.getElementById("toMe"); if(b) b.hidden=on||!carPos; }
-map.on("dragstart",()=>setFollow(false));
+function setFollow(on){ const was=follow; follow=on; const b=document.getElementById("toMe"); if(b) b.hidden=on||!carPos; applyRot(was&&!on); }
+map.on("dragstart",()=>{ const dr=map.dragging&&map.dragging._draggable; if(dr&&brg%360) dr._parentScale={x:1,y:1,boundingClientRect:mapIn.getBoundingClientRect()}; setFollow(false); });
 // Kartengröße ändert sich auch ohne Fenster-Resize (Tourleiste oben/unten, Schriftgröße, Vollbild, Handy-Leisten).
 // Dann muss die Karte ihre Größe neu messen, sonst sitzt die eigene Position nicht mehr in der Mitte.
-if(window.ResizeObserver) new ResizeObserver(()=>{ map.invalidateSize({pan:false}); if(follow&&carPos) map.setView(carPos,map.getZoom(),{animate:false}); }).observe(document.getElementById("map"));
+if(window.ResizeObserver){ const ro=new ResizeObserver(()=>{ sizeInner(); map.invalidateSize({animate:false}); if(follow&&carPos) map.setView(followPt(),map.getZoom(),{animate:false}); }); ro.observe(mapBox); ro.observe(mapIn); }
 function pick(i){ markJump(i); cur=i; render(); focusStop(i); }
 
 function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
-function stopSim(){clearInterval(simTimer);simTimer=null;if(!document.body.classList.contains("drive")) try{ clearApproach(); }catch(e){}$("sim").textContent="▶ Fahrt simulieren";document.body.classList.remove("sim");}
+function stopSim(){const was=simTimer!==null;clearInterval(simTimer);simTimer=null;if(!document.body.classList.contains("drive")) try{ clearApproach(); }catch(e){}$("sim").textContent="▶ Fahrt simulieren";document.body.classList.remove("sim");if(was&&tour) render();}
 const HOUSE_M=150; // ab dieser Entfernung erscheint die Hausnummer
 function updateHouseNo(){ let el=$("houseNo"); if(!el){ el=document.createElement("div"); el.id="houseNo"; $("map").appendChild(el); }
   const s=tour&&cur>=0?tour.stops[cur]:null; let op=0;
@@ -1669,7 +1724,7 @@ $("sim").addEventListener("click",()=>{
   if(!tour.line||tour.line.length<2){toast("Für die Simulation die Routendatei (.bcr) öffnen.");return;}
   const line=tour.line; simIdx=cur>0?Math.max(0,tour.stops[cur-1].li):0; carPos=line[simIdx].slice();
   if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[44,54],iconAnchor:[22,54]}),zIndexOffset:2000});
-  car.setLatLng(carPos).addTo(map); $("sim").textContent="■ Simulation stoppen"; document.body.classList.add("sim"); gpsAcc=0;
+  car.setLatLng(carPos).addTo(map); $("sim").textContent="■ Simulation stoppen"; document.body.classList.add("sim"); gpsAcc=0; head=null; headFrom=null;
   simTimer=setInterval(()=>{
     let left=SIM_STEPS[simIdxSpeed]; // Meter pro Takt, im Tempo-Menü änderbar
     while(left>0&&simIdx<line.length-1){
@@ -1677,9 +1732,10 @@ $("sim").addEventListener("click",()=>{
       if(d<=left){carPos=nxt.slice();simIdx++;left-=d;}
       else{const f=left/d;carPos=[carPos[0]+(nxt[0]-carPos[0])*f,carPos[1]+(nxt[1]-carPos[1])*f];left=0;}
     }
-    car.setLatLng(carPos); if(follow) map.panTo(carPos,{animate:false}); checkArrival();
+    car.setLatLng(carPos); setHead(carPos); if(follow) map.panTo(followPt(),{animate:false}); checkArrival();
     if(simIdx>=line.length-1||cur<0){stopSim(); if(cur<0) toast("Tour abgeschlossen");}
   },120);
+  render();
   map.setView(carPos,16);
 });
 let gpsWatch=null, wakeLock=null;
@@ -1698,12 +1754,12 @@ async function startGps(){
   gpsWatch=navigator.geolocation.watchPosition(pos=>{
     carPos=[pos.coords.latitude,pos.coords.longitude]; gpsAcc=pos.coords.accuracy||0;
     if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[44,54],iconAnchor:[22,54]}),zIndexOffset:2000});
-    car.setLatLng(carPos).addTo(map);
+    car.setLatLng(carPos).addTo(map); setHead(carPos,pos.coords.heading,pos.coords.speed,gpsAcc);
     const acc=Math.round(pos.coords.accuracy);
     $("gpsState").textContent=`GPS aktiv, Genauigkeit ca. ${acc} m`+(tour&&cur>=0&&tour.stops[cur].ll?` · noch ${Math.round(dist(carPos,tour.stops[cur].ll))} m bis Stopp ${cur+1}`:"");
     const driving=document.body.classList.contains("drive");
-    if(driving&&firstFix&&tour&&cur>=0&&tour.stops[cur].ll){ map.fitBounds(L.latLngBounds([carPos,tour.stops[cur].ll]).pad(.25),{maxZoom:17}); } // Tour ab dem eigenen Standort zeigen
-    else if(driving&&follow) map.panTo(carPos,{animate:true}); // Karte folgt der Position, außer man schaut sich gerade woanders um
+    if(driving&&firstFix&&tour&&cur>=0&&tour.stops[cur].ll){ fitVis(L.latLngBounds([carPos,tour.stops[cur].ll]).pad(.25),{maxZoom:17}); } // Tour ab dem eigenen Standort zeigen
+    else if(driving&&follow) map.panTo(followPt(),{animate:true}); // Karte folgt der Position, außer man schaut sich gerade woanders um
     firstFix=false; if(driving) updateApproach();
     setFollow(follow);
     checkArrival();
@@ -1772,7 +1828,7 @@ function applyLayout(){
   document.body.style.setProperty("--dz",ZOOMS[fontIdx]);
   ["left","right","top","bottom"].forEach(d=>document.body.classList.toggle("dock-"+d,d===dock));
   $("fontSel").value=String(fontIdx); $("dockSel").value=dock;
-  if(document.body.classList.contains("drive")) setTimeout(()=>{ map.invalidateSize(); if(carPos) map.panTo(carPos); scrollCurrent(); },60);
+  if(document.body.classList.contains("drive")) setTimeout(()=>{ map.invalidateSize(); if(carPos) map.panTo(followPt()); scrollCurrent(); },60);
 }
 function setDock(d){ dock=d; try{localStorage.setItem(DOCK_KEY,d);}catch(e){} applyLayout(); }
 $("fontSel").addEventListener("change",e=>{ fontIdx=+e.target.value; try{localStorage.setItem(FONT_KEY,fontIdx);}catch(x){} applyLayout(); });
@@ -1814,7 +1870,7 @@ applyLayout();
 // Tour starten: Vollbild im Querformat, Stoppliste links, Karte folgt dem Standort
 let fsUsed=false;
 async function enterDrive(){
-  document.body.classList.add("drive"); fsUsed=false; setFollow(true);
+  document.body.classList.add("drive"); fsUsed=false; head=null; headFrom=null; setFollow(true); if(tour) render();
   try{ if(document.documentElement.requestFullscreen){ await document.documentElement.requestFullscreen({navigationUI:"hide"}); fsUsed=true; } }catch(e){}
   try{ if(screen.orientation&&screen.orientation.lock) await screen.orientation.lock("landscape"); }catch(e){} // geht nicht auf jedem Handy (iPhone): dann einfach quer halten
   setTimeout(()=>{ map.invalidateSize(); if(carPos) map.setView(carPos,17); else if(tour&&cur>=0&&tour.stops[cur].ll) map.setView(tour.stops[cur].ll,16); scrollCurrent(); },350);
@@ -1824,7 +1880,7 @@ function leaveDrive(){
   document.body.classList.remove("drive");
   try{ if(screen.orientation&&screen.orientation.unlock) screen.orientation.unlock(); }catch(e){}
   if(document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} }
-  stopGps(); clearApproach(); $("gpsState").hidden=true; updateHouseNo();
+  stopGps(); clearApproach(); $("gpsState").hidden=true; updateHouseNo(); if(tour) render();
   setTimeout(()=>{ map.invalidateSize(); fit(); },350);
 }
 document.addEventListener("fullscreenchange",()=>{ if(fsUsed&&!document.fullscreenElement&&document.body.classList.contains("drive")) leaveDrive(); });
@@ -1859,8 +1915,8 @@ async function updateApproach(){
     let k=line.length-1, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,to); if(d<bd){bd=d;k=j;} });
     setLive(stopNo, sideOnLine(to,line,k), "anfahrt"); }
   const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim(); // gleiche Farbe wie die Route
-  L.polyline(line||[from,to],line?{color:rc,weight:5,opacity:.9}:{color:rc,weight:4,opacity:.6,dashArray:"6 8"}).addTo(approachLayer);
-  if(sx.park){ L.polyline([sx.park,to],{color:rc,weight:4,opacity:.9,dashArray:"2 8",lineCap:"round"}).addTo(approachLayer);
+  L.polyline(line||[from,to],line?{color:rc,weight:5,opacity:.9,pane:"apPane"}:{color:rc,weight:4,opacity:.6,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer);
+  if(sx.park){ L.polyline([sx.park,to],{color:rc,weight:4,opacity:.9,dashArray:"2 8",lineCap:"round",pane:"apPane"}).addTo(approachLayer);
     const m=[(sx.park[0]+to[0])/2,(sx.park[1]+to[1])/2];
     L.marker(m,{icon:L.divIcon({className:"",html:'<div class="walkman">🚶</div>',iconSize:[22,22],iconAnchor:[11,11]}),interactive:false,keyboard:false}).addTo(approachLayer); }
 }
@@ -1880,7 +1936,7 @@ const DriveCtl=L.Control.extend({options:{position:"topright"},onAdd(){
 new DriveCtl().addTo(map);
 const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
   const b=L.DomUtil.create("button","to-me"); b.type="button"; b.id="toMe"; b.hidden=true; b.textContent="◎ Zur aktuellen Position";
-  L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ setFollow(true); map.invalidateSize({pan:false}); if(carPos) map.setView(carPos,Math.max(map.getZoom(),16)); };
+  L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ setFollow(true); map.invalidateSize({pan:false}); if(carPos){ const z=Math.max(map.getZoom(),16); map.setView(followPt(z),z); } };
   return b; }});
 new MeCtl().addTo(map);
 document.addEventListener("visibilitychange",async()=>{ if(gpsWatch!==null&&document.visibilityState==="visible"&&navigator.wakeLock){ try{wakeLock=await navigator.wakeLock.request("screen");}catch(e){} } });
@@ -1948,7 +2004,7 @@ function startPin(i){ if(!tour) return; const s=tour.stops[i]; endPin();
   const at=s.ll||(carPos?carPos.slice():[map.getCenter().lat,map.getCenter().lng]);
   const m=L.marker(at,{draggable:true,autoPan:true,zIndexOffset:3000,icon:L.divIcon({className:"",html:'<div class="dragpin">📍</div>',iconSize:[38,38],iconAnchor:[19,36]})}).addTo(map);
   const tap=e=>m.setLatLng(e.latlng); map.on("click",tap);
-  pinEdit={i,m,tap}; setFollow(false);
+  pinEdit={i,m,tap}; setFollow(false); applyRot(true);
   $("pinTxt").textContent=`Stopp ${i+1}: Pin auf das richtige Haus ziehen`; $("pinBar").hidden=false;
   if(!document.body.classList.contains("drive")) $("map").scrollIntoView({behavior:"smooth",block:"center"});
   map.setView(at,Math.max(map.getZoom(),18)); if(navigator.vibrate) try{navigator.vibrate(30);}catch(e){} }

@@ -942,7 +942,19 @@ footer{font-size:.75rem;line-height:1.5}
 body.drive .stop .n{width:24px;height:24px;font-size:.72rem}
 a.btn{text-decoration:none}
 body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),body.no-tour .jump,body.no-tour .map-start{display:none!important} /* ohne Tour nur das Nötigste */
-</style><style>body{margin:0}</style></head><body>
+</style><style>body{margin:0}
+/* Fahrt-Leiste (v=55): Nummer als eckiger Balken über der Adresse, drei Kunden füllen die ganze Höhe, großer Google-Knopf */
+body.drive .list{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}
+body.drive .stop.is-next,body.drive .stop.near-prev,body.drive .stop.near-next{flex:1 1 0;min-height:0;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-content:center;row-gap:6px;column-gap:8px;padding:8px}
+body.drive .stop.is-next{flex-grow:1.5}
+body.drive .stop .n{grid-column:1;grid-row:1;width:auto;height:auto;justify-self:stretch;border-radius:3px;padding:3px 0;font-size:1.25rem;line-height:1.2}
+body.drive .stop.is-next .n{font-size:1.5rem}
+body.drive .stop .t{grid-column:1;grid-row:2}
+body.drive .stop input{grid-column:2;grid-row:1/3;align-self:center}
+body.drive .stop .tm{display:none}
+body.drive #nextSide{display:none!important}
+body.drive .next-card .row #nextGmaps{flex:1 1 100%;font-size:1.25rem;padding:16px 10px;font-weight:700;text-align:center;justify-content:center}
+</style></head><body>
 
 <div class="wrap">
   <header>

@@ -1611,7 +1611,8 @@ function moveCar(p,dur,noPan){
   if(!disp||dist(disp,p)>300){ disp=p.slice(); animFrom=disp.slice(); } else animFrom=disp.slice(); // großer Sprung (GPS neu): direkt hin
   animTo=p.slice(); animT0=now; animDur=Math.max(100,dur);
   if(!raf) raf=requestAnimationFrame(carFrame); }
-function carFrame(now){ raf=0; if(!animTo) return;
+let lastDraw=0; // Akku: höchstens ca. 15 Bilder pro Sekunde zeichnen (halbe Rechenarbeit, sieht trotzdem flüssig aus)
+function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<66&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
   const f=Math.min(1,(now-animT0)/animDur); disp=[animFrom[0]+(animTo[0]-animFrom[0])*f, animFrom[1]+(animTo[1]-animFrom[1])*f];
   const sn=trimApproach(disp); if(car) car.setLatLng(sn||disp); // nahe der Route: Auto sitzt genau auf der Straße
   if(animPan&&follow&&rotMode()){ const t=followPt(null,disp), o=map.project(t).subtract(map.project(map.getCenter())); if(Math.abs(o.x)+Math.abs(o.y)>.3) map.panBy(o,{animate:false}); }

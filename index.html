@@ -1530,6 +1530,9 @@ map.on("contextmenu",e=>{ if(!tour) return; const p=[e.latlng.lat,e.latlng.lng],
 let follow=true;
 function setFollow(on){ follow=on; const b=document.getElementById("toMe"); if(b) b.hidden=on||!carPos; }
 map.on("dragstart",()=>setFollow(false));
+// Kartengröße ändert sich auch ohne Fenster-Resize (Tourleiste oben/unten, Schriftgröße, Vollbild, Handy-Leisten).
+// Dann muss die Karte ihre Größe neu messen, sonst sitzt die eigene Position nicht mehr in der Mitte.
+if(window.ResizeObserver) new ResizeObserver(()=>{ map.invalidateSize({pan:false}); if(follow&&carPos) map.setView(carPos,map.getZoom(),{animate:false}); }).observe(document.getElementById("map"));
 function pick(i){ markJump(i); cur=i; render(); focusStop(i); }
 
 function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
@@ -1877,7 +1880,7 @@ const DriveCtl=L.Control.extend({options:{position:"topright"},onAdd(){
 new DriveCtl().addTo(map);
 const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
   const b=L.DomUtil.create("button","to-me"); b.type="button"; b.id="toMe"; b.hidden=true; b.textContent="◎ Zur aktuellen Position";
-  L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ setFollow(true); if(carPos) map.setView(carPos,Math.max(map.getZoom(),16)); };
+  L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ setFollow(true); map.invalidateSize({pan:false}); if(carPos) map.setView(carPos,Math.max(map.getZoom(),16)); };
   return b; }});
 new MeCtl().addTo(map);
 document.addEventListener("visibilitychange",async()=>{ if(gpsWatch!==null&&document.visibilityState==="visible"&&navigator.wakeLock){ try{wakeLock=await navigator.wakeLock.request("screen");}catch(e){} } });

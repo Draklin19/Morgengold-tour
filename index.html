@@ -1569,10 +1569,35 @@ function setHead(p,gh,speed,acc){ // Fahrtrichtung aus GPS (ab ca. 7 km/h) oder 
   else if(dist(headFrom,p)>=12){ h=bearingDeg(headFrom,p); headFrom=p.slice(); }
   if(h!==null&&(head===null||Math.abs(((h-head)%360+540)%360-180)>4)) head=Math.round(h)%360;
   applyRot(); }
-function followPt(z){ // Mittelpunkt beim Nachführen: mit Drehung etwas vor dem Auto, damit man mehr von der Straße voraus sieht
-  if(!carPos) return null; z=z??map.getZoom(); if(!rotOn()) return carPos;
+function followPt(z,p){ // Mittelpunkt beim Nachführen: mit Drehung etwas vor dem Auto, damit man mehr von der Straße voraus sieht
+  p=p||disp||carPos; if(!p) return null; z=z??map.getZoom(); if(!rotOn()) return p;
   const k=mapBox.clientHeight*.22, b=head*Math.PI/180;
-  return map.unproject(map.project(carPos,z).add(L.point(Math.sin(b)*k,-Math.cos(b)*k)),z); }
+  return map.unproject(map.project(p,z).add(L.point(Math.sin(b)*k,-Math.cos(b)*k)),z); }
+// Flüssige Bewegung: GPS meldet etwa einmal pro Sekunde eine Position. Das Auto (und die Karte) gleitet in dieser Zeit
+// gleichmäßig von der alten zur neuen Position, statt zu springen. Die grüne Anfahrt wird dabei laufend hinter dem Auto abgeschnitten.
+let disp=null, animFrom=null, animTo=null, animT0=0, animDur=1000, animPan=true, raf=0, lastFixAt=0;
+let apLine=null, apPoly=null, apK=0, apRouted=false;
+function moveCar(p,dur,noPan){
+  const now=performance.now(); animPan=!noPan;
+  if(!disp||dist(disp,p)>300){ disp=p.slice(); animFrom=disp.slice(); } else animFrom=disp.slice(); // großer Sprung (GPS neu): direkt hin
+  animTo=p.slice(); animT0=now; animDur=Math.max(100,dur);
+  if(!raf) raf=requestAnimationFrame(carFrame); }
+function carFrame(now){ raf=0; if(!animTo) return;
+  const f=Math.min(1,(now-animT0)/animDur); disp=[animFrom[0]+(animTo[0]-animFrom[0])*f, animFrom[1]+(animTo[1]-animFrom[1])*f];
+  if(car) car.setLatLng(disp); trimApproach(disp);
+  if(animPan&&follow&&rotMode()){ const t=followPt(null,disp), o=map.project(t).subtract(map.project(map.getCenter())); if(Math.abs(o.x)+Math.abs(o.y)>.3) map.panBy(o,{animate:false}); }
+  if(f<1) raf=requestAnimationFrame(carFrame); }
+function segProj(p,a,b){ // nächster Punkt auf der Strecke a–b, Abstand in Metern
+  const c=Math.cos(p[0]*Math.PI/180), ax=(a[1]-p[1])*111320*c, ay=(a[0]-p[0])*110540, bx=(b[1]-p[1])*111320*c, by=(b[0]-p[0])*110540;
+  const dx=bx-ax, dy=by-ay, l2=dx*dx+dy*dy, t=l2?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/l2)):0;
+  return {d:Math.hypot(ax+dx*t,ay+dy*t), pt:[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}; }
+function nearOnAp(p){ // Stück der Anfahrt, auf dem man gerade ist (nur vorwärts suchen)
+  let best=null; const n=apLine.length;
+  for(let k=Math.max(0,apK-2);k<Math.min(n-1,apK+80);k++){ const r=segProj(p,apLine[k],apLine[k+1]); if(!best||r.d<best.d-.5) best={k,d:r.d,pt:r.pt}; }
+  return best; }
+function trimApproach(p){ // schon Gefahrenes verschwindet direkt hinter dem Auto
+  if(!apPoly||!apLine||apLine.length<2||!p) return; const b=nearOnAp(p); if(!b||b.d>60) return;
+  apK=b.k; apPoly.setLatLngs([p,b.pt,...apLine.slice(b.k+1)]); }
 function fitVis(b,opt){ // fitBounds nur auf den sichtbaren Teil der (beim Fahren größeren) Karte
   const px=Math.max(0,(mapIn.offsetWidth-mapBox.clientWidth)/2), py=Math.max(0,(mapIn.offsetHeight-mapBox.clientHeight)/2);
   map.fitBounds(b,Object.assign({},opt||{},px||py?{paddingTopLeft:[px,py],paddingBottomRight:[px,py]}:{})); }
@@ -1722,7 +1747,7 @@ $("sim").addEventListener("click",()=>{
   stopGps(); speakPrime(); announced=-1; follow=true;
   if(!tour||cur<0){toast("Keine offenen Stopps.");return;}
   if(!tour.line||tour.line.length<2){toast("Für die Simulation die Routendatei (.bcr) öffnen.");return;}
-  const line=tour.line; simIdx=cur>0?Math.max(0,tour.stops[cur-1].li):0; carPos=line[simIdx].slice();
+  const line=tour.line; simIdx=cur>0?Math.max(0,tour.stops[cur-1].li):0; carPos=line[simIdx].slice(); disp=null;
   if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[44,54],iconAnchor:[22,54]}),zIndexOffset:2000});
   car.setLatLng(carPos).addTo(map); $("sim").textContent="■ Simulation stoppen"; document.body.classList.add("sim"); gpsAcc=0; head=null; headFrom=null;
   simTimer=setInterval(()=>{
@@ -1732,7 +1757,7 @@ $("sim").addEventListener("click",()=>{
       if(d<=left){carPos=nxt.slice();simIdx++;left-=d;}
       else{const f=left/d;carPos=[carPos[0]+(nxt[0]-carPos[0])*f,carPos[1]+(nxt[1]-carPos[1])*f];left=0;}
     }
-    car.setLatLng(carPos); setHead(carPos); if(follow) map.panTo(followPt(),{animate:false}); checkArrival();
+    setHead(carPos); moveCar(carPos,130); checkArrival();
     if(simIdx>=line.length-1||cur<0){stopSim(); if(cur<0) toast("Tour abgeschlossen");}
   },120);
   render();
@@ -1754,12 +1779,13 @@ async function startGps(){
   gpsWatch=navigator.geolocation.watchPosition(pos=>{
     carPos=[pos.coords.latitude,pos.coords.longitude]; gpsAcc=pos.coords.accuracy||0;
     if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[44,54],iconAnchor:[22,54]}),zIndexOffset:2000});
-    car.setLatLng(carPos).addTo(map); setHead(carPos,pos.coords.heading,pos.coords.speed,gpsAcc);
+    if(!disp) car.setLatLng(carPos); car.addTo(map); setHead(carPos,pos.coords.heading,pos.coords.speed,gpsAcc);
+    { const t=performance.now(), dt=lastFixAt?t-lastFixAt:1000; lastFixAt=t; moveCar(carPos,Math.min(2000,Math.max(300,dt)),firstFix&&document.body.classList.contains("drive")); }
     const acc=Math.round(pos.coords.accuracy);
     $("gpsState").textContent=`GPS aktiv, Genauigkeit ca. ${acc} m`+(tour&&cur>=0&&tour.stops[cur].ll?` · noch ${Math.round(dist(carPos,tour.stops[cur].ll))} m bis Stopp ${cur+1}`:"");
     const driving=document.body.classList.contains("drive");
     if(driving&&firstFix&&tour&&cur>=0&&tour.stops[cur].ll){ fitVis(L.latLngBounds([carPos,tour.stops[cur].ll]).pad(.25),{maxZoom:17}); } // Tour ab dem eigenen Standort zeigen
-    else if(driving&&follow) map.panTo(followPt(),{animate:true}); // Karte folgt der Position, außer man schaut sich gerade woanders um
+    // Karte folgt der Position flüssig (moveCar), außer man schaut sich gerade woanders um
     firstFix=false; if(driving) updateApproach();
     setFollow(follow);
     checkArrival();
@@ -1889,10 +1915,10 @@ function scrollCurrent(){ // nur die Liste scrollen, aktueller Stopp in die Mitt
   if(el) l.scrollTop+=el.getBoundingClientRect().top-l.getBoundingClientRect().top-l.clientHeight/2+el.offsetHeight/2; }
 // Anfahrt: Straßenroute vom eigenen Standort zum aktuellen Stopp, neu berechnet bei neuem Stopp oder nach 150 m Abweichung
 const approachLayer=L.layerGroup().addTo(map); let apFrom=null, apStop=-1, apBusy=false, apAt=0;
-function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; turns=[]; }
+function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; turns=[]; apLine=null; apPoly=null; }
 async function updateApproach(){
   if(!carPos||!tour||cur<0||!tour.stops[cur].ll||apBusy) return;
-  if(apStop===cur&&apFrom&&dist(apFrom,carPos)<150) return;
+  if(apStop===cur&&apLine){ if(apRouted){ const b=nearOnAp(carPos); if(b&&b.d<50) return; } else if(apFrom&&dist(apFrom,carPos)<150) return; } // nur bei Abweichung von der Strecke neu berechnen
   { const q=tour.stops[cur]; if(apStop===cur&&q.park&&dist(carPos,q.park)<80) return; } // am Parkpunkt: nicht neu berechnen
   if(Date.now()-apAt<8000&&apStop===cur) return;
   apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[cur].ll, stopNo=cur; let line=null;
@@ -1915,7 +1941,9 @@ async function updateApproach(){
     let k=line.length-1, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,to); if(d<bd){bd=d;k=j;} });
     setLive(stopNo, sideOnLine(to,line,k), "anfahrt"); }
   const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim(); // gleiche Farbe wie die Route
-  L.polyline(line||[from,to],line?{color:rc,weight:5,opacity:.9,pane:"apPane"}:{color:rc,weight:4,opacity:.6,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer);
+  apLine=(line&&line.length>1?line:[from,to]).map(q=>q.slice()); apRouted=!!(line&&line.length>1); apK=0;
+  apPoly=L.polyline(apLine,apRouted?{color:rc,weight:5,opacity:.9,pane:"apPane"}:{color:rc,weight:4,opacity:.6,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer);
+  trimApproach(disp||carPos);
   if(sx.park){ L.polyline([sx.park,to],{color:rc,weight:4,opacity:.9,dashArray:"2 8",lineCap:"round",pane:"apPane"}).addTo(approachLayer);
     const m=[(sx.park[0]+to[0])/2,(sx.park[1]+to[1])/2];
     L.marker(m,{icon:L.divIcon({className:"",html:'<div class="walkman">🚶</div>',iconSize:[22,22],iconAnchor:[11,11]}),interactive:false,keyboard:false}).addTo(approachLayer); }

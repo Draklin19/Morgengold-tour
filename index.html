@@ -850,7 +850,18 @@ body.drive .next-card .who{font-size:1rem}
 body.drive .next-card .note{padding:4px 8px;font-size:.85rem}
 body.drive .next-card .row{gap:4px}
 body.drive .next-card .row .btn{padding:6px 8px;font-size:.82rem}
-body.drive .stop{grid-template-columns:28px minmax(0,1fr) auto auto;padding:6px 8px;gap:6px}
+body.drive .stop{grid-template-columns:28px minmax(0,1fr) auto auto;padding:10px 8px;gap:6px}
+/* Fahrt: nur zuletzt erledigt, aktuell und nächster Kunde, groß und mittig; Knöpfe unten */
+body.drive .stop:not(.is-next):not(.near-prev):not(.near-next){display:none}
+body.drive .dock-grip{order:1} body.drive .list{order:2} body.drive .next-card{order:3;margin-top:auto}
+body.drive .list{flex:0 1 auto;container-type:inline-size}
+body.drive .stop .t{text-align:center}
+body.drive .stop .name,body.drive .stop .addr{font-size:1.4rem;font-size:min(1.4rem,7.2cqi);line-height:1.15;font-weight:700;overflow-wrap:break-word;word-break:normal;-webkit-hyphens:manual;hyphens:manual} /* lange Straßennamen an Silbengrenzen trennen */
+body.drive .stop.is-done .name,body.drive .stop.is-done .addr{font-size:1.1rem}
+body.drive .stop.is-next{padding:14px 8px}
+body.drive .stop.is-next .name,body.drive .stop.is-next .addr{font-size:1.6rem;font-size:min(1.6rem,7.6cqi)} /* so groß, dass auch „Schwarzwald-“ in eine Zeile passt */
+body.drive .stop .pwarn,body.drive .stop .pfix{display:none}
+body.drive .next-card .place,body.drive .next-card>.tags{display:none}
 body.drive .stop .town,body.drive .stop .snote{display:none}
 body.drive .stop input{width:26px;height:26px}
 body.drive .map-start{display:none}
@@ -1365,7 +1376,8 @@ function fillAddr(el,addr){
   el.textContent="";
   const m=addr.match(/^(.*?)\s+(\d+\s*[a-zA-Z]?(?:\s*[\/-]\s*\d+\s*[a-zA-Z]?)?)$/);
   if(!m){el.textContent=addr||"Keine Adresse";return;}
-  el.append(m[1]); const b=document.createElement("span"); b.className="hnr"; b.textContent=m[2].replace(/\s+/g,""); el.append(b);
+  el.append(m[1].replace(/([a-zäöüß]{3,})(straße|strasse|weg|gasse|ring|allee|platz|halde|steige|graben|wasen)(?![a-zäöüß])/gi,"$1\u00AD$2")); // weiches Trennzeichen: lange Namen brechen sauber um
+  const b=document.createElement("span"); b.className="hnr"; b.textContent=m[2].replace(/\s+/g,""); el.append(b);
 }
 function fillTown(el,town){
   el.textContent=""; if(!town) return;
@@ -1434,6 +1446,9 @@ function render(){
   let km=0; for(let i=1;i<line.length;i++) km+=dist(line[i-1],line[i]);
   if(cur>=tour.stops.length||cur<0) cur=tour.stops.findIndex(s=>!s.done);
   const nextIdx=cur;
+  // Beim Fahren zeigt die Leiste nur drei Zeilen: zuletzt erledigt, aktuell, danach
+  let nearPrev=-1; for(let k=(cur<0?tour.stops.length:cur)-1;k>=0;k--) if(tour.stops[k].done){ nearPrev=k; break; }
+  let nearNext=cur<0?-1:tour.stops.findIndex((q,k)=>k>cur&&!q.done); if(cur>=0&&nearNext<0) nearNext=tour.stops.findIndex((q,k)=>k!==cur&&!q.done);
   tour.stops.forEach((s,i)=>{
     const warn=s.warn&&!s.fixed&&s.osm;
     const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn?" warn":"");
@@ -1443,7 +1458,7 @@ function render(){
     if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0}).addTo(layer);
     m.on("click",()=>pick(i)); markers.push(m); }
     const li=document.createElement("li");
-    li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":"")+(s.tags&&s.tags.length?" tag-"+s.tags[0]:""); li.tabIndex=0; li.dataset.i=i;
+    li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":"")+(i===nearPrev?" near-prev":"")+(i===nearNext?" near-next":"")+(s.tags&&s.tags.length?" tag-"+s.tags[0]:""); li.tabIndex=0; li.dataset.i=i;
     li.innerHTML=`<span class="n">${i+1}</span><span class="t"><span class="name"></span><br><span class="addr"></span></span><span class="town"></span><span class="tm">${s.at?hhmm(s.at):""}</span><input type="checkbox" aria-label="Stopp ${i+1} erledigt">`;
     fillTown(li.querySelector(".town"),s.town);
     if(s.name){li.querySelector(".name").textContent=s.name; fillAddr(li.querySelector(".addr"),s.addr);}

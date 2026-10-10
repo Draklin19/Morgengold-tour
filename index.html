@@ -1327,11 +1327,11 @@ function useTiles(key){
   tileLayer=L.tileLayer(t.url,t.opt).addTo(map);
   document.getElementById("mapErr").hidden=true;
   tileLayer.on("tileload",()=>{ok++;});
-  tileLayer.on("tileerror",()=>{bad++; if(!ok&&bad>=4) document.getElementById("mapErr").hidden=false;});
+  tileLayer.on("tileerror",()=>{bad++; if(!ok&&bad>=4){ if(key==="carto") return useTiles("esri"); document.getElementById("mapErr").hidden=false; }}); // CARTO nicht erreichbar: Esri als Ersatz
   document.querySelectorAll("#tileSel button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===key));
 }
 document.querySelectorAll("#tileSel button").forEach(b=>b.addEventListener("click",()=>useTiles(b.dataset.k)));
-useTiles("esri");
+useTiles("carto"); // OpenStreetMap-Karte: gleiche Daten wie die Route, die grüne Linie liegt genau auf der Straße
 L.control.scale({imperial:false}).addTo(map);
 // Eigene Position als kleine Figur, wahlweise mit eigenem Foto. Das Foto bleibt nur in diesem Browser auf dem Handy.
 const ME_KEY="navi-me-bild", FIGURE='<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><circle cx="12" cy="7" r="5"/><path d="M2 24c0-6 4.5-10 10-10s10 4 10 10z"/></svg>';

@@ -1584,7 +1584,7 @@ function moveCar(p,dur,noPan){
   if(!raf) raf=requestAnimationFrame(carFrame); }
 function carFrame(now){ raf=0; if(!animTo) return;
   const f=Math.min(1,(now-animT0)/animDur); disp=[animFrom[0]+(animTo[0]-animFrom[0])*f, animFrom[1]+(animTo[1]-animFrom[1])*f];
-  if(car) car.setLatLng(disp); trimApproach(disp);
+  const sn=trimApproach(disp); if(car) car.setLatLng(sn||disp); // nahe der Route: Auto sitzt genau auf der Straße
   if(animPan&&follow&&rotMode()){ const t=followPt(null,disp), o=map.project(t).subtract(map.project(map.getCenter())); if(Math.abs(o.x)+Math.abs(o.y)>.3) map.panBy(o,{animate:false}); }
   if(f<1) raf=requestAnimationFrame(carFrame); }
 function segProj(p,a,b){ // nächster Punkt auf der Strecke a–b, Abstand in Metern
@@ -1595,9 +1595,13 @@ function nearOnAp(p){ // Stück der Anfahrt, auf dem man gerade ist (nur vorwär
   let best=null; const n=apLine.length;
   for(let k=Math.max(0,apK-2);k<Math.min(n-1,apK+80);k++){ const r=segProj(p,apLine[k],apLine[k+1]); if(!best||r.d<best.d-.5) best={k,d:r.d,pt:r.pt}; }
   return best; }
-function trimApproach(p){ // schon Gefahrenes verschwindet direkt hinter dem Auto
-  if(!apPoly||!apLine||apLine.length<2||!p) return; const b=nearOnAp(p); if(!b||b.d>60) return;
-  apK=b.k; apPoly.setLatLngs([p,b.pt,...apLine.slice(b.k+1)]); }
+function trimApproach(p){ // schon Gefahrenes verschwindet direkt hinter dem Auto; liefert den Punkt auf der Straße
+  if(!apPoly||!apLine||apLine.length<2||!p) return null; const b=nearOnAp(p); if(!b||b.d>60) return null;
+  apK=b.k; apPoly.setLatLngs([b.pt,...apLine.slice(b.k+1)]); return apRouted&&b.d<25?b.pt:null; }
+function apWeight(){ // Linie so breit wie eine normale Straße auf der Karte (ca. 8 m), je nach Zoomstufe
+  const lat=(disp||carPos||[48.17])[0], mpp=156543.03*Math.cos(lat*Math.PI/180)/Math.pow(2,map.getZoom());
+  return Math.round(Math.max(5,Math.min(30,8/mpp))); }
+map.on("zoomend",()=>{ if(apPoly&&apRouted) apPoly.setStyle({weight:apWeight()}); });
 function fitVis(b,opt){ // fitBounds nur auf den sichtbaren Teil der (beim Fahren größeren) Karte
   const px=Math.max(0,(mapIn.offsetWidth-mapBox.clientWidth)/2), py=Math.max(0,(mapIn.offsetHeight-mapBox.clientHeight)/2);
   map.fitBounds(b,Object.assign({},opt||{},px||py?{paddingTopLeft:[px,py],paddingBottomRight:[px,py]}:{})); }
@@ -1942,7 +1946,7 @@ async function updateApproach(){
     setLive(stopNo, sideOnLine(to,line,k), "anfahrt"); }
   const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim(); // gleiche Farbe wie die Route
   apLine=(line&&line.length>1?line:[from,to]).map(q=>q.slice()); apRouted=!!(line&&line.length>1); apK=0;
-  apPoly=L.polyline(apLine,apRouted?{color:rc,weight:5,opacity:.9,pane:"apPane"}:{color:rc,weight:4,opacity:.6,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer);
+  apPoly=L.polyline(apLine,apRouted?{color:rc,weight:apWeight(),opacity:.75,lineCap:"round",lineJoin:"round",smoothFactor:.3,pane:"apPane"}:{color:rc,weight:4,opacity:.6,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer);
   trimApproach(disp||carPos);
   if(sx.park){ L.polyline([sx.park,to],{color:rc,weight:4,opacity:.9,dashArray:"2 8",lineCap:"round",pane:"apPane"}).addTo(approachLayer);
     const m=[(sx.park[0]+to[0])/2,(sx.park[1]+to[1])/2];

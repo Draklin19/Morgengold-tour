@@ -1621,10 +1621,18 @@ function segProj(p,a,b){ // nächster Punkt auf der Strecke a–b, Abstand in Me
   const c=Math.cos(p[0]*Math.PI/180), ax=(a[1]-p[1])*111320*c, ay=(a[0]-p[0])*110540, bx=(b[1]-p[1])*111320*c, by=(b[0]-p[0])*110540;
   const dx=bx-ax, dy=by-ay, l2=dx*dx+dy*dy, t=l2?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/l2)):0;
   return {d:Math.hypot(ax+dx*t,ay+dy*t), pt:[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}; }
-function nearOnAp(p){ // Stück der Anfahrt, auf dem man gerade ist (nur vorwärts suchen)
-  let best=null; const n=apLine.length;
-  for(let k=Math.max(0,apK-2);k<Math.min(n-1,apK+80);k++){ const r=segProj(p,apLine[k],apLine[k+1]); if(!best||r.d<best.d-.5) best={k,d:r.d,pt:r.pt}; }
+function nearOnAp(p){ // Stück der Anfahrt, auf dem man gerade ist (nur vorwärts suchen, höchstens 400 m voraus)
+  let best=null, run=0; const n=apLine.length;
+  for(let k=Math.max(0,apK-2);k<n-1;k++){ const r=segProj(p,apLine[k],apLine[k+1]); if(!best||r.d<best.d-.5) best={k,d:r.d,pt:r.pt};
+    if(k>=apK){ run+=dist(apLine[k],apLine[k+1]); if(run>400) break; } }
   return best; }
+// Verfahren erkennen: mehr als 30 m neben der Route oder gegen die Fahrtrichtung der Route, zweimal hintereinander (GPS-Schwanken)
+let offN=0;
+function offRoute(){
+  if(gpsAcc>30) return false; const b=nearOnAp(carPos); let bad=!b||b.d>30;
+  if(!bad&&head!==null){ const a=apLine[b.k], c=apLine[b.k+1];
+    if(dist(a,c)>3&&Math.abs(((head-bearingDeg(a,c))%360+540)%360-180)>120) bad=true; } // falsche Richtung: wenden
+  offN=bad?offN+1:0; return offN>=2; }
 function trimApproach(p){ // schon Gefahrenes verschwindet direkt hinter dem Auto; liefert den Punkt auf der Straße
   if(!apPoly||!apLine||apLine.length<2||!p) return null; const b=nearOnAp(p); if(!b||b.d>60) return null;
   apK=b.k; apPoly.setLatLngs([b.pt,...apLine.slice(b.k+1)]); return apRouted&&b.d<25?b.pt:null; }
@@ -1676,8 +1684,9 @@ function advanceAfterDone(){ cur=nextOpen(); }
 // Abbiege-Ansagen: Route ab dem Standort mit Abbiegehinweisen (OSRM steps), Text auf Deutsch, jede Ansage nur einmal.
 let turns=[], turnSaid=new Set(), turnStop=-1, turnOn=true;
 try{ turnOn=localStorage.getItem("navi-abbiegen")!=="aus"; }catch(e){}
-async function routeSteps(base,pts){
-  const r=await fetch(base+pts.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true");
+async function routeSteps(base,pts,brg){
+  const bq=brg!=null?"&bearings="+Math.round(brg)+",60"+";".repeat(pts.length-1):"";
+  const r=await fetch(base+pts.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true"+bq);
   if(!r.ok) throw new Error("HTTP "+r.status);
   const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code||"keine Route");
   const rt=j.routes[0], line=rt.geometry.coordinates.map(c=>[c[1],c[0]]), steps=[];
@@ -1960,7 +1969,8 @@ function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; t
 async function updateApproach(){
   const T=apTarget();
   if(!carPos||!tour||T<0||!tour.stops[T].ll||apBusy) return;
-  if(apStop===T&&apLine){ if(apRouted){ const b=nearOnAp(carPos); if(b&&b.d<50) return; } else if(apFrom&&dist(apFrom,carPos)<150) return; } // nur bei Abweichung von der Strecke neu berechnen
+  let reroute=false;
+  if(apStop===T&&apLine){ if(apRouted){ if(!offRoute()) return; reroute=true; } else if(apFrom&&dist(apFrom,carPos)<150) return; } // nur bei Abweichung von der Strecke neu berechnen
   { const q=tour.stops[T]; if(apStop===T&&q.park&&dist(carPos,q.park)<80) return; } // am Parkpunkt: nicht neu berechnen
   if(Date.now()-apAt<8000&&apStop===T) return;
   apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[T].ll, stopNo=T; let line=null;
@@ -1969,7 +1979,9 @@ async function updateApproach(){
   // Liegt das Haus 40–300 m davon weg, fährt die App über diesen Punkt. Müsste das Auto danach erst um den Block,
   // um näher ans Haus zu kommen, endet die Fahrt dort und das letzte Stück wird zu Fuß gezeigt.
   const sx=tour.stops[stopNo], ap=approachPt(sx,from); let legs=[];
-  for(const base of ROUTERS){ try{ const r=await routeSteps(base,ap?[from,ap,to]:[from,to]); line=r.line; steps=r.steps; legs=r.legs; break; }catch(e){} }
+  if(reroute) say("Route wird neu berechnet.");
+  const hb=head!==null&&headFrom&&dist(headFrom,from)<60?head:null; // Fahrtrichtung mitgeben: neue Route führt vorwärts weiter (wenden an der nächsten möglichen Stelle)
+  for(const b of hb!==null?[hb,null]:[null]){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,ap?[from,ap,to]:[from,to],b); line=r.line; steps=r.steps; legs=r.legs; break; }catch(e){} } if(line) break; } // ohne Richtung nochmal, falls keine Straße in Fahrtrichtung passt
   if(ap) sx.park=null;
   if(ap&&line&&legs.length===2){
     if(legs[1]>dist(ap,to)*1.6+60){ // Umweg nötig: am Anfahrpunkt parken
@@ -1983,7 +1995,7 @@ async function updateApproach(){
     let k=line.length-1, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,to); if(d<bd){bd=d;k=j;} });
     setLive(stopNo, sideOnLine(to,line,k), "anfahrt"); }
   const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim(); // gleiche Farbe wie die Route
-  apLine=(line&&line.length>1?line:[from,to]).map(q=>q.slice()); apRouted=!!(line&&line.length>1); apK=0;
+  apLine=(line&&line.length>1?line:[from,to]).map(q=>q.slice()); apRouted=!!(line&&line.length>1); apK=0; offN=0;
   apPoly=L.polyline(apLine,apRouted?{color:rc,weight:apWeight(),opacity:.75,lineCap:"round",lineJoin:"round",smoothFactor:.3,pane:"apPane"}:{color:rc,weight:4,opacity:.6,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer);
   trimApproach(disp||carPos);
   if(sx.park){ L.polyline([sx.park,to],{color:rc,weight:4,opacity:.9,dashArray:"2 8",lineCap:"round",pane:"apPane"}).addTo(approachLayer);

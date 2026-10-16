@@ -954,6 +954,11 @@ body.drive .stop input{grid-column:2;grid-row:1/3;align-self:center}
 body.drive .stop .tm{display:none}
 body.drive #nextSide{display:none!important}
 body.drive .next-card .row #nextGmaps{flex:1 1 100%;font-size:1.25rem;padding:16px 10px;font-weight:700;text-align:center;justify-content:center}
+
+/* Restzeit beim Fahren */
+.eta{display:none}
+body.drive .eta:not([hidden]){display:block;order:1;flex:0 0 auto;text-align:center;font:700 1.05rem/1.25 var(--font-body);padding:6px 8px;border-radius:8px;background:var(--surface);box-shadow:var(--shadow)}
+body.drive .eta small{display:block;font-weight:500;font-size:.8rem;color:var(--muted)}
 </style></head><body>
 
 <div class="wrap">
@@ -981,6 +986,8 @@ body.drive .next-card .row #nextGmaps{flex:1 1 100%;font-size:1.25rem;padding:16
     <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
     <div class="opts"><label for="tourUrl">Link zur Tour-Seite <input id="tourUrl" type="url" inputmode="url" placeholder="https://…" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
     <p class="hint">Von dieser Seite lädst du Ausfahrliste und Routendatei herunter. Danach erscheint oben der Knopf „⬇ Tour herunterladen“.</p>
+    <div class="opts"><label for="mailTo">E-Mail für Tourberichte <input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="mailToSave" type="button">Speichern</button></div>
+    <p class="hint">Am Ende der Tour fragt die App, ob der Bericht (nur Stopp-Nummern und Zeiten, keine Adressen) an diese Adresse gehen soll. Dein Mail-Programm öffnet sich, gesendet wird erst, wenn du auf Senden drückst.</p>
     <div class="opts"><label for="fontSel">Schriftgröße Tourleiste <select id="fontSel"><option value="0">1 (sehr klein)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (groß)</option></select></label>
       <label for="dockSel">Tourleiste <select id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label></div>
     <p class="hint">Gilt für die Ansicht nach „Tour starten“. Die Tourleiste lässt sich dort auch verschieben: oben auf „⠿“ gedrückt halten und an den gewünschten Rand ziehen.</p>
@@ -1023,6 +1030,7 @@ body.drive .next-card .row #nextGmaps{flex:1 1 100%;font-size:1.25rem;padding:16
     <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
+      <div class="eta" id="eta" hidden></div>
       <div class="next-card" id="nextCard">
         <span class="lbl" id="nextLbl">Nächster Stopp</span>
         <div class="place"><span class="who" id="nextWho">–</span><span class="town" id="nextTown"></span></div>
@@ -1060,7 +1068,7 @@ body.drive .next-card .row #nextGmaps{flex:1 1 100%;font-size:1.25rem;padding:16
         <input id="jumpNo" type="number" inputmode="numeric" min="1" placeholder="z. B. 12">
         <button class="btn" type="submit">Ab hier starten</button>
       </form>
-      <div class="list-tools" id="listTools"><label class="all-chk"><input type="checkbox" id="allChk"> Alle</label><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button></div>
+      <div class="list-tools" id="listTools"><label class="all-chk"><input type="checkbox" id="allChk"> Alle</label><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button><button class="btn" id="mailBtn" type="button">📧 Bericht per Mail</button></div>
       <ul class="list" id="list"></ul>
     </div>
   </div>
@@ -1220,7 +1228,7 @@ function mergeTours(){
        stops:pdfTour.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,tags:q.tags||[],articles:q.articles,ll:null,via:[],done:false}))};
   }
   if(t){ t.load=pdfTour?pdfTour.load:[]; t.km=pdfTour?pdfTour.km:"";
-    if(old&&old.length===t.stops.length) t.stops.forEach((s,i)=>{ s.done=old[i].done; s.at=old[i].at||0; });
+    if(old&&old.length===t.stops.length) t.stops.forEach((s,i)=>{ s.done=old[i].done; s.at=old[i].at||0; s.dep=old[i].dep||0; });
     applyCorr(t); }
   return t;
 }
@@ -1495,7 +1503,7 @@ function render(){
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
-  renderGoogle(); scrollCurrent(); if(driveView) updateApproach(); saveTour();
+  renderGoogle(); scrollCurrent(); if(driveView) updateApproach(); updateEta(true); saveTour();
   if(nextIdx>=0) loadFoot(nextIdx);
   $("prev").disabled=nextIdx===0;
   if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTags").textContent="";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;setSideBar("");$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
@@ -1776,7 +1784,7 @@ function trackSide(){
   setLive(cur, dx*(P[1]-a[1])-dy*(P[0]-a[0])>0?"links":"rechts","gps");
 }
 function checkArrival(){
-  updateHouseNo(); checkTurns();
+  updateHouseNo(); checkTurns(); updateEta();
   if(!tour||cur<0||!carPos) return;
   trackSide();
   const s=tour.stops[cur], r=+$("radius").value;
@@ -1789,7 +1797,7 @@ function checkArrival(){
     if(arr.i!==cur){ if(dd>r) return; arr={i:cur,min:dd,at:Date.now()}; updateApproach(); } // angekommen: grüne Linie zeigt schon zum nächsten Kunden
     if(dd<arr.min){ arr.min=dd; arr.at=Date.now(); }
     if(gpsAcc>25) return; // ungenaues GPS: nicht abhaken
-    if(dd>r+15||dd>arr.min+25){ arr.i=-1; if(!s.done){ s.done=true; if(!s.at) s.at=arr.at; const no=cur+1; advanceAfterDone(); render(); toast(`Stopp ${no} automatisch abgehakt`); } }
+    if(dd>r+15||dd>arr.min+25){ arr.i=-1; if(!s.done){ s.done=true; if(!s.at) s.at=arr.at; s.dep=Date.now(); learnStand(s); const no=cur+1; advanceAfterDone(); render(); toast(`Stopp ${no} automatisch abgehakt`); if(cur<0) tourFinished(); } }
     return; }
   if(dd>r){ if(arrivedShown===cur) arrivedShown=-1; return; }
   if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${cur+1}. Bitte manuell abhaken.`); updateApproach(); }
@@ -2136,13 +2144,59 @@ $("confirmYes").addEventListener("click",()=>{setSideBar("");footLayer.clearLaye
 // Alle abhaken / alle Haken weg (Liste vor der Fahrt)
 $("allChk").addEventListener("change",e=>{ if(!tour) return; const on=e.target.checked; tour.stops.forEach(s=>s.done=on); backTo=-1;
   cur=on?-1:0; render(); toast(on?"Alle Stopps abgehakt":"Alle Haken entfernt"); });
+// Standzeit je Stopp: von der Ankunft (nächster Punkt am Haus) bis zum Wegfahren; nur beim automatischen Abhaken
+const STAND_KEY="navi-standzeit", MAIL_KEY="navi-bericht-mail";
+const standOf=s=>s.at&&s.dep&&s.dep>s.at?s.dep-s.at:null;
+const mmss=ms=>{ const t=Math.round(ms/1000); return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`; };
+function learnStand(s){ const d=standOf(s); if(d==null||d<5000||d>30*60000) return; // Durchschnitt über alle Touren auf diesem Handy (für die Restzeit)
+  const h=Object.assign({n:0,sum:0},jget(STAND_KEY)); h.n++; h.sum+=d; if(h.n>500){ h.sum=h.sum/h.n*250; h.n=250; } jset(STAND_KEY,h); }
+function avgStand(list){ const v=list.map(standOf).filter(d=>d!=null&&d>=5000&&d<=30*60000); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; }
+function reportSummary(){ // Zusammenfassung für Datei und Mail
+  const st=tour.stops, n=st.filter(s=>s.done).length, ts=st.filter(s=>s.at).map(s=>s.at), dp=st.filter(s=>s.dep).map(s=>s.dep), out=[["Erledigt",`${n} von ${st.length}`]];
+  if(ts.length) out.push(["Erster Stopp",hhmm(Math.min(...ts))],["Letzter Stopp",hhmm(Math.max(...(dp.length?dp:ts)))]);
+  if(ts.length&&dp.length) out.push(["Gesamtzeit (erster bis letzter Stopp)",hm((Math.max(...dp)-Math.min(...ts))/1000)]);
+  const all=avgStand(st), pro=avgStand(st.filter(s=>(s.tags||[]).includes("pro"))), rkl=avgStand(st.filter(s=>(s.tags||[]).includes("rkl")));
+  const cnt=f=>st.filter(s=>f(s)&&standOf(s)!=null).length;
+  if(all!=null) out.push([`Standzeit Durchschnitt (${cnt(()=>true)} Stopps)`,mmss(all)+" Min."]);
+  if(pro!=null) out.push([`Standzeit Probe (${cnt(s=>(s.tags||[]).includes("pro"))})`,mmss(pro)+" Min."]);
+  if(rkl!=null) out.push([`Standzeit Reklamation (${cnt(s=>(s.tags||[]).includes("rkl"))})`,mmss(rkl)+" Min."]);
+  const sum=st.map(standOf).filter(d=>d!=null).reduce((a,b)=>a+b,0); if(sum) out.push(["Standzeit gesamt",hm(sum/1000)]);
+  return out; }
+function mailReport(){ // Mail-Programm mit fertigem Bericht öffnen: nur Stopp-Nummern und Zeiten, keine Adressen oder Namen
+  if(!tour) return; let to=""; try{ to=localStorage.getItem(MAIL_KEY)||""; }catch(e){}
+  const day=dayLabel(tourDay())||tourDay(), L=[`Tourbericht ${tourTitle()} · ${day}`,""];
+  tour.stops.forEach((s,i)=>{ const d=standOf(s); L.push(`Stopp ${i+1}: ${s.done?"erledigt":"offen"}${s.at?" · an "+hhmm(s.at):""}${s.dep?" · ab "+hhmm(s.dep):""}${d!=null?" · "+mmss(d)+" Min.":""}${(s.tags||[]).includes("pro")?" · Probe":""}${(s.tags||[]).includes("rkl")?" · Reklamation":""}`); });
+  L.push(""); reportSummary().forEach(r=>L.push(r.join(": ")));
+  location.href=`mailto:${encodeURIComponent(to).replace(/%40/g,"@")}?subject=${encodeURIComponent("Tourbericht "+tourTitle()+" "+day)}&body=${encodeURIComponent(L.join("\n"))}`; }
+async function tourFinished(){ // letzter Stopp erledigt: einmal fragen, ob der Bericht an den Chef geht
+  let to=""; try{ to=localStorage.getItem(MAIL_KEY)||""; }catch(e){} if(!to||!tour||tour.mailAsked) return; tour.mailAsked=true;
+  if(await ask("Tour fertig","Bericht mit Stopp-Nummern und Zeiten an "+to+" senden? Dein Mail-Programm öffnet sich, du drückst dann nur noch Senden.","Bericht senden","Nein")) mailReport(); }
+$("mailBtn").addEventListener("click",()=>{ let to=""; try{ to=localStorage.getItem(MAIL_KEY)||""; }catch(e){} if(!to) toast("Bitte zuerst unter ⚙ Einstellungen die E-Mail für Tourberichte eintragen."); mailReport(); });
+try{ $("mailTo").value=localStorage.getItem(MAIL_KEY)||""; }catch(e){}
+$("mailToSave").addEventListener("click",()=>{ const v=$("mailTo").value.trim(); try{ if(v) localStorage.setItem(MAIL_KEY,v); else localStorage.removeItem(MAIL_KEY); }catch(e){} toast(v?"E-Mail gespeichert":"E-Mail entfernt"); });
+// Restzeit beim Fahren: restliche Strecke (Anfahrt + Route zu den offenen Stopps) plus durchschnittliche Standzeit je offenem Stopp
+let etaAt=0;
+function updateEta(force){
+  const el=$("eta"); if(!el) return;
+  if(!tour||cur<0||!document.body.classList.contains("drive")){ el.hidden=true; return; }
+  if(!force&&Date.now()-etaAt<5000) return; etaAt=Date.now();
+  const line=tour.line||[], open=tour.stops.filter(s=>!s.done), s0=tour.stops[cur]; let m=0;
+  if(apPoly&&apStop===cur){ const q=apPoly.getLatLngs(); for(let k=1;k<q.length;k++) m+=map.distance(q[k-1],q[k]); }
+  else if(carPos&&s0.ll) m=dist(carPos,s0.ll)*1.3;
+  const lis=open.map(s=>s.li).filter(v=>v>=0), last=lis.length?Math.max(...lis):-1;
+  if(s0.li>=0&&last>s0.li) for(let k=s0.li+1;k<=last;k++) m+=dist(line[k-1],line[k]);
+  let km=0; for(let k=1;k<line.length;k++) km+=dist(line[k-1],line[k]);
+  const mps=tour.road&&tour.road.sec&&km>0?km/tour.road.sec:8.3; // Fahrgeschwindigkeit aus der Straßenroute, sonst ca. 30 km/h
+  const today=avgStand(tour.stops), h=Object.assign({n:0,sum:0},jget(STAND_KEY)), hist=h.n>=3?h.sum/h.n:null;
+  const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??60000;
+  const sec=m/mps+open.length*per/1000;
+  el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ca. ${hhmm(Date.now()+sec*1000)}<small>${open.length} Stopps offen · Ø Standzeit ${mmss(per)} Min.</small>`; }
 // Bericht: Tabelle (CSV, Semikolon für deutsches Excel) mit Nr., Adresse, Ort, erledigt und Uhrzeit. Ohne Kundennamen.
 $("reportBtn").addEventListener("click",async()=>{ if(!tour) return;
   const q=v=>{ v=String(v==null?"":v); return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
-  const day=dayLabel(tourDay())||tourDay(), rows=[["Bericht",tourTitle(),day],[],["Nr.","Straße und Hausnummer","Ort","Erledigt","Ankunft"]];
-  tour.stops.forEach((s,i)=>rows.push([i+1,s.addr||"",s.town||"",s.done?"ja":"nein",s.at?hhmm(s.at):""]));
-  const n=tour.stops.filter(s=>s.done).length, ts=tour.stops.filter(s=>s.at).map(s=>s.at);
-  rows.push([],["Erledigt",`${n} von ${tour.stops.length}`]); if(ts.length) rows.push(["Erster Stopp",hhmm(Math.min(...ts))],["Letzter Stopp",hhmm(Math.max(...ts))]);
+  const day=dayLabel(tourDay())||tourDay(), rows=[["Bericht",tourTitle(),day],[],["Nr.","Straße und Hausnummer","Ort","Erledigt","Ankunft","Abfahrt","Standzeit (Min.)"]];
+  tour.stops.forEach((s,i)=>rows.push([i+1,s.addr||"",s.town||"",s.done?"ja":"nein",s.at?hhmm(s.at):"",s.dep?hhmm(s.dep):"",standOf(s)!=null?mmss(standOf(s)):""]));
+  rows.push([]); reportSummary().forEach(r=>rows.push(r));
   const csv="\ufeff"+rows.map(r=>r.map(q).join(";")).join("\r\n"), name=`Bericht_${tourTitle().replace(/[^\w-]+/g,"_")}_${tourDay()}.csv`;
   const file=new File([csv],name,{type:"text/csv"});
   try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
@@ -2151,7 +2205,7 @@ $("reportBtn").addEventListener("click",async()=>{ if(!tour) return;
 // Tour neu starten: gleiche Dateien, alle Haken und Ansagen zurück, wieder ab Stopp 1
 $("restartBtn").addEventListener("click",async()=>{ if(!tour) return;
   if(!await ask("Tour neu starten?","Alle Haken werden entfernt und die Tour beginnt wieder bei Stopp 1. Die geladenen Dateien bleiben.","Neu starten","Abbrechen")) return;
-  stopSim(); tour.stops.forEach(s=>{ s.done=false; s.said=false; s.at=0; }); cur=0; backTo=-1; announced=-1; live={stop:-1,side:"",src:""}; turnSaid=new Set(); turnStop=-1;
+  stopSim(); tour.stops.forEach(s=>{ s.done=false; s.said=false; s.at=0; s.dep=0; }); tour.mailAsked=false; cur=0; backTo=-1; announced=-1; live={stop:-1,side:"",src:""}; turnSaid=new Set(); turnStop=-1;
   render(); fit(); toast("Tour beginnt wieder bei Stopp 1"); });
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -2178,7 +2232,7 @@ function saveTour(){ try{
   let a=loadTours(); const day=tourDay(), title=tourTitle(), key=title+"|"+day;
   let d=curId&&a.find(x=>x.id===curId) || a.find(x=>x.key===key);
   if(!d){ d={id:"t"+Date.now()}; a.unshift(d); }
-  curId=d.id; Object.assign(d,{key,day,title,t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),said:tour.stops.map(s=>!!s.said),at:tour.stops.map(s=>s.at||0),drive:document.body.classList.contains("drive"),ll:tour.stops.map(s=>s.ll)});
+  curId=d.id; Object.assign(d,{key,day,title,t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),said:tour.stops.map(s=>!!s.said),at:tour.stops.map(s=>s.at||0),dep:tour.stops.map(s=>s.dep||0),drive:document.body.classList.contains("drive"),ll:tour.stops.map(s=>s.ll)});
   a=[d,...a.filter(x=>x!==d)].slice(0,MAX_TOURS); // zuletzt benutzte vorne, die 4. fällt weg
   storeTours(a);
 }catch(e){} }
@@ -2186,7 +2240,7 @@ function saveTour(){ try{
 // Sonst bleibt die Karte leer, und der Knopf „Letzte Tour laden“ bietet die Tour an (höchstens 18 Stunden alt).
 function restoreTour(d){
   bcrTour=d.bcr; pdfTour=d.pdf; const t=mergeTours(); if(!t) return false;
-  t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; s.at=(d.at||[])[i]||0; if(!s.ll&&d.ll&&d.ll[i]) s.ll=d.ll[i]; }); tour=t; cur=typeof d.cur==="number"?d.cur:0; curId=d.id;
+  t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; s.at=(d.at||[])[i]||0; s.dep=(d.dep||[])[i]||0; if(!s.ll&&d.ll&&d.ll[i]) s.ll=d.ll[i]; }); tour=t; cur=typeof d.cur==="number"?d.cur:0; curId=d.id;
   $("lastTour").hidden=true; loadedInfo(); render(); fit(); routeTour(); checkTour(); return true; }
 const WD=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
 function dayLabel(day){ const m=String(day||"").match(/(\d{4})-(\d\d)-(\d\d)/); if(!m) return "";

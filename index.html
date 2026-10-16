@@ -953,11 +953,27 @@ body.drive .stop .t{grid-column:1;grid-row:2}
 body.drive .stop input{grid-column:2;grid-row:1/3;align-self:center}
 body.drive .stop .tm{display:none}
 body.drive #nextSide{display:none!important}
-body.drive .next-card .row #nextGmaps{flex:1 1 100%;font-size:1.25rem;padding:16px 10px;font-weight:700;text-align:center;justify-content:center}
+body.drive .next-card .row #nextGmaps{flex:1 1 100%;font-size:.95rem;padding:7px 8px;font-weight:700;text-align:center;justify-content:center}
 
 /* Restzeit beim Fahren */
 .eta{display:none}
-body.drive .eta:not([hidden]){display:block;order:1;flex:0 0 auto;text-align:center;font:700 1.05rem/1.25 var(--font-body);padding:6px 8px;border-radius:8px;background:var(--surface);box-shadow:var(--shadow)}
+body.drive .eta:not([hidden]){display:block;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:1000;max-width:calc(100% - 20px);box-sizing:border-box;white-space:nowrap;text-align:center;font:700 1.05rem/1.25 var(--font-body);padding:6px 14px;border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--fg);box-shadow:0 2px 10px rgb(0 0 0 / .3);pointer-events:none} /* unten mittig auf der Karte */
+body.drive .leaflet-bottom{bottom:58px} /* „Zur aktuellen Position“ über der Restzeit */
+/* Tourleiste mit Pfeil auf- und zuklappen */
+.dock-tog{display:none}
+body.drive .dock-tog{display:grid;place-items:center;position:absolute;z-index:1001;border:0;padding:0;cursor:pointer;background:var(--surface);color:var(--fg);font:700 22px/1 var(--font-body);box-shadow:0 2px 8px rgb(0 0 0 / .35)}
+body.drive.dock-left .dock-tog{left:0;top:50%;width:34px;height:72px;margin-top:-36px;border-radius:0 12px 12px 0}
+body.drive.dock-right .dock-tog{right:0;top:50%;width:34px;height:72px;margin-top:-36px;border-radius:12px 0 0 12px}
+body.drive.dock-top .dock-tog{top:0;left:50%;width:72px;height:34px;margin-left:-36px;border-radius:0 0 12px 12px}
+body.drive.dock-bottom .dock-tog{bottom:0;left:50%;width:72px;height:34px;margin-left:-36px;border-radius:12px 12px 0 0}
+body.drive.dock-left .dock-tog::before{content:"◀"} body.drive.dock-right .dock-tog::before{content:"▶"}
+body.drive.dock-top .dock-tog::before{content:"▲"} body.drive.dock-bottom .dock-tog::before{content:"▼"}
+body.drive.dock-left.dock-closed .dock-tog::before{content:"▶"} body.drive.dock-right.dock-closed .dock-tog::before{content:"◀"}
+body.drive.dock-top.dock-closed .dock-tog::before{content:"▼"} body.drive.dock-bottom.dock-closed .dock-tog::before{content:"▲"}
+body.drive.dock-closed .main{--pw:0px;--ph:0px}
+body.drive.dock-closed .side{visibility:hidden;padding:0}
+body.drive.dock-bottom .leaflet-bottom{bottom:96px}
+body.drive.dock-bottom .eta:not([hidden]){bottom:44px}
 body.drive .eta small{display:block;font-weight:500;font-size:.8rem;color:var(--muted)}
 </style></head><body>
 
@@ -1027,10 +1043,9 @@ body.drive .eta small{display:block;font-weight:500;font-size:.8rem;color:var(--
   </section>
 
   <div class="main">
-    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div></div>
+    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="eta" id="eta" hidden></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
-      <div class="eta" id="eta" hidden></div>
       <div class="next-card" id="nextCard">
         <span class="lbl" id="nextLbl">Nächster Stopp</span>
         <div class="place"><span class="who" id="nextWho">–</span><span class="town" id="nextTown"></span></div>
@@ -1909,14 +1924,16 @@ $("tourUrlSave").addEventListener("click",()=>{ let u=$("tourUrl").value.trim();
 tourLinkUi();
 // Tourleiste: Schriftgröße (5 Stufen, Stufe 5 = bisherige Größe) und Platz am Rand
 const FONT_KEY="navi-schrift", DOCK_KEY="navi-leiste", ZOOMS=[.6,.7,.8,.9,1];
-let fontIdx=2, dock="left"; try{ const f=localStorage.getItem(FONT_KEY); if(f!==null&&ZOOMS[+f]) fontIdx=+f; dock=localStorage.getItem(DOCK_KEY)||"left"; }catch(e){}
+let fontIdx=2, dock="left", dockClosed=false; try{ dockClosed=localStorage.getItem("navi-leiste-zu")==="1"; const f=localStorage.getItem(FONT_KEY); if(f!==null&&ZOOMS[+f]) fontIdx=+f; dock=localStorage.getItem(DOCK_KEY)||"left"; }catch(e){}
 function applyLayout(){
   document.body.style.setProperty("--dz",ZOOMS[fontIdx]);
   ["left","right","top","bottom"].forEach(d=>document.body.classList.toggle("dock-"+d,d===dock));
+  document.body.classList.toggle("dock-closed",dockClosed); $("dockTog").setAttribute("aria-label",dockClosed?"Tourleiste aufklappen":"Tourleiste zuklappen");
   $("fontSel").value=String(fontIdx); $("dockSel").value=dock;
   if(document.body.classList.contains("drive")) setTimeout(()=>{ map.invalidateSize(); if(carPos) map.panTo(followPt()); scrollCurrent(); },60);
 }
-function setDock(d){ dock=d; try{localStorage.setItem(DOCK_KEY,d);}catch(e){} applyLayout(); }
+$("dockTog").addEventListener("click",e=>{ e.stopPropagation(); dockClosed=!dockClosed; try{localStorage.setItem("navi-leiste-zu",dockClosed?"1":"0");}catch(x){} applyLayout(); });
+function setDock(d){ dock=d; dockClosed=false; try{localStorage.setItem(DOCK_KEY,d); localStorage.setItem("navi-leiste-zu","0");}catch(e){} applyLayout(); }
 $("fontSel").addEventListener("change",e=>{ fontIdx=+e.target.value; try{localStorage.setItem(FONT_KEY,fontIdx);}catch(x){} applyLayout(); });
 $("dockSel").addEventListener("change",e=>setDock(e.target.value));
 applyLayout();

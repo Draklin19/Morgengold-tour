@@ -957,24 +957,27 @@ body.drive .next-card .row #nextGmaps{flex:1 1 100%;font-size:.95rem;padding:7px
 
 /* Restzeit beim Fahren */
 .eta{display:none}
-body.drive .eta:not([hidden]){display:block;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:1000;max-width:calc(100% - 20px);box-sizing:border-box;white-space:nowrap;text-align:center;font:700 1.05rem/1.25 var(--font-body);padding:6px 14px;border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--fg);box-shadow:0 2px 10px rgb(0 0 0 / .3);pointer-events:none} /* unten mittig auf der Karte */
-body.drive .leaflet-bottom{bottom:58px} /* „Zur aktuellen Position“ über der Restzeit */
+body.drive .eta:not([hidden]){display:block;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:1000;max-width:calc(100% - 20px);box-sizing:border-box;white-space:nowrap;text-align:center;font:700 2.1rem/1.15 var(--font-body);font-size:min(2.1rem,5.8cqi);padding:6px 18px;border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--fg);box-shadow:0 2px 10px rgb(0 0 0 / .3);pointer-events:none} /* unten mittig auf der Karte */
+body.drive .leaflet-bottom{bottom:110px} /* „Zur aktuellen Position“ über der Restzeit */
 /* Tourleiste mit Pfeil auf- und zuklappen */
 .dock-tog{display:none}
-body.drive .dock-tog{display:grid;place-items:center;position:absolute;z-index:1001;border:0;padding:0;cursor:pointer;background:var(--surface);color:var(--fg);font:700 22px/1 var(--font-body);box-shadow:0 2px 8px rgb(0 0 0 / .35)}
-body.drive.dock-left .dock-tog{left:0;top:50%;width:34px;height:72px;margin-top:-36px;border-radius:0 12px 12px 0}
-body.drive.dock-right .dock-tog{right:0;top:50%;width:34px;height:72px;margin-top:-36px;border-radius:12px 0 0 12px}
-body.drive.dock-top .dock-tog{top:0;left:50%;width:72px;height:34px;margin-left:-36px;border-radius:0 0 12px 12px}
-body.drive.dock-bottom .dock-tog{bottom:0;left:50%;width:72px;height:34px;margin-left:-36px;border-radius:12px 12px 0 0}
+body.drive .dock-tog{display:grid;place-items:center;position:absolute;z-index:1001;border:0;padding:0;cursor:pointer;background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--fg);font:700 34px/1 var(--font-body);box-shadow:0 0 10px rgb(0 0 0 / .3)} /* ganze Leiste, damit die Kamera-Aussparung nicht stört */
+body.drive.dock-left .dock-tog{left:0;top:0;bottom:0;width:52px;border-radius:0}
+body.drive.dock-right .dock-tog{right:0;top:0;bottom:0;width:52px;border-radius:0}
+body.drive.dock-top .dock-tog{top:0;left:0;right:0;height:52px;border-radius:0}
+body.drive.dock-bottom .dock-tog{bottom:0;left:0;right:0;height:52px;border-radius:0}
 body.drive.dock-left .dock-tog::before{content:"◀"} body.drive.dock-right .dock-tog::before{content:"▶"}
 body.drive.dock-top .dock-tog::before{content:"▲"} body.drive.dock-bottom .dock-tog::before{content:"▼"}
 body.drive.dock-left.dock-closed .dock-tog::before{content:"▶"} body.drive.dock-right.dock-closed .dock-tog::before{content:"◀"}
 body.drive.dock-top.dock-closed .dock-tog::before{content:"▼"} body.drive.dock-bottom.dock-closed .dock-tog::before{content:"▲"}
 body.drive.dock-closed .main{--pw:0px;--ph:0px}
 body.drive.dock-closed .side{visibility:hidden;padding:0}
-body.drive.dock-bottom .leaflet-bottom{bottom:96px}
-body.drive.dock-bottom .eta:not([hidden]){bottom:44px}
-body.drive .eta small{display:block;font-weight:500;font-size:.8rem;color:var(--muted)}
+body.drive.dock-bottom .leaflet-bottom{bottom:166px}
+body.drive.dock-bottom .eta:not([hidden]){bottom:62px}
+body.drive.dock-left .eta:not([hidden]){left:calc(50% + 26px);max-width:calc(100% - 72px)} body.drive.dock-right .eta:not([hidden]){left:calc(50% - 26px);max-width:calc(100% - 72px)}
+body.drive.dock-left .leaflet-left{left:52px} body.drive.dock-left #compass{left:62px} body.drive.dock-top #compass{top:144px} body.drive.dock-top .leaflet-top{top:52px}
+body.drive .eta small{display:block;font-weight:600;font-size:.62em;color:var(--muted)}
+body.drive #map{container-type:size}
 </style></head><body>
 
 <div class="wrap">
@@ -2207,7 +2210,7 @@ function updateEta(force){
   const today=avgStand(tour.stops), h=Object.assign({n:0,sum:0},jget(STAND_KEY)), hist=h.n>=3?h.sum/h.n:null;
   const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??60000;
   const sec=m/mps+open.length*per/1000;
-  el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ca. ${hhmm(Date.now()+sec*1000)}<small>${open.length} Stopps offen · Ø Standzeit ${mmss(per)} Min.</small>`; }
+  el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} Stopps offen · Ø ${mmss(per)} Min. Standzeit</small>`; }
 // Bericht: Tabelle (CSV, Semikolon für deutsches Excel) mit Nr., Adresse, Ort, erledigt und Uhrzeit. Ohne Kundennamen.
 $("reportBtn").addEventListener("click",async()=>{ if(!tour) return;
   const q=v=>{ v=String(v==null?"":v); return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };

@@ -1203,7 +1203,10 @@ function parseAusfahrliste(words){
   lines.forEach(l=>{ if(/Kommissionierzone/.test(l.text)) cut[Math.floor(l.y/10000)]=l.y; });
   lines.forEach(l=>{ const p=Math.floor(l.y/10000); if(cut[p]===undefined||l.y>cut[p]+1) body.push(l); });
   const isHead=l=>l.w.length>1&&l.w[0].x<74&&/^\d+$/.test(l.w[0].s)&&l.w[1].x>=80&&l.w[1].x<110;
-  const heads=body.map((l,i)=>isHead(l)?i:-1).filter(i=>i>=0);
+  const hasTown=i=>{ for(let j=i+1;j<body.length&&body[j].y-body[i].y<=25.5;j++) if(/^\d{5}\s/.test(body[j].w.filter(w=>w.x>=320).map(w=>w.s).join(" "))) return true; return false; };
+  // Kopfzeile eines Stopps: Nummer links, darunter PLZ und Ort. Eine Artikelzeile wie „10 Vesperwecken“ hat keinen Ort.
+  const heads=[]; body.forEach((l,i)=>{ if(!isHead(l)) return; const prev=heads.length?+body[heads[heads.length-1]].w[0].s:0;
+    if(hasTown(i)||+l.w[0].s===prev+1) heads.push(i); });
   if(!heads.length) throw new Error("Keine Stopps in der Ausfahrliste gefunden.");
   const colsOf=(ls,bounds)=>{ const cols=bounds.map(()=>[]);
     ls.forEach(l=>{ const byCol=bounds.map(()=>[]);
@@ -1633,6 +1636,7 @@ function applyRot(now){ const t=rotOn()?head:0, d=((t-brg)%360+540)%360-180; brg
   brg=Math.round(brg); const r=brg%360?-brg:0; mapIn.style.transform=r?`rotate(${r}deg)`:""; mapIn.style.setProperty("--cr",(r?brg:0)+"deg");
   const c=document.getElementById("compass"); if(c){ c.hidden=!r; c.firstChild.style.transform=`rotate(${-brg}deg)`; } }
 function bearingDeg(a,b){ const c=Math.cos(a[0]*Math.PI/180); return (Math.atan2((b[1]-a[1])*c,b[0]-a[0])*180/Math.PI+360)%360; }
+let gpsSpeed=null;
 function setHead(p,gh,speed,acc){ // Fahrtrichtung aus GPS (ab ca. 7 km/h) oder aus mindestens 12 m Bewegung
   let h=null;
   if(gh!=null&&!isNaN(gh)&&speed>2){ h=gh; headFrom=p.slice(); }
@@ -1871,7 +1875,7 @@ async function startGps(){
   gpsWatch=navigator.geolocation.watchPosition(pos=>{
     carPos=[pos.coords.latitude,pos.coords.longitude]; gpsAcc=pos.coords.accuracy||0;
     if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[44,54],iconAnchor:[22,54]}),zIndexOffset:2000});
-    if(!disp) car.setLatLng(carPos); car.addTo(map); setHead(carPos,pos.coords.heading,pos.coords.speed,gpsAcc);
+    if(!disp) car.setLatLng(carPos); car.addTo(map); gpsSpeed=pos.coords.speed; setHead(carPos,pos.coords.heading,pos.coords.speed,gpsAcc);
     { const t=performance.now(), dt=lastFixAt?t-lastFixAt:1000; lastFixAt=t; moveCar(carPos,Math.min(2000,Math.max(300,dt)),firstFix&&document.body.classList.contains("drive")); }
     const acc=Math.round(pos.coords.accuracy);
     $("gpsState").textContent=`GPS aktiv, Genauigkeit ca. ${acc} m`+(tour&&cur>=0&&tour.stops[cur].ll?` · noch ${Math.round(dist(carPos,tour.stops[cur].ll))} m bis Stopp ${cur+1}`:"");
@@ -2022,11 +2026,19 @@ async function updateApproach(){
   // Anfahrpunkt aus der Routendatei: Die Morgengold-Strecke endet auf der Straße, von der aus das Haus erreicht wird.
   // Liegt das Haus 40–300 m davon weg, fährt die App über diesen Punkt. Müsste das Auto danach erst um den Block,
   // um näher ans Haus zu kommen, endet die Fahrt dort und das letzte Stück wird zu Fuß gezeigt.
-  const sx=tour.stops[stopNo], ap=approachPt(sx,from); let legs=[];
+  const sx=tour.stops[stopNo]; let ap=approachPt(sx,from), legs=[]; const hadAp=!!ap;
   if(reroute) say("Route wird neu berechnet.");
-  const hb=head!==null&&headFrom&&dist(headFrom,from)<60?head:null; // Fahrtrichtung mitgeben: neue Route führt vorwärts weiter (wenden an der nächsten möglichen Stelle)
-  for(const b of hb!==null?[hb,null]:[null]){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,ap?[from,ap,to]:[from,to],b); line=r.line; steps=r.steps; legs=r.legs; break; }catch(e){} } if(line) break; } // ohne Richtung nochmal, falls keine Straße in Fahrtrichtung passt
-  if(ap) sx.park=null;
+  // Fahrtrichtung nur mitgeben, wenn man sich verfahren hat und wirklich fährt (über ca. 11 km/h): dann führt die neue Route
+  // vorwärts weiter. Beim ersten Berechnen und im Stand (z. B. beim Kunden) darf die Route wenden, sonst gibt es Umwege um den Block.
+  const moving=gpsSpeed==null||gpsSpeed<0||gpsSpeed>3;
+  const hb=reroute&&moving&&head!==null&&headFrom&&dist(headFrom,from)<60?head:null;
+  const getRoute=async pts=>{ for(const b of hb!==null?[hb,null]:[null]) for(const base of ROUTERS){ try{ return await routeSteps(base,pts,b); }catch(e){} } return null; }; // ohne Richtung nochmal, falls keine Straße in Fahrtrichtung passt
+  let rr=await getRoute(ap?[from,ap,to]:[from,to]);
+  if(ap){ // Zwischenpunkt aus der Routendatei nur nehmen, wenn der Weg darüber kaum länger ist als der direkte Weg
+    const rd=await getRoute([from,to]), len=r=>r.legs.reduce((a,b)=>a+b,0);
+    if(rd&&(!rr||len(rr)>len(rd)*1.15+80)){ rr=rd; ap=null; } }
+  if(rr){ line=rr.line; steps=rr.steps; legs=rr.legs; }
+  if(hadAp) sx.park=null;
   if(ap&&line&&legs.length===2){
     if(legs[1]>dist(ap,to)*1.6+60){ // Umweg nötig: am Anfahrpunkt parken
       let k=0, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,ap); if(d<bd){bd=d;k=j;} });
@@ -2224,7 +2236,7 @@ function updateEta(force){
   const today=avgStand(tour.stops), h=Object.assign({n:0,sum:0},jget(STAND_KEY)), hist=h.n>=3?h.sum/h.n:null;
   const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??60000;
   const sec=m/mps+open.length*per/1000;
-  el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} Stopps offen · Ø ${mmss(per)} Min. Standzeit</small>`; }
+  el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit</small>`; }
 // Bericht: Tabelle (CSV, Semikolon für deutsches Excel) mit Nr., Adresse, Ort, erledigt und Uhrzeit. Ohne Kundennamen.
 $("reportBtn").addEventListener("click",async()=>{ if(!tour) return;
   const q=v=>{ v=String(v==null?"":v); return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };

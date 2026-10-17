@@ -965,13 +965,11 @@ body.drive .leaflet-bottom{bottom:110px} /* „Zur aktuellen Position“ über d
 .stop-chip{display:none}
 body.drive .stop-chip:not([hidden]){display:grid;place-items:center;pointer-events:auto;flex:0 0 auto;min-width:min(5.4rem,17cqi);padding:0 12px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font:800 2.6rem/1 var(--font-body);font-size:min(2.6rem,7cqi);box-shadow:0 2px 10px rgb(0 0 0 / .3);cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 body.drive .stop-chip.press{transform:scale(.94);filter:brightness(.9)}
+body.drive .toast{bottom:calc(100px + env(safe-area-inset-bottom,0px))} /* über der Leiste unten */
+.back-chip{display:none}
+body.drive .back-chip{display:grid;place-items:center;pointer-events:auto;flex:0 0 auto;width:min(5.4rem,15cqi);border:0;border-radius:12px;background:#0b0d0c;color:#f2f5f3;box-shadow:0 2px 10px rgb(0 0 0 / .3);cursor:pointer;padding:6px;font:700 1.05rem/1.1 var(--font-body);font-size:min(1.05rem,3.4cqi)}
+@media (max-aspect-ratio:1/1){body.drive .back-chip,body.drive .gm-chip{width:13cqi!important;font-size:2.9cqi!important;padding:4px!important} body.drive .stop-chip:not([hidden]){min-width:14cqi!important;padding:0 6px!important} body.drive .eta:not([hidden]){font-size:3cqi!important;padding:6px 8px!important} body.drive .map-bar{gap:6px}} /* Hochformat: vier Felder nebeneinander */
 .toast.up{bottom:calc(120px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:12px;z-index:2700}
-body.drive .toast.up{left:8px;right:auto;transform:none;bottom:10px;padding:0;background:none;box-shadow:none;max-width:none}
-body.drive .toast.up .tmsg{display:none}
-body.drive .toast.up .undo{width:72px;height:min(5.2rem,16cqi,74px);min-height:56px;padding:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:.62rem;box-shadow:0 2px 10px rgb(0 0 0 / .35)}
-body.drive .toast.up .undo i{font-style:normal;font-size:1.6rem;line-height:1}
-body.drive.undo-on .map-bar{left:calc(50% + 41px);max-width:calc(100% - 102px)}
-@media (max-aspect-ratio:1/1){body.drive .toast.up{bottom:96px} body.drive.undo-on .map-bar{left:50%;max-width:calc(100% - 20px)}}
 .toast .undo{font:700 .95rem var(--font-body);border:0;border-radius:8px;padding:8px 12px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
 .wheel-ask{position:fixed;inset:0;z-index:2800;background:rgb(0 0 0 / .55);display:grid;place-items:center;padding:12px}
 .wheel-box{background:#0b0d0c;color:#f2f5f3;border-radius:18px;padding:14px;width:min(420px,100%);display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 30px rgb(0 0 0 / .5)}
@@ -1081,7 +1079,7 @@ body.drive #map{container-type:size}
   </section>
 
   <div class="main">
-    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="map-bar" id="mapBar"><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
+    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
       <div class="next-card" id="nextCard">
@@ -1725,7 +1723,7 @@ map.on("dragstart",()=>{ const dr=map.dragging&&map.dragging._draggable; if(dr&&
 if(window.ResizeObserver){ const ro=new ResizeObserver(()=>{ sizeInner(); map.invalidateSize({animate:false}); if(follow&&carPos) map.setView(followPt(),map.getZoom(),{animate:false}); }); ro.observe(mapBox); ro.observe(mapIn); }
 function pick(i){ markJump(i); cur=i; render(); focusStop(i); }
 
-function toast(msg){const t=$("toast");t.classList.remove("up");document.body.classList.remove("undo-on");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
+function toast(msg){const t=$("toast");t.classList.remove("up");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
 function stopSim(){const was=simTimer!==null;clearInterval(simTimer);simTimer=null;if(!document.body.classList.contains("drive")) try{ clearApproach(); }catch(e){}$("sim").textContent="▶ Fahrt simulieren";document.body.classList.remove("sim");if(was&&tour) render();}
 const HOUSE_M=150; // ab dieser Entfernung erscheint die Hausnummer
 function updateHouseNo(){ let el=$("houseNo"); if(!el){ el=document.createElement("div"); el.id="houseNo"; $("map").appendChild(el); }
@@ -2259,18 +2257,15 @@ function updateEta(force){
   const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??45000; // neue Fahrer: Start mit 45 Sekunden
   const sec=m/mps+open.length*per/1000;
   el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit</small>`; }
-$("gmChip").addEventListener("click",()=>$("nextGmaps").click()); // gleicher Link wie „Mit Google Maps hinfahren“
+$("gmChip").addEventListener("click",()=>$("nextGmaps").click());
+$("backChip").addEventListener("click",()=>$("prev").click()); // wie „Zurück zum letzten Kunden“: jeder Druck einen Kunden zurück
+ // gleicher Link wie „Mit Google Maps hinfahren“
 // Nummernfeld unten links neben der Restzeit: zeigt die Tütennummer des Stopps, den man gerade anfährt.
 // Kurz tippen hakt ihn ab (ein paar Sekunden rückgängig machbar), lange drücken öffnet ein Auswahlrad mit allen Stopps.
-function updateChip(){ const b=$("stopChip"); b.hidden=!tour||cur<0; $("gmChip").hidden=b.hidden;
+function updateChip(){ const b=$("stopChip"); b.hidden=!tour||cur<0; $("gmChip").hidden=b.hidden; $("backChip").hidden=!tour;
   if(!b.hidden) b.textContent=String(tour.stops[cur].no||cur+1); }
-function toastUndo(msg,fn){ const t=$("toast"); t.textContent=""; const m=document.createElement("span"); m.className="tmsg"; m.textContent=msg;
-  const u=document.createElement("button"); u.type="button"; u.className="undo"; u.innerHTML="<i>↶</i>Rückgängig"; // beim Fahren ganz links unten neben der Leiste
-  const off=()=>{ t.hidden=true; t.classList.remove("up"); document.body.classList.remove("undo-on"); };
-  u.onclick=()=>{ clearTimeout(toast.h); off(); fn(); }; t.append(m,u); t.classList.add("up"); t.hidden=false; document.body.classList.add("undo-on");
-  clearTimeout(toast.h); toast.h=setTimeout(off,5000); }
-function chipDone(){ if(!tour||cur<0) return; const i=cur, s=tour.stops[i], bt=backTo; s.done=true; if(arr.i===i) arr.i=-1; goTo(nextOpen());
-  toastUndo(`Stopp ${s.no||i+1} abgehakt`,()=>{ s.done=false; backTo=bt; goTo(i); }); if(cur<0) tourFinished(); }
+function chipDone(){ if(!tour||cur<0) return; const i=cur, s=tour.stops[i]; s.done=true; if(arr.i===i) arr.i=-1; goTo(nextOpen());
+  toast(`Stopp ${s.no||i+1} abgehakt`); if(cur<0) tourFinished(); }
 let wheelSel=-1;
 function wheelInfo(d,s){ let det=d.querySelector(".wheel-det");
   if(det){ det.remove(); } else { det=document.createElement("div"); det.className="wheel-det";

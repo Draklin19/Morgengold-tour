@@ -1005,6 +1005,7 @@ body.drive .gm-chip svg{width:min(2.2rem,7cqi);height:min(2.2rem,7cqi);display:b
 /* Dunkle Fahrtleiste (v=62): schwarz spart auf OLED-Handys Strom und blendet morgens nicht */
 body.drive .main{--bg:#000}
 body.drive #map,body.drive #mapIn{background:#1b1b1b}
+body.drive .leaflet-tile-pane{filter:brightness(.62) contrast(1.08)} /* v=72: normale Karte beim Fahren abgedunkelt (Nachtkarte zeigte zu wenig) */
 .leaflet-top .leaflet-control-attribution{font-size:10px;line-height:1.3;border-radius:6px;margin-top:6px!important;opacity:.85;max-width:min(60vw,420px);white-space:normal;text-align:right}
 body.drive .leaflet-control-attribution{background:rgb(0 0 0 / .6)!important;color:#bbb} body.drive .leaflet-control-attribution a{color:#8fc3ff}
 body.drive .side,body.drive .dock-tog,body.drive .eta{--bg:#000;--surface:#0b0d0c;--fg:#f2f5f3;--muted:#a3ada7;--line:#262c29;--done:#7d8882;--accent:#f2b51c;--accent-ink:#2a1e00;--shadow:none;color-scheme:dark;color:var(--fg)}
@@ -1429,8 +1430,7 @@ function useTiles(key){
 }
 document.querySelectorAll("#tileSel button").forEach(b=>b.addEventListener("click",()=>useTiles(b.dataset.k)));
 useTiles("esri"); // Esri zeigt mehr Umgebung (Feedback: CARTO zu wenig Details)
-// Beim Fahren dunkle Nachtkarte (spart Strom und blendet nicht), sonst wie gewohnt Esri
-{ let wasDrive=false; new MutationObserver(()=>{ const d=document.body.classList.contains("drive"); if(d!==wasDrive){ wasDrive=d; useTiles(d?"nacht":"esri"); } }).observe(document.body,{attributes:true,attributeFilter:["class"]}); }
+
 L.control.scale({imperial:false}).addTo(map);
 // Eigene Position als kleine Figur, wahlweise mit eigenem Foto. Das Foto bleibt nur in diesem Browser auf dem Handy.
 const ME_KEY="navi-me-bild", FIGURE='<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><circle cx="12" cy="7" r="5"/><path d="M2 24c0-6 4.5-10 10-10s10 4 10 10z"/></svg>';

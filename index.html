@@ -973,7 +973,12 @@ body.drive .stop-chip.press{transform:scale(.94);filter:brightness(.9)}
 .wheel-list{position:relative;height:min(250px,55vh);overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;padding:calc(min(250px,55vh) / 2 - 25px) 0;
   -webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent)}
 .wheel-list::before{content:"";position:sticky;display:block;top:calc(50% - 25px);height:50px;margin-bottom:-50px;border-radius:10px;background:rgb(242 181 28 / .22);border:2px solid #f2b51c;pointer-events:none;box-sizing:border-box}
-.wheel-it{height:50px;scroll-snap-align:center;display:flex;align-items:center;gap:12px;padding:0 14px;font:600 1.15rem var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.wheel-it{cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.wheel-hd{scroll-snap-align:center;height:50px;display:flex;align-items:center;gap:12px;padding:0 14px;font:600 1.15rem var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wheel-det{margin:0 10px 8px 3.6em;padding:8px 10px;border-radius:10px;background:#1a1f1c;font:500 .95rem/1.35 var(--font-body);white-space:normal}
+.wheel-det p{margin:0 0 4px;color:#ffd666;font-weight:600}
+.wheel-det ul{margin:0;padding:0;list-style:none} .wheel-det li b{margin-right:6px}
+.wheel-it.hold{background:rgb(242 181 28 / .12)}
 .wheel-it b{min-width:2.4em;text-align:right;font-size:1.35rem}
 .wheel-it.done{color:#7d8882;text-decoration:line-through}
 .wheel-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -2259,13 +2264,28 @@ function toastUndo(msg,fn){ const t=$("toast"); t.textContent=msg; const u=docum
 function chipDone(){ if(!tour||cur<0) return; const i=cur, s=tour.stops[i], bt=backTo; s.done=true; if(arr.i===i) arr.i=-1; goTo(nextOpen());
   toastUndo(`Stopp ${s.no||i+1} abgehakt`,()=>{ s.done=false; backTo=bt; goTo(i); }); if(cur<0) tourFinished(); }
 let wheelSel=-1;
+function wheelInfo(d,s){ let det=d.querySelector(".wheel-det");
+  if(det){ det.remove(); } else { det=document.createElement("div"); det.className="wheel-det";
+    const tg=(s.tags||[]).map(k=>{ const T=TAGS.find(T=>T.k===k); return T?T.t:""; }).filter(Boolean); if(tg.length){ const p=document.createElement("p"); p.textContent=tg.join(" · "); det.append(p); }
+    (s.notes||[]).forEach(n=>{ const p=document.createElement("p"); p.textContent=n; det.append(p); });
+    if(s.articles&&s.articles.length){ const ul=document.createElement("ul"); fillArts(ul,s.articles); det.append(ul); }
+    if(!det.childNodes.length) det.textContent="Keine Hinweise"; d.append(det); }
+  d.firstChild.scrollIntoView({block:"center",behavior:"smooth"}); } // Kopfzeile bleibt im gelben Rahmen, Hinweise darunter
 function openWheel(){ if(!tour) return; const l=$("wheelList"); l.innerHTML="";
   tour.stops.forEach((s,i)=>{ const d=document.createElement("div"); d.className="wheel-it"+(s.done?" done":""); d.dataset.i=i;
-    const b=document.createElement("b"); b.textContent=s.no||i+1; const t=document.createElement("span"); t.textContent=s.addr||""; d.append(b,t);
-    d.onclick=()=>d.scrollIntoView({block:"center",behavior:"smooth"}); l.appendChild(d); });
-  $("wheel").hidden=false; const c=l.children[Math.max(0,cur)]; if(c) l.scrollTop=c.offsetTop-l.clientHeight/2+c.offsetHeight/2; wheelSel=Math.max(0,cur); }
+    const hd=document.createElement("div"); hd.className="wheel-hd";
+    const b=document.createElement("b"); b.textContent=s.no||i+1; const t=document.createElement("span"); t.textContent=s.addr||""; hd.append(b,t); d.append(hd);
+    // kurz tippen: Hinweise und Backwaren auf- und zuklappen; lange drücken: Pin für dieses Haus setzen
+    let tm=0, long=false, sx=0, sy=0, down=false;
+    d.addEventListener("pointerdown",e=>{ down=true; long=false; sx=e.clientX; sy=e.clientY; d.classList.add("hold"); clearTimeout(tm);
+      tm=setTimeout(()=>{ long=true; d.classList.remove("hold"); $("wheel").hidden=true; startPin(i); },600); });
+    d.addEventListener("pointermove",e=>{ if(down&&Math.hypot(e.clientX-sx,e.clientY-sy)>10){ down=false; clearTimeout(tm); d.classList.remove("hold"); } });
+    const up=e=>{ clearTimeout(tm); d.classList.remove("hold"); if(e.type==="pointerup"&&down&&!long) wheelInfo(d,s); down=false; };
+    d.addEventListener("pointerup",up); d.addEventListener("pointercancel",up); d.addEventListener("contextmenu",e=>e.preventDefault());
+    l.appendChild(d); });
+  $("wheel").hidden=false; const c=l.children[Math.max(0,cur)]; if(c) l.scrollTop=c.offsetTop-l.clientHeight/2+25; wheelSel=Math.max(0,cur); }
 $("wheelList").addEventListener("scroll",()=>{ const l=$("wheelList"), mid=l.scrollTop+l.clientHeight/2; let best=-1, bd=1e9;
-  [...l.children].forEach(c=>{ const d=Math.abs(c.offsetTop+c.offsetHeight/2-mid); if(d<bd){bd=d;best=+c.dataset.i;} }); wheelSel=best; },{passive:true});
+  [...l.children].forEach(c=>{ const d=Math.abs(c.offsetTop+25-mid); if(d<bd){bd=d;best=+c.dataset.i;} }); wheelSel=best; },{passive:true});
 $("wheelNo").addEventListener("click",()=>{ $("wheel").hidden=true; });
 $("wheel").addEventListener("click",e=>{ if(e.target.id==="wheel") $("wheel").hidden=true; });
 $("wheelGo").addEventListener("click",()=>{ $("wheel").hidden=true; if(!tour||wheelSel<0) return; const s=tour.stops[wheelSel];

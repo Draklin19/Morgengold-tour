@@ -1029,6 +1029,30 @@ body.drive .eta:not([hidden]){background:rgb(0 0 0 / .85);color:#f2f5f3}
 body.drive .eta small{display:block;font-weight:600;font-size:.62em;color:var(--muted)}
 body.drive #map{container-type:size}
 </style></head><body>
+<!-- v=81: Zugangscode beim ersten Öffnen (hält Fremde fern, die zufällig auf den Link stoßen; im Code steht nur der Prüfwert, nicht der Code) -->
+<div id="gate" style="position:fixed;inset:0;z-index:99999;background:#f4f1ea;display:flex;align-items:center;justify-content:center;padding:24px;font-family:var(--font-body,system-ui)">
+ <form id="gateForm" style="width:100%;max-width:340px;text-align:center">
+  <img src="icon-192.png" alt="" width="84" height="84" style="border-radius:20px">
+  <h1 style="font-size:1.4rem;margin:14px 0 6px">Morgengold Tour</h1>
+  <p style="margin:0 0 18px;color:#555">Bitte den Zugangscode eingeben, den du von deinem Chef bekommen hast.</p>
+  <input id="gateCode" inputmode="numeric" autocomplete="off" placeholder="Zugangscode" style="width:100%;box-sizing:border-box;font-size:1.6rem;text-align:center;letter-spacing:.2em;padding:12px;border:2px solid #c9c2b2;border-radius:12px">
+  <p id="gateErr" style="color:#b42318;min-height:1.4em;margin:8px 0"></p>
+  <button style="width:100%;font-size:1.2rem;font-weight:700;padding:14px;border:0;border-radius:12px;background:#1a7f64;color:#fff">Öffnen</button>
+ </form>
+</div>
+<script>
+(function(){ const OK="540628c2eb563c5925aa0650105f21dcfd9720930a5c9129fe34ca5b795cead9", K="navi-zugang", g=document.getElementById("gate");
+  let have=null; try{ have=localStorage.getItem(K); }catch(e){}
+  if(have===OK){ g.remove(); return; }
+  document.getElementById("gateForm").addEventListener("submit",async e=>{ e.preventDefault();
+    const c=document.getElementById("gateCode").value.replace(/\s+/g,""), err=document.getElementById("gateErr");
+    try{ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("morgengold:"+c));
+      const h=[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
+      if(h===OK){ try{ localStorage.setItem(K,OK); }catch(e){} g.remove(); }
+      else err.textContent="Der Code stimmt nicht. Bitte noch einmal versuchen."; }
+    catch(x){ err.textContent="Dieser Browser kann den Code nicht prüfen. Bitte Safari oder Chrome nehmen."; } });
+})();
+</script>
 
 <div class="wrap">
   <header>

@@ -743,9 +743,9 @@ body.drive #sideBar.links,body.drive #sideBar.rechts,body.sim #sideBar.links,bod
 .mode label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
 .mode select{font:500 .95rem var(--font-body);padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
 .mode .hint{font-size:.82rem;color:var(--muted);margin:0}
-.me{position:relative;width:44px;height:54px}
-.me .face{position:absolute;left:0;top:0;width:44px;height:44px;border-radius:50%;background:#2f6fe4 center/cover no-repeat;border:3px solid #fff;box-shadow:0 0 0 5px rgb(47 111 228 / .3),0 2px 5px rgb(0 0 0 / .4);display:grid;place-items:center;overflow:hidden}
-.me .face svg{width:30px;height:30px;margin-top:8px}
+.me{position:relative;width:34px;height:42px} /* v=78: kleiner, verdeckt weniger */
+.me .face{position:absolute;left:0;top:0;width:34px;height:34px;border-radius:50%;background:#2f6fe4 center/cover no-repeat;border:3px solid #fff;box-shadow:0 0 0 4px rgb(47 111 228 / .3),0 2px 5px rgb(0 0 0 / .4);display:grid;place-items:center;overflow:hidden}
+.me .face svg{width:23px;height:23px;margin-top:6px}
 .me::after{content:"";position:absolute;left:16px;top:42px;border:6px solid transparent;border-top:9px solid #fff}
 .me-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .me-prev{width:40px;height:40px;border-radius:50%;background:#2f6fe4 center/cover no-repeat;border:2px solid var(--line);display:grid;place-items:center}
@@ -769,6 +769,9 @@ body.drive #sideBar.links,body.drive #sideBar.rechts,body.sim #sideBar.links,bod
 .stop .snote{display:block;font-size:.82rem;color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:4px;padding:1px 5px;margin-top:2px;overflow-wrap:anywhere}
 .stop.is-done .snote{background:none;color:var(--done)}
 .pin.warn{box-shadow:0 0 0 3px #f59e0b}
+.pin{transition:translate .25s ease-out} /* v=78: Nummer weicht dem Männchen aus (Sprechblase) */
+#mapIn .leaflet-marker-icon>.lead,.lead{rotate:none;position:absolute;left:11px;top:10px;height:2px;background:#1d2421;transform-origin:0 50%;pointer-events:none;box-shadow:0 0 0 1px rgb(255 255 255 / .8)}
+.lead::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:#1d2421;border:1px solid #fff}
 .stop.tag-pro:not(.is-next){background:color-mix(in srgb,#facc15 24%,var(--surface))}
 .stop.tag-rkl:not(.is-next){background:color-mix(in srgb,#ef4444 15%,var(--surface))}
 .stop.tag-trk:not(.is-next){background:color-mix(in srgb,#22c55e 17%,var(--surface))}
@@ -1442,7 +1445,7 @@ function meHtml(){ return meImg?`<div class="me"><div class="face" style="backgr
 function meRefresh(){
   const pv=document.getElementById("mePrev"); pv.style.backgroundImage=meImg?`url('${meImg}')`:""; pv.innerHTML=meImg?"":FIGURE;
   document.getElementById("meClear").hidden=!meImg;
-  if(typeof car!=="undefined"&&car) car.setIcon(L.divIcon({className:"",html:meHtml(),iconSize:[44,54],iconAnchor:[22,54]}));
+  if(typeof car!=="undefined"&&car) car.setIcon(L.divIcon({className:"",html:meHtml(),iconSize:[34,42],iconAnchor:[17,42]}));
 }
 function meSet(v){ meImg=v; try{ v?localStorage.setItem(ME_KEY,v):localStorage.removeItem(ME_KEY); }catch(e){} meRefresh(); }
 document.getElementById("meFile").addEventListener("change",e=>{
@@ -1507,7 +1510,7 @@ function renderGoogle(){
 function stamp(s){ if(s&&!s.at) s.at=Date.now(); }
 const hhmm=t=>{ const d=new Date(t); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); };
 function hm(sec){ const t=Math.round(sec/60); return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")} h`; }
-function render(){
+function render(){ setTimeout(()=>declutter(),0);
   if(tour) $("lastTour").hidden=true;
   document.body.classList.toggle("no-tour",!tour);
   layer.clearLayers(); markers=[]; const list=$("list"); list.innerHTML="";
@@ -1548,7 +1551,7 @@ function render(){
     if(warn&&!s.done){ L.polyline([s.ll,s.osm],{color:"#f59e0b",weight:2,dashArray:"4 6"}).addTo(layer);
       L.marker(s.osm,{icon:L.divIcon({className:"",html:'<div class="osmpin">?</div>',iconSize:[20,20],iconAnchor:[10,10]}),title:`Stopp ${i+1} laut OpenStreetMap`}).addTo(layer)
         .on("click",async()=>{ if(await ask(`Hauspunkt für Stopp ${i+1} übernehmen?`,`Der orange Punkt ist die Stelle, die OpenStreetMap für ${s.addr} kennt. Er wird nur auf diesem Handy für diese Adresse gespeichert. Liegt das Haus woanders: lange auf das richtige Haus drücken.`,"Übernehmen","Abbrechen")) setPos(i,s.osm); }); }
-    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0}).addTo(layer);
+    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0,zIndexOffset0:i===nextIdx?1000:0}).addTo(layer);
     m.on("click",()=>pick(i)); markers.push(m); }
     const li=document.createElement("li");
     li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":"")+(i===nearPrev?" near-prev":"")+(i===nearNext?" near-next":"")+(s.tags&&s.tags.length?" tag-"+s.tags[0]:""); li.tabIndex=0; li.dataset.i=i;
@@ -1669,7 +1672,7 @@ function sizeInner(){ const w=mapBox.clientWidth, h=mapBox.clientHeight;
 function applyRot(now){ const t=rotOn()?head:0, d=((t-brg)%360+540)%360-180; brg+=d; // kürzester Drehweg
   if(Math.abs(brg)>=360&&!d){ brg=((brg%360)+360)%360; now=true; }
   if(now){ mapIn.style.transition="none"; requestAnimationFrame(()=>requestAnimationFrame(()=>{ mapIn.style.transition=""; })); }
-  brg=Math.round(brg); const r=brg%360?-brg:0; mapIn.style.transform=r?`rotate(${r}deg)`:""; mapIn.style.setProperty("--cr",(r?brg:0)+"deg");
+  brg=Math.round(brg); const r=brg%360?-brg:0; rotDeg=r; mapIn.style.transform=r?`rotate(${r}deg)`:""; mapIn.style.setProperty("--cr",(r?brg:0)+"deg");
   const c=document.getElementById("compass"); if(c){ c.hidden=!r; c.firstChild.style.transform=`rotate(${-brg}deg)`; } }
 function bearingDeg(a,b){ const c=Math.cos(a[0]*Math.PI/180); return (Math.atan2((b[1]-a[1])*c,b[0]-a[0])*180/Math.PI+360)%360; }
 let gpsSpeed=null;
@@ -1694,9 +1697,28 @@ function moveCar(p,dur,noPan){
   animTo=p.slice(); animT0=now; animDur=Math.max(100,dur);
   if(!raf) raf=requestAnimationFrame(carFrame); }
 let lastDraw=0; // Akku: höchstens ca. 15 Bilder pro Sekunde zeichnen (halbe Rechenarbeit, sieht trotzdem flüssig aus)
+// v=78: Kommt das Männchen an eine Hausnummer, rückt die Nummer wie eine Sprechblase zur Seite; ein Strich zeigt auf die echte Stelle (die bleibt unverändert)
+let rotDeg=0;
+function declutter(){
+  const on=car&&map.hasLayer(car)&&carPos; const P=on?map.latLngToLayerPoint(car.getLatLng()):null;
+  const r=rotDeg*Math.PI/180, up=[-Math.sin(r),-Math.cos(r)], side=[Math.cos(r),-Math.sin(r)];
+  const c=P?[P.x+up[0]*25,P.y+up[1]*25]:null, R=21; // Mitte des Gesichts (34 px Kreis über dem Fußpunkt)
+  markers.forEach(m=>{ const el=m.getElement(); if(!el) return; const pin=el.querySelector(".pin"); if(!pin) return;
+    let lead=el.querySelector(".lead"); let ox=0, oy=0;
+    if(c){ const A=map.latLngToLayerPoint(m.getLatLng()); let dx=A.x-c[0], dy=A.y-c[1], d=Math.hypot(dx,dy);
+      const lim=R+18+(lead?10:0); // etwas Spielraum, damit es nicht hin und her springt
+      if(d<lim){ const sg=(dx*side[0]+dy*side[1])<-2?-1:1; // seitlich neben das Männchen, auf der Seite, wo das Haus liegt (sonst rechts)
+        ox=c[0]+side[0]*sg*(R+30)-A.x; oy=c[1]+side[1]*sg*(R+30)-A.y; } }
+    if(ox||oy){ pin.style.translate=`${ox.toFixed(1)}px ${oy.toFixed(1)}px`;
+      if(!lead){ lead=document.createElement("div"); lead.className="lead"; el.prepend(lead); }
+      lead.style.width=Math.hypot(ox,oy).toFixed(1)+"px"; lead.style.transform=`rotate(${Math.atan2(oy,ox)}rad)`;
+      m.setZIndexOffset(2500); }
+    else if(lead){ pin.style.translate=""; lead.remove(); m.setZIndexOffset(m.options.zIndexOffset0||0); } }); }
+map.on("zoomend viewreset",declutter);
 function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<66&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
   const f=Math.min(1,(now-animT0)/animDur); disp=[animFrom[0]+(animTo[0]-animFrom[0])*f, animFrom[1]+(animTo[1]-animFrom[1])*f];
   const sn=trimApproach(disp); if(car) car.setLatLng(sn||disp); // nahe der Route: Auto sitzt genau auf der Straße
+  declutter();
   if(animPan&&follow&&rotMode()){ const t=followPt(null,disp), o=map.project(t).subtract(map.project(map.getCenter())); if(Math.abs(o.x)+Math.abs(o.y)>.3) map.panBy(o,{animate:false}); }
   if(f<1) raf=requestAnimationFrame(carFrame); }
 function segProj(p,a,b){ // nächster Punkt auf der Strecke a–b, Abstand in Metern
@@ -1880,7 +1902,7 @@ $("sim").addEventListener("click",()=>{
   if(!tour||cur<0){toast("Keine offenen Stopps.");return;}
   if(!tour.line||tour.line.length<2){toast("Für die Simulation die Routendatei (.bcr) öffnen.");return;}
   const line=tour.line; simIdx=cur>0?Math.max(0,tour.stops[cur-1].li):0; carPos=line[simIdx].slice(); disp=null;
-  if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[44,54],iconAnchor:[22,54]}),zIndexOffset:2000});
+  if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[34,42],iconAnchor:[17,42]}),zIndexOffset:2000});
   car.setLatLng(carPos).addTo(map); $("sim").textContent="■ Simulation stoppen"; document.body.classList.add("sim"); gpsAcc=0; head=null; headFrom=null;
   simTimer=setInterval(()=>{
     let left=SIM_STEPS[simIdxSpeed]; // Meter pro Takt, im Tempo-Menü änderbar
@@ -1910,7 +1932,7 @@ async function startGps(){
   try{ if(navigator.wakeLock) wakeLock=await navigator.wakeLock.request("screen"); }catch(e){}
   gpsWatch=navigator.geolocation.watchPosition(pos=>{
     carPos=[pos.coords.latitude,pos.coords.longitude]; gpsAcc=pos.coords.accuracy||0;
-    if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[44,54],iconAnchor:[22,54]}),zIndexOffset:2000});
+    if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[34,42],iconAnchor:[17,42]}),zIndexOffset:2000});
     if(!disp) car.setLatLng(carPos); car.addTo(map); gpsSpeed=pos.coords.speed; setHead(carPos,pos.coords.heading,pos.coords.speed,gpsAcc);
     { const t=performance.now(), dt=lastFixAt?t-lastFixAt:1000; lastFixAt=t; moveCar(carPos,Math.min(2000,Math.max(300,dt)),firstFix&&document.body.classList.contains("drive")); }
     const acc=Math.round(pos.coords.accuracy);
@@ -1939,7 +1961,7 @@ function ask(title,text,yes,no){ // eigenes Fragefenster, liefert true/false
 $("geoYes").addEventListener("click",()=>askDone&&askDone(true));
 $("geoNo").addEventListener("click",()=>askDone&&askDone(false));
 const GEO_TEXT="Mit deinem Standort zeigt die App, wo du gerade bist, folgt dir auf der Karte und hakt Stopps beim Ankommen ab. Der Standort bleibt auf dem Handy und wird nicht gespeichert. GPS schaltet sich spätestens um 10 Uhr automatisch aus.";
-function hideMe(){ stopGps(); if(car) car.remove(); carPos=null; clearApproach(); setFollow(true); updateHouseNo(); }
+function hideMe(){ stopGps(); if(car) car.remove(); carPos=null; declutter(); clearApproach(); setFollow(true); updateHouseNo(); }
 async function withGeo(fn){ // fn läuft nur, wenn diesmal „Erlauben“ getippt wurde
   if(await ask("Standort verwenden?",GEO_TEXT,"Erlauben","Ablehnen")) return fn();
   hideMe(); toast("Ohne Standort: Stopps bitte manuell abhaken."); if(tour&&cur>=0) focusStop(cur);

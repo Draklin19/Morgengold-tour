@@ -971,6 +971,20 @@ body.drive.dock-top .dock-tog::before{content:"▲"} body.drive.dock-bottom .doc
 body.drive.dock-left.dock-closed .dock-tog::before{content:"▶"} body.drive.dock-right.dock-closed .dock-tog::before{content:"◀"}
 body.drive.dock-top.dock-closed .dock-tog::before{content:"▼"} body.drive.dock-bottom.dock-closed .dock-tog::before{content:"▲"}
 body.drive.dock-closed .main{--pw:0px;--ph:0px}
+/* Dunkle Fahrtleiste (v=62): schwarz spart auf OLED-Handys Strom und blendet morgens nicht */
+body.drive .main{--bg:#000}
+body.drive .side,body.drive .dock-tog,body.drive .eta{--bg:#000;--surface:#0b0d0c;--fg:#f2f5f3;--muted:#a3ada7;--line:#262c29;--done:#7d8882;--accent:#f2b51c;--accent-ink:#2a1e00;--shadow:none;color-scheme:dark;color:var(--fg)}
+body.drive .side{background:#000}
+body.drive .side .stop{color:var(--fg)}
+body.drive .side .stop.is-next{background:#1c1606}
+body.drive .side .stop .n{background:#17302a;color:#8fe0c6}
+body.drive .side .stop.is-next .n{background:var(--accent);color:var(--accent-ink)}
+body.drive .side .stop.is-done .n{background:#1d2220;color:var(--done)}
+body.drive .side .hnr{background:#3a2e08;color:#ffd666}
+body.drive .side .dock-grip{background:#141816;border-color:#2a302d}
+body.drive .side .next-card::before{opacity:.6}
+body.drive .dock-tog{background:rgb(0 0 0 / .88);color:#f2f5f3}
+body.drive .eta:not([hidden]){background:rgb(0 0 0 / .85);color:#f2f5f3}
 body.drive.dock-closed .side{visibility:hidden;padding:0}
 body.drive.dock-bottom .leaflet-bottom{bottom:166px}
 body.drive.dock-bottom .eta:not([hidden]){bottom:62px}

@@ -2250,7 +2250,7 @@ function updateEta(force){
   let km=0; for(let k=1;k<line.length;k++) km+=dist(line[k-1],line[k]);
   const mps=tour.road&&tour.road.sec&&km>0?km/tour.road.sec:8.3; // Fahrgeschwindigkeit aus der Straßenroute, sonst ca. 30 km/h
   const today=avgStand(tour.stops), h=Object.assign({n:0,sum:0},jget(STAND_KEY)), hist=h.n>=3?h.sum/h.n:null;
-  const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??60000;
+  const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??45000; // neue Fahrer: Start mit 45 Sekunden
   const sec=m/mps+open.length*per/1000;
   el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit</small>`; }
 $("gmChip").addEventListener("click",()=>$("nextGmaps").click()); // gleicher Link wie „Mit Google Maps hinfahren“

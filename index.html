@@ -959,7 +959,7 @@ body.drive .next-card .row #nextGmaps{flex:1 1 100%;font-size:.95rem;padding:7px
 .eta{display:none}
 .map-bar{display:none}
 body.drive .map-bar{display:flex;align-items:stretch;gap:8px;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:1000;max-width:calc(100% - 20px);pointer-events:none}
-body.drive .eta:not([hidden]){display:block;min-width:0;box-sizing:border-box;white-space:nowrap;text-align:center;font:700 2.1rem/1.15 var(--font-body);font-size:min(2.1rem,4.4cqi);padding:6px 18px;border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--fg);box-shadow:0 2px 10px rgb(0 0 0 / .3);pointer-events:none} /* unten mittig auf der Karte */
+body.drive .eta:not([hidden]){display:block;min-width:0;box-sizing:border-box;white-space:nowrap;text-align:center;font:700 2.1rem/1.15 var(--font-body);font-size:min(2.1rem,3.8cqi);padding:6px 12px;border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--fg);box-shadow:0 2px 10px rgb(0 0 0 / .3);pointer-events:none} /* unten mittig auf der Karte */
 body.drive .leaflet-bottom{bottom:110px} /* „Zur aktuellen Position“ über der Restzeit */
 /* Nummernfeld links neben der Restzeit (v=64): kurz tippen = abhaken, lange drücken = Auswahlrad */
 .stop-chip{display:none}
@@ -980,16 +980,12 @@ body.drive .stop-chip.press{transform:scale(.94);filter:brightness(.9)}
 .wheel-row .btn{justify-content:center}
 /* Tourleiste mit Pfeil auf- und zuklappen */
 .dock-tog{display:none}
-body.drive .dock-tog{display:grid;place-items:center;position:absolute;z-index:1001;border:0;padding:0;cursor:pointer;background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--fg);font:700 34px/1 var(--font-body);box-shadow:0 0 10px rgb(0 0 0 / .3)} /* ganze Leiste, damit die Kamera-Aussparung nicht stört */
-body.drive.dock-left .dock-tog{left:0;top:0;bottom:0;width:52px;border-radius:0}
-body.drive.dock-right .dock-tog{right:0;top:0;bottom:0;width:52px;border-radius:0}
-body.drive.dock-top .dock-tog{top:0;left:0;right:0;height:52px;border-radius:0}
-body.drive.dock-bottom .dock-tog{bottom:0;left:0;right:0;height:52px;border-radius:0}
-body.drive.dock-left .dock-tog::before{content:"◀"} body.drive.dock-right .dock-tog::before{content:"▶"}
-body.drive.dock-top .dock-tog::before{content:"▲"} body.drive.dock-bottom .dock-tog::before{content:"▼"}
-body.drive.dock-left.dock-closed .dock-tog::before{content:"▶"} body.drive.dock-right.dock-closed .dock-tog::before{content:"◀"}
-body.drive.dock-top.dock-closed .dock-tog::before{content:"▼"} body.drive.dock-bottom.dock-closed .dock-tog::before{content:"▲"}
-body.drive.dock-closed .main{--pw:0px;--ph:0px}
+/* v=65: beim Fahren keine Seitenleiste mehr, die Karte füllt den ganzen Bildschirm; Google, Nummer und Restzeit unten */
+body.drive .main{grid-template-columns:100%!important;grid-template-rows:100%!important}
+body.drive .side{display:none!important}
+.gm-chip{display:none}
+body.drive .gm-chip{display:grid;place-items:center;pointer-events:auto;flex:0 0 auto;width:min(5.4rem,15cqi);border:0;border-radius:12px;background:var(--route);color:#fff;box-shadow:0 2px 10px rgb(0 0 0 / .3);cursor:pointer;padding:6px;text-decoration:none;font:700 .8rem/1.1 var(--font-body);font-size:min(.8rem,2.4cqi);text-align:center}
+body.drive .gm-chip svg{width:min(2.2rem,7cqi);height:min(2.2rem,7cqi);display:block;margin:0 auto 2px}
 /* Dunkle Fahrtleiste (v=62): schwarz spart auf OLED-Handys Strom und blendet morgens nicht */
 body.drive .main{--bg:#000}
 body.drive .side,body.drive .dock-tog,body.drive .eta{--bg:#000;--surface:#0b0d0c;--fg:#f2f5f3;--muted:#a3ada7;--line:#262c29;--done:#7d8882;--accent:#f2b51c;--accent-ink:#2a1e00;--shadow:none;color-scheme:dark;color:var(--fg)}
@@ -1004,11 +1000,6 @@ body.drive .side .dock-grip{background:#141816;border-color:#2a302d}
 body.drive .side .next-card::before{opacity:.6}
 body.drive .dock-tog{background:rgb(0 0 0 / .88);color:#f2f5f3}
 body.drive .eta:not([hidden]){background:rgb(0 0 0 / .85);color:#f2f5f3}
-body.drive.dock-closed .side{visibility:hidden;padding:0}
-body.drive.dock-bottom .leaflet-bottom{bottom:166px}
-body.drive.dock-bottom .map-bar{bottom:62px}
-body.drive.dock-left .map-bar{left:calc(50% + 26px);max-width:calc(100% - 72px)} body.drive.dock-right .map-bar{left:calc(50% - 26px);max-width:calc(100% - 72px)}
-body.drive.dock-left .leaflet-left{left:52px} body.drive.dock-left #compass{left:62px} body.drive.dock-top #compass{top:144px} body.drive.dock-top .leaflet-top{top:52px}
 body.drive .eta small{display:block;font-weight:600;font-size:.62em;color:var(--muted)}
 body.drive #map{container-type:size}
 </style></head><body>
@@ -1079,7 +1070,7 @@ body.drive #map{container-type:size}
   </section>
 
   <div class="main">
-    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="map-bar" id="mapBar"><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
+    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="map-bar" id="mapBar"><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
       <div class="next-card" id="nextCard">
@@ -2257,9 +2248,10 @@ function updateEta(force){
   const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??60000;
   const sec=m/mps+open.length*per/1000;
   el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit</small>`; }
+$("gmChip").addEventListener("click",()=>$("nextGmaps").click()); // gleicher Link wie „Mit Google Maps hinfahren“
 // Nummernfeld unten links neben der Restzeit: zeigt die Tütennummer des Stopps, den man gerade anfährt.
 // Kurz tippen hakt ihn ab (ein paar Sekunden rückgängig machbar), lange drücken öffnet ein Auswahlrad mit allen Stopps.
-function updateChip(){ const b=$("stopChip"); b.hidden=!tour||cur<0;
+function updateChip(){ const b=$("stopChip"); b.hidden=!tour||cur<0; $("gmChip").hidden=b.hidden;
   if(!b.hidden) b.textContent=String(tour.stops[cur].no||cur+1); }
 function toastUndo(msg,fn){ const t=$("toast"); t.textContent=msg; const u=document.createElement("button"); u.type="button"; u.className="undo"; u.textContent="Rückgängig";
   u.onclick=()=>{ clearTimeout(toast.h); t.hidden=true; t.classList.remove("up"); fn(); }; t.appendChild(u); t.classList.add("up"); t.hidden=false;

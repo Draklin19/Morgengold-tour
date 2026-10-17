@@ -957,8 +957,27 @@ body.drive .next-card .row #nextGmaps{flex:1 1 100%;font-size:.95rem;padding:7px
 
 /* Restzeit beim Fahren */
 .eta{display:none}
-body.drive .eta:not([hidden]){display:block;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:1000;max-width:calc(100% - 20px);box-sizing:border-box;white-space:nowrap;text-align:center;font:700 2.1rem/1.15 var(--font-body);font-size:min(2.1rem,5.8cqi);padding:6px 18px;border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--fg);box-shadow:0 2px 10px rgb(0 0 0 / .3);pointer-events:none} /* unten mittig auf der Karte */
+.map-bar{display:none}
+body.drive .map-bar{display:flex;align-items:stretch;gap:8px;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:1000;max-width:calc(100% - 20px);pointer-events:none}
+body.drive .eta:not([hidden]){display:block;min-width:0;box-sizing:border-box;white-space:nowrap;text-align:center;font:700 2.1rem/1.15 var(--font-body);font-size:min(2.1rem,4.4cqi);padding:6px 18px;border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--fg);box-shadow:0 2px 10px rgb(0 0 0 / .3);pointer-events:none} /* unten mittig auf der Karte */
 body.drive .leaflet-bottom{bottom:110px} /* „Zur aktuellen Position“ über der Restzeit */
+/* Nummernfeld links neben der Restzeit (v=64): kurz tippen = abhaken, lange drücken = Auswahlrad */
+.stop-chip{display:none}
+body.drive .stop-chip:not([hidden]){display:grid;place-items:center;pointer-events:auto;flex:0 0 auto;min-width:min(5.4rem,17cqi);padding:0 12px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font:800 2.6rem/1 var(--font-body);font-size:min(2.6rem,7cqi);box-shadow:0 2px 10px rgb(0 0 0 / .3);cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+body.drive .stop-chip.press{transform:scale(.94);filter:brightness(.9)}
+.toast.up{bottom:calc(120px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:12px;z-index:2700}
+.toast .undo{font:700 .95rem var(--font-body);border:0;border-radius:8px;padding:8px 12px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.wheel-ask{position:fixed;inset:0;z-index:2800;background:rgb(0 0 0 / .55);display:grid;place-items:center;padding:12px}
+.wheel-box{background:#0b0d0c;color:#f2f5f3;border-radius:18px;padding:14px;width:min(420px,100%);display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 30px rgb(0 0 0 / .5)}
+.wheel-h{font:700 1.1rem var(--font-body);text-align:center}
+.wheel-list{position:relative;height:min(250px,55vh);overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;padding:calc(min(250px,55vh) / 2 - 25px) 0;
+  -webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent)}
+.wheel-list::before{content:"";position:sticky;display:block;top:calc(50% - 25px);height:50px;margin-bottom:-50px;border-radius:10px;background:rgb(242 181 28 / .22);border:2px solid #f2b51c;pointer-events:none;box-sizing:border-box}
+.wheel-it{height:50px;scroll-snap-align:center;display:flex;align-items:center;gap:12px;padding:0 14px;font:600 1.15rem var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.wheel-it b{min-width:2.4em;text-align:right;font-size:1.35rem}
+.wheel-it.done{color:#7d8882;text-decoration:line-through}
+.wheel-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wheel-row .btn{justify-content:center}
 /* Tourleiste mit Pfeil auf- und zuklappen */
 .dock-tog{display:none}
 body.drive .dock-tog{display:grid;place-items:center;position:absolute;z-index:1001;border:0;padding:0;cursor:pointer;background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--fg);font:700 34px/1 var(--font-body);box-shadow:0 0 10px rgb(0 0 0 / .3)} /* ganze Leiste, damit die Kamera-Aussparung nicht stört */
@@ -987,8 +1006,8 @@ body.drive .dock-tog{background:rgb(0 0 0 / .88);color:#f2f5f3}
 body.drive .eta:not([hidden]){background:rgb(0 0 0 / .85);color:#f2f5f3}
 body.drive.dock-closed .side{visibility:hidden;padding:0}
 body.drive.dock-bottom .leaflet-bottom{bottom:166px}
-body.drive.dock-bottom .eta:not([hidden]){bottom:62px}
-body.drive.dock-left .eta:not([hidden]){left:calc(50% + 26px);max-width:calc(100% - 72px)} body.drive.dock-right .eta:not([hidden]){left:calc(50% - 26px);max-width:calc(100% - 72px)}
+body.drive.dock-bottom .map-bar{bottom:62px}
+body.drive.dock-left .map-bar{left:calc(50% + 26px);max-width:calc(100% - 72px)} body.drive.dock-right .map-bar{left:calc(50% - 26px);max-width:calc(100% - 72px)}
 body.drive.dock-left .leaflet-left{left:52px} body.drive.dock-left #compass{left:62px} body.drive.dock-top #compass{top:144px} body.drive.dock-top .leaflet-top{top:52px}
 body.drive .eta small{display:block;font-weight:600;font-size:.62em;color:var(--muted)}
 body.drive #map{container-type:size}
@@ -1060,7 +1079,7 @@ body.drive #map{container-type:size}
   </section>
 
   <div class="main">
-    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="eta" id="eta" hidden></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
+    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="map-bar" id="mapBar"><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
       <div class="next-card" id="nextCard">
@@ -1114,6 +1133,7 @@ body.drive #map{container-type:size}
   <div class="dock-ghost" id="dockGhost" hidden></div>
   <div class="dock-zones" id="dockZones" hidden><div class="z-left"></div><div class="z-right"></div><div class="z-top"></div><div class="z-bottom"></div></div>
   <div class="toast" id="toast" role="status" hidden></div>
+  <div class="wheel-ask" id="wheel" hidden><div class="wheel-box"><div class="wheel-h">Stopp wählen</div><div class="wheel-list" id="wheelList"></div><div class="wheel-row"><button type="button" class="btn" id="wheelNo">Schließen</button><button type="button" class="btn primary" id="wheelGo">Anfahren</button></div></div></div>
   <div class="pinbar" id="pinBar" hidden><span id="pinTxt">Pin auf das richtige Haus ziehen</span><button class="btn primary" id="pinSave" type="button">Speichern</button><button class="btn" id="pinCancel" type="button">Abbrechen</button></div>
   <footer>Kartendaten: OpenStreetMap-Mitwirkende und die gewählten Kartendienste. Der Kartendienst erfährt nur, welchen Kartenausschnitt du ansiehst. Google Maps bekommt beim Tippen auf die Google-Knöpfe nur Adresse bzw. Koordinaten, keine Namen. Die Fahrstrecke berechnet der Routenserver von openstreetmap.de (FOSSGIS) aus den Koordinaten der Stopps.</footer>
 </div>
@@ -1538,7 +1558,7 @@ function render(){
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
-  renderGoogle(); scrollCurrent(); if(driveView) updateApproach(); updateEta(true); saveTour();
+  renderGoogle(); scrollCurrent(); if(driveView) updateApproach(); updateEta(true); updateChip(); saveTour();
   if(nextIdx>=0) loadFoot(nextIdx);
   $("prev").disabled=nextIdx===0;
   if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTags").textContent="";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;setSideBar("");$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
@@ -2237,6 +2257,33 @@ function updateEta(force){
   const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??60000;
   const sec=m/mps+open.length*per/1000;
   el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit</small>`; }
+// Nummernfeld unten links neben der Restzeit: zeigt die Tütennummer des Stopps, den man gerade anfährt.
+// Kurz tippen hakt ihn ab (ein paar Sekunden rückgängig machbar), lange drücken öffnet ein Auswahlrad mit allen Stopps.
+function updateChip(){ const b=$("stopChip"); b.hidden=!tour||cur<0;
+  if(!b.hidden) b.textContent=String(tour.stops[cur].no||cur+1); }
+function toastUndo(msg,fn){ const t=$("toast"); t.textContent=msg; const u=document.createElement("button"); u.type="button"; u.className="undo"; u.textContent="Rückgängig";
+  u.onclick=()=>{ clearTimeout(toast.h); t.hidden=true; t.classList.remove("up"); fn(); }; t.appendChild(u); t.classList.add("up"); t.hidden=false;
+  clearTimeout(toast.h); toast.h=setTimeout(()=>{ t.hidden=true; t.classList.remove("up"); },5000); }
+function chipDone(){ if(!tour||cur<0) return; const i=cur, s=tour.stops[i], bt=backTo; s.done=true; if(arr.i===i) arr.i=-1; goTo(nextOpen());
+  toastUndo(`Stopp ${s.no||i+1} abgehakt`,()=>{ s.done=false; backTo=bt; goTo(i); }); if(cur<0) tourFinished(); }
+let wheelSel=-1;
+function openWheel(){ if(!tour) return; const l=$("wheelList"); l.innerHTML="";
+  tour.stops.forEach((s,i)=>{ const d=document.createElement("div"); d.className="wheel-it"+(s.done?" done":""); d.dataset.i=i;
+    const b=document.createElement("b"); b.textContent=s.no||i+1; const t=document.createElement("span"); t.textContent=s.addr||""; d.append(b,t);
+    d.onclick=()=>d.scrollIntoView({block:"center",behavior:"smooth"}); l.appendChild(d); });
+  $("wheel").hidden=false; const c=l.children[Math.max(0,cur)]; if(c) l.scrollTop=c.offsetTop-l.clientHeight/2+c.offsetHeight/2; wheelSel=Math.max(0,cur); }
+$("wheelList").addEventListener("scroll",()=>{ const l=$("wheelList"), mid=l.scrollTop+l.clientHeight/2; let best=-1, bd=1e9;
+  [...l.children].forEach(c=>{ const d=Math.abs(c.offsetTop+c.offsetHeight/2-mid); if(d<bd){bd=d;best=+c.dataset.i;} }); wheelSel=best; },{passive:true});
+$("wheelNo").addEventListener("click",()=>{ $("wheel").hidden=true; });
+$("wheel").addEventListener("click",e=>{ if(e.target.id==="wheel") $("wheel").hidden=true; });
+$("wheelGo").addEventListener("click",()=>{ $("wheel").hidden=true; if(!tour||wheelSel<0) return; const s=tour.stops[wheelSel];
+  if(s.done){ s.done=false; } markJump(wheelSel); goTo(wheelSel); toast(`Stopp ${s.no||wheelSel+1} wird angefahren`); });
+{ const b=$("stopChip"); let tm=0, long=false, sx=0, sy=0;
+  b.addEventListener("pointerdown",e=>{ long=false; sx=e.clientX; sy=e.clientY; b.classList.add("press"); clearTimeout(tm);
+    tm=setTimeout(()=>{ long=true; b.classList.remove("press"); if(navigator.vibrate) navigator.vibrate(30); openWheel(); },550); });
+  b.addEventListener("pointermove",e=>{ if(Math.hypot(e.clientX-sx,e.clientY-sy)>15){ clearTimeout(tm); b.classList.remove("press"); } });
+  const end=e=>{ const was=b.classList.contains("press"); clearTimeout(tm); b.classList.remove("press"); if(e.type==="pointerup"&&was&&!long) chipDone(); };
+  b.addEventListener("pointerup",end); b.addEventListener("pointercancel",end); b.addEventListener("contextmenu",e=>e.preventDefault()); }
 // Bericht: Tabelle (CSV, Semikolon für deutsches Excel) mit Nr., Adresse, Ort, erledigt und Uhrzeit. Ohne Kundennamen.
 $("reportBtn").addEventListener("click",async()=>{ if(!tour) return;
   const q=v=>{ v=String(v==null?"":v); return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };

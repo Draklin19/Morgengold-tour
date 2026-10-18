@@ -1103,6 +1103,8 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <p class="hint">Zeigt ohne GPS, wie die Fahrt abläuft und Stopps abgehakt werden. Die Einstellungen schließen sich dabei. Zum Beenden hier wieder auf „Simulation stoppen“ tippen.</p>
     <div class="opts"><span id="corrInfo">Eigene Hauspunkte: 0</span><button class="btn" id="corrClear" type="button">Eigene Hauspunkte löschen</button></div>
     <p class="hint">Liegt ein Haus auf der Karte falsch: lange auf die Adresse in der Liste drücken und den Pin auf das richtige Haus ziehen, oder lange auf das richtige Haus in der Karte drücken und „Hauspunkt hier setzen“ tippen. Der Punkt bleibt nur auf diesem Handy und gilt für jede weitere Tour mit dieser Adresse. Stopps mit ⚠ liegen weit weg von der Stelle, die OpenStreetMap für die Adresse kennt.</p>
+    <div class="opts"><button class="btn" id="codeSwitch" type="button">🔑 Anderen Zugangscode eingeben</button></div>
+    <p class="hint">Die App fragt danach wieder nach dem Zugangscode.</p>
     <div class="opts"><button class="btn primary" id="setClose" type="button">Fertig</button></div>
   </section>
 
@@ -2246,6 +2248,7 @@ function startPin(i){ if(!tour) return; const s=tour.stops[i]; endPin();
   map.setView(at,Math.max(map.getZoom(),18)); if(navigator.vibrate) try{navigator.vibrate(30);}catch(e){} }
 function endPin(){ if(!pinEdit) return; map.off("click",pinEdit.tap); pinEdit.m.remove(); pinEdit=null; $("pinBar").hidden=true; }
 $("pinCancel").addEventListener("click",endPin);
+$("codeSwitch").addEventListener("click",()=>{ try{ localStorage.removeItem("navi-zugang"); }catch(e){} location.replace("./"); }); // v=84: Code wechseln in der App (Startbildschirm-App hat eigenen Speicher, getrennt vom Browser)
 $("pinSave").addEventListener("click",()=>{ if(!pinEdit) return; const {i,m}=pinEdit, q=m.getLatLng(); endPin(); setPos(i,[q.lat,q.lng]); });
 // Haken per Wischen in der Stoppliste:
 // - auf einem Kästchen anfangen und über weitere Kästchen ziehen: alle bekommen denselben Zustand (viele auf einmal an oder aus)

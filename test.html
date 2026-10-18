@@ -1053,6 +1053,9 @@ details.more[open]>summary::after{transform:rotate(180deg)}
 details.more:not([open]){gap:0}
 .opts.tools{display:grid!important;grid-template-columns:1fr;gap:8px}
 #nextOsm{display:none!important}
+.pin.goal{position:relative;background:#fff;color:#111;font-size:13px;line-height:1}
+.pin.goal::before{content:attr(data-n);position:absolute;left:-9px;bottom:-8px;min-width:14px;height:14px;padding:0 2px;border-radius:7px;background:var(--route);color:#fff;font:700 9px/14px var(--font-body);text-align:center;border:1px solid #fff}
+.pin.goal.next{background:#fff3c4}
 body.no-tour .stops-head{display:none}
 </style></head><body>
 <!-- v=81: Zugangscode beim ersten Öffnen (hält Fremde fern, die zufällig auf den Link stoßen; im Code steht nur der Prüfwert, nicht der Code) -->
@@ -1116,6 +1119,8 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
     <div class="opts"><label for="tourUrl">Link zur Tour-Seite <input id="tourUrl" type="url" inputmode="url" placeholder="https://…" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
     <p class="hint">Von dieser Seite lädst du Ausfahrliste und Routendatei herunter. Danach erscheint oben der Knopf „⬇ Tour herunterladen“.</p>
+    <div class="opts"><label for="depotAddr">Kommissionierstelle (Start) <input id="depotAddr" type="text" autocomplete="off" placeholder="Straße Nr, PLZ Ort" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="depotSave" type="button">Speichern</button></div>
+    <p class="hint" id="depotHint">Ab hier zählt die App beim Fahren die Kilometer bis zum letzten Kunden. Die Adresse bleibt nur auf diesem Handy.</p>
     <div class="opts"><label for="mailTo">E-Mail für Tourberichte <input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="mailToSave" type="button">Speichern</button></div>
     <p class="hint">Am Ende der Tour fragt die App, ob der Bericht (nur Stopp-Nummern und Zeiten, keine Adressen) an diese Adresse gehen soll. Dein Mail-Programm öffnet sich, gesendet wird erst, wenn du auf Senden drückst.</p>
     <div class="opts"><label for="fontSel">Schriftgröße Tourleiste <select id="fontSel"><option value="0">1 (sehr klein)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (groß)</option></select></label>
@@ -1623,13 +1628,14 @@ function render(){ setTimeout(()=>declutter(),0);
   // Beim Fahren zeigt die Leiste nur drei Zeilen: zuletzt erledigt, aktuell, danach
   let nearPrev=-1; for(let k=(cur<0?tour.stops.length:cur)-1;k>=0;k--) if(tour.stops[k].done){ nearPrev=k; break; }
   let nearNext=cur<0?-1:tour.stops.findIndex((q,k)=>k>cur&&!q.done); if(cur>=0&&nearNext<0) nearNext=tour.stops.findIndex((q,k)=>k!==cur&&!q.done);
+  let lastIdx=-1; tour.stops.forEach((q,k)=>{ if(q.ll) lastIdx=k; }); // letzter Kunde: Zielfahne
   tour.stops.forEach((s,i)=>{
     const warn=s.warn&&!s.fixed&&s.osm;
     const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn?" warn":"");
     if(warn&&!s.done){ L.polyline([s.ll,s.osm],{color:"#f59e0b",weight:2,dashArray:"4 6"}).addTo(layer);
       L.marker(s.osm,{icon:L.divIcon({className:"",html:'<div class="osmpin">?</div>',iconSize:[20,20],iconAnchor:[10,10]}),title:`Stopp ${i+1} laut OpenStreetMap`}).addTo(layer)
         .on("click",async()=>{ if(await ask(`Hauspunkt für Stopp ${i+1} übernehmen?`,`Der orange Punkt ist die Stelle, die OpenStreetMap für ${s.addr} kennt. Er wird nur auf diesem Handy für diese Adresse gespeichert. Liegt das Haus woanders: lange auf das richtige Haus drücken.`,"Übernehmen","Abbrechen")) setPos(i,s.osm); }); }
-    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0,zIndexOffset0:i===nextIdx?1000:0,si:i}).addTo(layer);
+    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:i===lastIdx?`<div class="${cls} goal" data-n="${i+1}">🏁</div>`:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0,zIndexOffset0:i===nextIdx?1000:0,si:i}).addTo(layer);
     m.on("click",()=>pick(i)); markers.push(m); }
     const li=document.createElement("li");
     li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":"")+(i===nearPrev?" near-prev":"")+(i===nearNext?" near-next":"")+(s.tags&&s.tags.length?" tag-"+s.tags[0]:""); li.tabIndex=0; li.dataset.i=i;
@@ -1956,6 +1962,7 @@ function trackSide(){
   setLive(cur, dx*(P[1]-a[1])-dy*(P[0]-a[0])>0?"links":"rechts","gps");
 }
 function checkArrival(){
+  kmEnd(); if(carPos) kmFix(carPos,gpsAcc);
   updateHouseNo(); checkTurns(); updateEta();
   if(!tour||cur<0||!carPos) return;
   trackSide();
@@ -2364,6 +2371,8 @@ function learnStand(s){ const d=standOf(s); if(d==null||d<5000||d>30*60000) retu
 function avgStand(list){ const v=list.map(standOf).filter(d=>d!=null&&d>=5000&&d<=30*60000); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; }
 function reportSummary(){ // Zusammenfassung für Datei und Mail
   const st=tour.stops, n=st.filter(s=>s.done).length, ts=st.filter(s=>s.at).map(s=>s.at), dp=st.filter(s=>s.dep).map(s=>s.dep), out=[["Erledigt",`${n} von ${st.length}`]];
+  if(!km||km.key!==kmKey()) kmLoad();
+  if(km) out.push(["Gefahrene km (Kommissionierstelle bis letzter Kunde)",(km.m/1000).toFixed(1).replace(".",",")+(km.end?"":" (Tour noch nicht fertig)")+(km.est>0?` · davon ca. ${(km.est/1000).toFixed(1).replace(".",",")} km nachgerechnet`:"")]);
   if(ts.length) out.push(["Erster Stopp",hhmm(Math.min(...ts))],["Letzter Stopp",hhmm(Math.max(...(dp.length?dp:ts)))]);
   if(ts.length&&dp.length) out.push(["Gesamtzeit (erster bis letzter Stopp)",hm((Math.max(...dp)-Math.min(...ts))/1000)]);
   const all=avgStand(st), pro=avgStand(st.filter(s=>(s.tags||[]).includes("pro"))), rkl=avgStand(st.filter(s=>(s.tags||[]).includes("rkl")));
@@ -2387,6 +2396,38 @@ try{ $("mailTo").value=localStorage.getItem(MAIL_KEY)||""; }catch(e){}
 $("mailToSave").addEventListener("click",()=>{ const v=$("mailTo").value.trim(); try{ if(v) localStorage.setItem(MAIL_KEY,v); else localStorage.removeItem(MAIL_KEY); }catch(e){} toast(v?"E-Mail gespeichert":"E-Mail entfernt"); });
 // Restzeit beim Fahren: restliche Strecke (Anfahrt + Route zu den offenen Stopps) plus durchschnittliche Standzeit je offenem Stopp
 let etaAt=0;
+// v=87 (Test): gefahrene Kilometer ab der Kommissionierstelle bis zum letzten Kunden. Gespeichert wird nur die Summe (pro Tour, auf dem Handy).
+// Startet die App mitten in der Tour, wird der schon gefahrene Teil als Straßenstrecke nachgerechnet: Kommissionierstelle → erledigte Kunden → jetzige Position.
+const DEPOT_KEY="navi-depot", KM_KEY="navi-km";
+let depot=null; try{ depot=JSON.parse(localStorage.getItem(DEPOT_KEY)||"null"); }catch(e){}
+const DEPOT_TXT="Ab hier zählt die App beim Fahren die Kilometer bis zum letzten Kunden. Die Adresse bleibt nur auf diesem Handy.";
+function depotUi(){ $("depotAddr").value=depot?depot.addr:""; $("depotHint").textContent=!depot?DEPOT_TXT:depot.ll?"✓ Gefunden. "+DEPOT_TXT:"Adresse nicht gefunden. Bitte als „Straße Nr, PLZ Ort“ eingeben und Internet prüfen."; }
+depotUi();
+$("depotSave").addEventListener("click",async()=>{ const a=$("depotAddr").value.trim(); if(!a){ depot=null; try{localStorage.removeItem(DEPOT_KEY);}catch(e){} depotUi(); return; }
+  $("depotHint").textContent="Suche Adresse …"; let ll=null;
+  try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); }catch(e){}
+  depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); });
+async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
+let km=null, kmBusy=false;
+const kmKey=()=>tourTitle()+"|"+tourDay();
+function kmLoad(){ km=jget(KM_KEY)[kmKey()]||null; }
+function kmSave(){ const all=jget(KM_KEY), k=kmKey(); all[k]=km; const ks=Object.keys(all); if(ks.length>20) delete all[ks[0]]; jset(KM_KEY,all); }
+async function kmFix(p,acc){
+  if(!tour||!depot||!depot.ll||!p||kmBusy) return; if(!km||km.key!==kmKey()) kmLoad();
+  if(km&&km.end) return;
+  if(!km){ // erster Standort dieser Tour
+    kmBusy=true; let base=0; const done=tour.stops.filter(s=>s.done&&s.ll);
+    if(dist(p,depot.ll)>150||done.length){ // nicht an der Kommissionierstelle: bisherigen Weg als Straßenstrecke nachrechnen
+      const pts=[depot.ll,...done.map(s=>s.ll),p];
+      for(let k=1;k<pts.length;k++) base+=await roadDist(pts[k-1],pts[k]); }
+    km={key:kmKey(),m:base,est:base,last:p,t:Date.now(),end:false}; kmBusy=false; kmSave(); updateEta(true); return; }
+  const d=dist(km.last,p), gap=Date.now()-km.t;
+  if(d<Math.max(10,(acc||0)*1.5)) return; // Zittern im Stand ignorieren
+  if(gap>60000&&d>300){ kmBusy=true; const r=await roadDist(km.last,p); km.m+=r; km.est+=r; kmBusy=false; } // Lücke (App nicht vorne): Straßenstrecke einsetzen
+  else km.m+=d;
+  km.last=p; km.t=Date.now(); kmSave(); }
+function kmEnd(){ if(km&&!km.end&&tour&&!tour.stops.some(s=>!s.done)){ km.end=true; km.endAt=Date.now(); kmSave(); } } // letzter Kunde abgehakt: Zähler steht
+const kmText=()=>km&&depot&&depot.ll?`${(km.m/1000).toFixed(1).replace(".",",")} km gefahren${km.end?" ✓":""}`:"";
 function updateEta(force){
   const el=$("eta"); if(!el) return;
   if(!tour||cur<0||!document.body.classList.contains("drive")){ el.hidden=true; return; }
@@ -2401,7 +2442,7 @@ function updateEta(force){
   const today=avgStand(tour.stops), h=Object.assign({n:0,sum:0},jget(STAND_KEY)), hist=h.n>=3?h.sum/h.n:null;
   const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??45000; // neue Fahrer: Start mit 45 Sekunden
   const sec=m/mps+open.length*per/1000;
-  el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit</small>`; }
+  el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit${kmText()?" · "+kmText():""}</small>`; }
 $("gmChip").addEventListener("click",()=>$("nextGmaps").click());
 $("backChip").addEventListener("click",()=>$("prev").click()); // wie „Zurück zum letzten Kunden“: jeder Druck einen Kunden zurück
  // gleicher Link wie „Mit Google Maps hinfahren“

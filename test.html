@@ -848,6 +848,14 @@ body.drive .dock-grip{display:block}
 .dock-zones .z-left{left:0;top:0;bottom:0;width:30%}.dock-zones .z-right{right:0;top:0;bottom:0;width:30%}
 .dock-zones .z-top{left:0;right:0;top:0;height:30%}.dock-zones .z-bottom{left:0;right:0;bottom:0;height:30%}
 body.drive .side>.mode,body.drive .side>.jump,body.drive #nextOsm{display:none!important}
+body.no-tour #cmpBox{display:none}
+.cmp-list{margin:0;padding:0;list-style:none;display:grid;gap:2px;font-size:.9rem;max-height:50vh;overflow:auto}
+.cmp-list li{display:grid;grid-template-columns:2.2em minmax(0,1fr) auto;gap:8px;padding:4px 6px;border-radius:6px}
+.cmp-list li b{font-variant-numeric:tabular-nums}
+.cmp-list .ok{background:#e3f4ea}.cmp-list .mid{background:#fdf1d6}.cmp-list .bad{background:#fbe0de}.cmp-list .none{background:#eceff1}
+.cmpq{width:14px;height:14px;background:#2f6fe4;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0 / .4)}
+.cmplbl{background:rgb(255 255 255 / .9);border-radius:6px;padding:1px 5px;font:700 11px var(--font-body);white-space:nowrap;box-shadow:0 1px 2px rgb(0 0 0 / .3)}
+
 body.drive .list{max-height:none;flex:1 1 auto;min-height:0;overflow:auto}
 body.drive .next-card{padding:6px 8px;gap:4px;flex:0 0 auto}
 body.drive .next-card .lbl,body.drive .next-card .town,body.drive #nextAddr:empty{display:none}
@@ -1195,6 +1203,13 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <p class="hint">Google Maps nimmt pro Route höchstens 10 Stopps, deshalb ist die Tour in Abschnitte geteilt. Ab dem aktuellen Stopp. An Google gehen nur Adressen bzw. Koordinaten, keine Namen.</p>
       </details>
       <details class="mode" id="loadBox" hidden><summary>Ladeliste für die ganze Tour</summary><ul class="arts" id="loadList"></ul></details>
+      <details class="mode more" id="cmpBox">
+        <summary>🔍 Vergleich: nur Ausfahrliste ↔ .bcr</summary>
+        <p class="hint">Sucht jede Adresse aus der Ausfahrliste so, wie die App es ohne .bcr täte, und legt diese Punkte (blaue Quadrate) über die Punkte aus der .bcr. Ein Strich verbindet beide, daneben steht der Abstand. Dabei gehen nur Straße, Hausnummer und Ort an OpenStreetMap, keine Namen.</p>
+        <div class="opts"><button class="btn primary" id="cmpBtn" type="button">Vergleich starten</button><button class="btn" id="cmpOff" type="button" hidden>Vergleich ausblenden</button></div>
+        <p class="hint" id="cmpState"></p>
+        <ol class="cmp-list" id="cmpList" hidden></ol>
+      </details>
       <details class="mode more">
         <summary>📄 Bericht &amp; Tour neu starten</summary>
         <div class="opts tools"><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button><button class="btn" id="mailBtn" type="button">📧 Bericht per Mail</button><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button></div>
@@ -1379,8 +1394,9 @@ async function geocodeOne(s){
   for(const t of tries){
     const u=new URL("https://nominatim.openstreetmap.org/search");
     Object.entries({...t,format:"jsonv2",limit:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
+    const w=lastAsk+1100-Date.now(); if(w>0) await new Promise(ok=>setTimeout(ok,w)); lastAsk=Date.now(); // höchstens 1 Anfrage pro Sekunde, auch neben dem Hauspunkt-Abgleich
     const r=await fetch(u.toString()); if(!r.ok) throw new Error("Adresssuche nicht erreichbar ("+r.status+")");
-    const j=await r.json(); await new Promise(ok=>setTimeout(ok,1100));
+    const j=await r.json();
     if(j.length) return [parseFloat(j[0].lat),parseFloat(j[0].lon)];
   }
   return null;
@@ -1405,7 +1421,7 @@ const CORR_KEY="navi-korrektur", OSM_KEY="navi-osmpunkte", WARN_M=80;
 const jget=k=>{ try{ return JSON.parse(localStorage.getItem(k)||"{}")||{}; }catch(e){ return {}; } };
 const jset=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} };
 const addrKey=s=>s.addr?(s.addr+"|"+(((s.town||"").match(/\d{5}/)||[""])[0])).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/[^a-z0-9äöü|]/g,""):"";
-function applyCorr(t){ const c=jget(CORR_KEY);
+function applyCorr(t){ if(typeof cmpLayer!=="undefined"&&cmpLayer){ cmpLayer.clearLayers(); const l=document.getElementById("cmpList"); if(l){ l.hidden=true; document.getElementById("cmpState").textContent=""; } } const c=jget(CORR_KEY);
   t.stops.forEach(s=>{ const k=addrKey(s), p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; } }); }
 function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s.ll;
   s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.said=false;
@@ -2273,6 +2289,33 @@ function startPin(i){ if(!tour) return; const s=tour.stops[i]; endPin();
   map.setView(at,Math.max(map.getZoom(),18)); if(navigator.vibrate) try{navigator.vibrate(30);}catch(e){} }
 function endPin(){ if(!pinEdit) return; map.off("click",pinEdit.tap); pinEdit.m.remove(); pinEdit=null; $("pinBar").hidden=true; }
 $("pinCancel").addEventListener("click",endPin);
+// v=86 (Test): Vergleich der Hauspunkte "nur Ausfahrliste" (Adresssuche wie ohne .bcr) gegen die Punkte aus der .bcr
+var cmpLayer=L.layerGroup().addTo(map); let cmpRun=false;
+async function runCompare(){
+  if(cmpRun||!tour) return; if(!bcrTour||!pdfTour){ $("cmpState").textContent="Dafür bitte Ausfahrliste (PDF) und .bcr zusammen öffnen."; return; }
+  cmpRun=true; $("cmpBtn").disabled=true; const t=tour, cache=jget("navi-vergleich"); let n=0;
+  const todo=t.stops.filter(s=>s.addr&&(s.orig||s.ll));
+  try{ for(const s of todo){
+      const k=addrKey(s); $("cmpState").textContent=`Suche Adresse ${++n} von ${todo.length} …`;
+      if(cache[k]===undefined){ const p=await geocodeOne(s); cache[k]=p||0; jset("navi-vergleich",cache); }
+      s.cmp=cache[k]||null; if(tour!==t) return; drawCompare(); } }
+  catch(x){ $("cmpState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal starten."; }
+  cmpRun=false; $("cmpBtn").disabled=false; drawCompare(true); }
+function drawCompare(done){
+  cmpLayer.clearLayers(); if(!tour) return; const list=$("cmpList"); list.innerHTML=""; let ok=0,mid=0,bad=0,none=0; const ds=[];
+  tour.stops.forEach((s,i)=>{ const b=s.orig||s.ll; if(s.cmp===undefined||!b) return;
+    const li=document.createElement("li"); let d=null, cls="none";
+    if(s.cmp){ d=Math.round(dist(s.cmp,b)); ds.push(d); cls=d<=25?"ok":d<=80?"mid":"bad"; if(cls==="ok")ok++; else if(cls==="mid")mid++; else bad++;
+      L.polyline([b,s.cmp],{color:d<=25?"#2e9e5b":d<=80?"#e0a100":"#d63b2f",weight:3,dashArray:"5 5",interactive:false}).addTo(cmpLayer);
+      L.marker(s.cmp,{icon:L.divIcon({className:"",html:'<div class="cmpq"></div>',iconSize:[14,14],iconAnchor:[7,7]}),interactive:false}).addTo(cmpLayer);
+      if(d>25) L.marker(s.cmp,{icon:L.divIcon({className:"",html:`<div class="cmplbl">${i+1}: ${d} m</div>`,iconSize:[0,0],iconAnchor:[-10,8]}),interactive:false}).addTo(cmpLayer); }
+    else none++;
+    li.className=cls; li.innerHTML=`<span>${i+1}</span><span></span><b>${d===null?"nicht gefunden":d+" m"}</b>`; li.children[1].textContent=s.addr; list.append(li); });
+  list.hidden=!list.children.length; $("cmpOff").hidden=!ds.length&&!none;
+  if(done||ds.length){ ds.sort((a,b)=>a-b); const med=ds.length?ds[Math.floor(ds.length/2)]:0;
+    $("cmpState").textContent=(done?"Fertig. ":"")+`Grün bis 25 m: ${ok} · Gelb 25–80 m: ${mid} · Rot über 80 m: ${bad}`+(none?` · nicht gefunden: ${none}`:"")+(ds.length?` · typischer Abstand ${med} m`:""); } }
+$("cmpBtn").addEventListener("click",()=>{ runCompare(); fit(); });
+$("cmpOff").addEventListener("click",()=>{ cmpLayer.clearLayers(); $("cmpList").hidden=true; $("cmpOff").hidden=true; $("cmpState").textContent=""; if(tour) tour.stops.forEach(s=>delete s.cmp); });
 $("codeSwitch").addEventListener("click",()=>{ try{ localStorage.removeItem("navi-zugang"); }catch(e){} location.replace("./"); }); // v=84: Code wechseln in der App (Startbildschirm-App hat eigenen Speicher, getrennt vom Browser)
 $("pinSave").addEventListener("click",()=>{ if(!pinEdit) return; const {i,m}=pinEdit, q=m.getLatLng(); endPin(); setPos(i,[q.lat,q.lng]); });
 // Haken per Wischen in der Stoppliste:

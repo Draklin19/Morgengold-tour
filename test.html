@@ -1028,6 +1028,24 @@ body.drive .dock-tog{background:rgb(0 0 0 / .88);color:#f2f5f3}
 body.drive .eta:not([hidden]){background:rgb(0 0 0 / .85);color:#f2f5f3}
 body.drive .eta small{display:block;font-weight:600;font-size:.62em;color:var(--muted)}
 body.drive #map{container-type:size}
+
+/* v=85: Hauptseite unter der Karte aufgeräumt */
+.next-card .row{display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
+.next-card .row #nextGmaps{grid-column:1/-1}
+.stops-box{display:flex;flex-direction:column;gap:8px}
+.stops-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 2px 0}
+.stops-head h2{font:700 1.05rem var(--font-body);margin:0}
+.stops-head .list-tools{border:0;padding:0}
+.stops-box .jump{gap:6px}
+.stops-box .jump input{width:5.5em}
+details.more>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;font-weight:700}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::after{content:"▾";color:var(--muted);transition:transform .2s}
+details.more[open]>summary::after{transform:rotate(180deg)}
+details.more:not([open]){gap:0}
+.opts.tools{display:grid!important;grid-template-columns:1fr;gap:8px}
+#nextOsm{display:none!important}
+body.no-tour .stops-head{display:none}
 </style></head><body>
 <!-- v=81: Zugangscode beim ersten Öffnen (hält Fremde fern, die zufällig auf den Link stoßen; im Code steht nur der Prüfwert, nicht der Code) -->
 <div id="gate" style="position:fixed;inset:0;z-index:99999;background:#f4f1ea;display:flex;align-items:center;justify-content:center;padding:24px;font-family:var(--font-body,system-ui)">
@@ -1144,15 +1162,24 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <span class="side-hint" id="nextSide" hidden></span>
         <div class="note" id="nextNote" hidden></div>
         <ul class="arts" id="nextArts" hidden></ul>
-        <div class="row">
-          <button class="btn" id="prev" type="button">‹ Zurück zum letzten Kunden</button>
-          <button class="btn primary" id="nextDone" type="button">Stopp erledigt</button>
+        <div class="row"> <!-- v=85: aufgeräumt: Abhaken und Zurück nebeneinander, Google darunter -->
+          <button class="btn" id="prev" type="button">‹ Zurück</button>
+          <button class="btn primary" id="nextDone" type="button">✓ Erledigt</button>
           <a class="btn primary" id="nextGmaps" href="#" target="_blank" rel="noopener">Mit Google Maps hinfahren</a>
-          <a class="btn" id="nextOsm" href="#" target="_blank" rel="noopener">Auf OpenStreetMap ansehen</a>
+          <a class="btn" id="nextOsm" href="#" target="_blank" rel="noopener" hidden>Auf OpenStreetMap ansehen</a>
         </div>
       </div>
-      <div class="mode" role="group" aria-labelledby="modeLbl">
-        <span class="badge" id="modeLbl">Abhaken</span>
+      <section class="stops-box" aria-labelledby="stopsH">
+        <div class="stops-head"><h2 id="stopsH">Alle Stopps</h2><div class="list-tools" id="listTools"><label class="all-chk"><input type="checkbox" id="allChk"> Alle abhaken</label></div></div>
+        <form class="jump" id="jumpForm">
+        <label for="jumpNo">Ab Nr.</label>
+        <input id="jumpNo" type="number" inputmode="numeric" min="1" placeholder="z. B. 12">
+        <button class="btn" type="submit">Ab hier</button>
+      </form>
+        <ul class="list" id="list"></ul>
+      </section>
+      <details class="mode more">
+        <summary>📍 Abhaken &amp; GPS</summary>
         <div class="opts">
           <label><input type="radio" name="mode" id="modeAuto" value="auto" checked> Automatisch beim Wegfahren vom Haus</label>
           <label><input type="radio" name="mode" id="modeManual" value="manual"> Nur manuell</label>
@@ -1161,20 +1188,18 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <div class="opts"><button class="btn primary" id="gps" type="button">📍 GPS starten</button></div>
         <p class="hint" id="gpsState" hidden></p>
         <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt einen Kunden ab, sobald du nach der Ankunft wieder wegfährst. Der Standort wird nicht gespeichert und nicht übertragen. Zum Ausprobieren ohne GPS gibt es „Fahrt simulieren“ unter ⚙ Einstellungen.</p>
-      </div>
-      <div class="mode" id="gTour">
-        <span class="badge">Tour in Google Maps</span>
+      </details>
+      <details class="mode more" id="gTour">
+        <summary>🗺 Ganze Tour in Google Maps</summary>
         <div class="opts" id="gLinks"></div>
         <p class="hint">Google Maps nimmt pro Route höchstens 10 Stopps, deshalb ist die Tour in Abschnitte geteilt. Ab dem aktuellen Stopp. An Google gehen nur Adressen bzw. Koordinaten, keine Namen.</p>
-      </div>
+      </details>
       <details class="mode" id="loadBox" hidden><summary>Ladeliste für die ganze Tour</summary><ul class="arts" id="loadList"></ul></details>
-      <form class="jump" id="jumpForm">
-        <label for="jumpNo">Fahrt beginnen ab Nr.</label>
-        <input id="jumpNo" type="number" inputmode="numeric" min="1" placeholder="z. B. 12">
-        <button class="btn" type="submit">Ab hier starten</button>
-      </form>
-      <div class="list-tools" id="listTools"><label class="all-chk"><input type="checkbox" id="allChk"> Alle</label><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button><button class="btn" id="mailBtn" type="button">📧 Bericht per Mail</button></div>
-      <ul class="list" id="list"></ul>
+      <details class="mode more">
+        <summary>📄 Bericht &amp; Tour neu starten</summary>
+        <div class="opts tools"><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button><button class="btn" id="mailBtn" type="button">📧 Bericht per Mail</button><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button></div>
+        <p class="hint">„Tour neu starten“ nimmt alle Haken und Zeiten dieser Tour zurück.</p>
+      </details>
     </div>
   </div>
   <div class="ask" id="geoAsk" hidden role="dialog" aria-modal="true" aria-labelledby="geoAskT">
@@ -1588,7 +1613,7 @@ function render(){ setTimeout(()=>declutter(),0);
     if(warn&&!s.done){ L.polyline([s.ll,s.osm],{color:"#f59e0b",weight:2,dashArray:"4 6"}).addTo(layer);
       L.marker(s.osm,{icon:L.divIcon({className:"",html:'<div class="osmpin">?</div>',iconSize:[20,20],iconAnchor:[10,10]}),title:`Stopp ${i+1} laut OpenStreetMap`}).addTo(layer)
         .on("click",async()=>{ if(await ask(`Hauspunkt für Stopp ${i+1} übernehmen?`,`Der orange Punkt ist die Stelle, die OpenStreetMap für ${s.addr} kennt. Er wird nur auf diesem Handy für diese Adresse gespeichert. Liegt das Haus woanders: lange auf das richtige Haus drücken.`,"Übernehmen","Abbrechen")) setPos(i,s.osm); }); }
-    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0,zIndexOffset0:i===nextIdx?1000:0}).addTo(layer);
+    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0,zIndexOffset0:i===nextIdx?1000:0,si:i}).addTo(layer);
     m.on("click",()=>pick(i)); markers.push(m); }
     const li=document.createElement("li");
     li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":"")+(i===nearPrev?" near-prev":"")+(i===nearNext?" near-next":"")+(s.tags&&s.tags.length?" tag-"+s.tags[0]:""); li.tabIndex=0; li.dataset.i=i;
@@ -1736,20 +1761,20 @@ function moveCar(p,dur,noPan){
 let lastDraw=0; // Akku: höchstens ca. 15 Bilder pro Sekunde zeichnen (halbe Rechenarbeit, sieht trotzdem flüssig aus)
 // v=78: Kommt das Männchen an eine Hausnummer, rückt die Nummer wie eine Sprechblase zur Seite; ein Strich zeigt auf die echte Stelle (die bleibt unverändert)
 let rotDeg=0;
-function declutter(){
-  const on=car&&map.hasLayer(car)&&carPos; const P=on?map.latLngToLayerPoint(car.getLatLng()):null;
-  const r=rotDeg*Math.PI/180, up=[-Math.sin(r),-Math.cos(r)], side=[Math.cos(r),-Math.sin(r)];
-  const c=P?[P.x+up[0]*25,P.y+up[1]*25]:null, R=21; // Mitte des Gesichts (34 px Kreis über dem Fußpunkt)
+function declutter(){ // v=85: nur beim Fahren, nah dran (Zoom ab 16, unter 40 m) und nur der aktuelle Stopp; rückt EINMAL zur Seite und bleibt dort fest
+  const drive=document.body.classList.contains("drive")||document.body.classList.contains("sim");
+  const on=drive&&car&&map.hasLayer(car)&&carPos&&map.getZoom()>=16; const cp=on?car.getLatLng():null;
+  const r=rotDeg*Math.PI/180, side=[Math.cos(r),-Math.sin(r)], L=46;
   markers.forEach(m=>{ const el=m.getElement(); if(!el) return; const pin=el.querySelector(".pin"); if(!pin) return;
-    let lead=el.querySelector(".lead"); let ox=0, oy=0;
-    if(c){ const A=map.latLngToLayerPoint(m.getLatLng()); let dx=A.x-c[0], dy=A.y-c[1], d=Math.hypot(dx,dy);
-      const lim=R+18+(lead?10:0); // etwas Spielraum, damit es nicht hin und her springt
-      if(d<lim){ const sg=(dx*side[0]+dy*side[1])<-2?-1:1; // seitlich neben das Männchen, auf der Seite, wo das Haus liegt (sonst rechts)
-        ox=c[0]+side[0]*sg*(R+30)-A.x; oy=c[1]+side[1]*sg*(R+30)-A.y; } }
-    if(ox||oy){ pin.style.translate=`${ox.toFixed(1)}px ${oy.toFixed(1)}px`;
+    let lead=el.querySelector(".lead"), lk=m._lk||0;
+    if(on&&m.options.si===cur){ const d=map.distance(cp,m.getLatLng());
+      if(!lk&&d<40){ const A=map.latLngToLayerPoint(m.getLatLng()), C=map.latLngToLayerPoint(cp); lk=((C.x-A.x)*side[0]+(C.y-A.y)*side[1])>0?-1:1; } // Seite einmal festlegen: weg vom Männchen
+      else if(lk&&d>60) lk=0; }
+    else lk=0;
+    m._lk=lk;
+    if(lk){ const ox=side[0]*lk*L, oy=side[1]*lk*L; pin.style.translate=`${ox.toFixed(1)}px ${oy.toFixed(1)}px`;
       if(!lead){ lead=document.createElement("div"); lead.className="lead"; el.prepend(lead); }
-      lead.style.width=Math.hypot(ox,oy).toFixed(1)+"px"; lead.style.transform=`rotate(${Math.atan2(oy,ox)}rad)`;
-      m.setZIndexOffset(2500); }
+      lead.style.width=L+"px"; lead.style.transform=`rotate(${Math.atan2(oy,ox)}rad)`; m.setZIndexOffset(2500); }
     else if(lead){ pin.style.translate=""; lead.remove(); m.setZIndexOffset(m.options.zIndexOffset0||0); } }); }
 map.on("zoomend viewreset",declutter);
 function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<66&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;

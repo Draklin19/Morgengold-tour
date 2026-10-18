@@ -1392,32 +1392,35 @@ function fillArts(ul,cols){ ul.textContent=""; cols.flatMap(artItems).forEach(it
 let geoRunning=false;
 async function geocodeOne(s){
   const m=(s.town||"").match(/^(\d{5})\s+(.+)$/), plz=m?m[1]:"", ort=m?m[2]:s.town;
-  const tries=[
-    {street:s.addr,postalcode:plz,city:ort},
-    {q:`${s.addr}, ${plz} ${ort}`},
-    {street:s.addr,postalcode:plz}
-  ];
-  for(const t of tries){
+  // v=89: nur Treffer in derselben PLZ bzw. demselben Ort annehmen (sonst landet z. B. ein Tippfehler in einer Straße weit weg).
+  // Wird die Straße dort nicht gefunden, gibt es die Ortsmitte als Notpunkt zurück: [lat, lon, 1] = ungefähr.
+  const ortN=x=>(x||"").toLowerCase().replace(/\s+(b\.|bei|a\.|am|an der|im|ob der)\s.*$/,"").replace(/[^a-zäöüß]/g,"");
+  const want=ortN(ort);
+  const fits=h=>{ const a=h.address||{};
+    if(plz&&a.postcode) return a.postcode===plz;
+    if(!want) return !plz;
+    return [a.city,a.town,a.village,a.municipality,a.hamlet,a.suburb].some(x=>x&&ortN(x)===want)||ortN(h.display_name).includes(want); };
+  const ask1=async t=>{
     const u=new URL("https://nominatim.openstreetmap.org/search");
-    Object.entries({...t,format:"jsonv2",limit:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
+    Object.entries({...t,format:"jsonv2",limit:"5",addressdetails:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
     const w=lastAsk+1100-Date.now(); if(w>0) await new Promise(ok=>setTimeout(ok,w)); lastAsk=Date.now(); // höchstens 1 Anfrage pro Sekunde, auch neben dem Hauspunkt-Abgleich
     const r=await fetch(u.toString()); if(!r.ok) throw new Error("Adresssuche nicht erreichbar ("+r.status+")");
-    const j=await r.json();
-    if(j.length) return [parseFloat(j[0].lat),parseFloat(j[0].lon)];
-  }
+    const h=(await r.json()).find(fits); return h?[parseFloat(h.lat),parseFloat(h.lon)]:null; };
+  if(s.addr) for(const t of [{street:s.addr,postalcode:plz,city:ort},{q:`${s.addr}, ${plz} ${ort}`},{street:s.addr,postalcode:plz}]){ const p=await ask1(t); if(p) return p; }
+  if(plz||ort){ const p=await ask1({postalcode:plz,city:ort})||(plz&&ort?await ask1({q:`${plz} ${ort}`}):null); if(p) return [p[0],p[1],1]; }
   return null;
 }
 async function geocodeTour(){
   if(geoRunning||!tour) return; geoRunning=true; $("geoBtn").disabled=true;
-  const todo=tour.stops.filter(s=>!s.ll&&s.addr); let done=0; const miss=[];
+  const todo=tour.stops.filter(s=>!s.ll&&s.addr); let done=0; const miss=[], rough=[];
   try{
     for(const s of todo){
       $("geoState").textContent=`Suche Adresse ${++done} von ${todo.length} …`;
       const p=await geocodeOne(s);
-      if(p){ s.ll=p; s.via=[]; s.geo=true; } else miss.push(tour.stops.indexOf(s)+1);
+      if(p){ s.ll=p.slice(0,2); s.approx=p[2]===1; s.via=[]; s.geo=true; if(s.approx) rough.push(tour.stops.indexOf(s)+1); } else miss.push(tour.stops.indexOf(s)+1);
       render(); if(done===1||done===todo.length) fit();
     }
-    $("geoState").textContent=miss.length?`Fertig. Nicht gefunden: Stopp ${miss.join(", ")}. Diese Stopps fehlen auf der Karte, Google Maps findet sie trotzdem über die Adresse.`:"Fertig, alle Adressen gefunden. Die Punkte können einige Meter neben dem Haus liegen.";
+    $("geoState").textContent=(miss.length?`Fertig. Nicht gefunden: Stopp ${miss.join(", ")}. Diese Stopps fehlen auf der Karte, Google Maps findet sie trotzdem über die Adresse.`:rough.length?"Fertig.":"Fertig, alle Adressen gefunden. Die Punkte können einige Meter neben dem Haus liegen.")+(rough.length?` ⚠ Nur ungefähr (Ortsmitte): Stopp ${rough.join(", ")}. Bitte Adresse prüfen und Hauspunkt per langem Drücken setzen.`:"");
   }catch(x){ $("geoState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal versuchen."; }
   geoRunning=false; $("geoBtn").disabled=false; routeTour(); $("geoBox").hidden=!tour.stops.some(s=>!s.ll);
 }
@@ -1430,7 +1433,7 @@ const addrKey=s=>s.addr?(s.addr+"|"+(((s.town||"").match(/\d{5}/)||[""])[0])).to
 function applyCorr(t){ if(typeof cmpLayer!=="undefined"&&cmpLayer){ cmpLayer.clearLayers(); const l=document.getElementById("cmpList"); if(l){ l.hidden=true; document.getElementById("cmpState").textContent=""; } } const c=jget(CORR_KEY);
   t.stops.forEach(s=>{ const k=addrKey(s), p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; } }); }
 function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s.ll;
-  s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.said=false;
+  s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.approx=false; s.said=false;
   if(k){ const c=jget(CORR_KEY); c[k]=s.ll; jset(CORR_KEY,c); }
   map.closePopup(); corrUi(); render(); routeTour(); toast(`Hauspunkt für Stopp ${i+1} gespeichert`); }
 function resetPos(i){ const s=tour.stops[i], k=addrKey(s), c=jget(CORR_KEY); delete c[k]; jset(CORR_KEY,c);
@@ -1634,7 +1637,7 @@ function render(){ setTimeout(()=>declutter(),0);
     if(d&&d.ll) L.marker(d.ll,{icon:L.divIcon({className:"",html:'<div class="depotpin">▶ Start</div>',iconSize:[58,22],iconAnchor:[29,11]}),interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer); }
   tour.stops.forEach((s,i)=>{
     const warn=s.warn&&!s.fixed&&s.osm;
-    const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn?" warn":"");
+    const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn||s.approx?" warn":"");
     if(warn&&!s.done){ L.polyline([s.ll,s.osm],{color:"#f59e0b",weight:2,dashArray:"4 6"}).addTo(layer);
       L.marker(s.osm,{icon:L.divIcon({className:"",html:'<div class="osmpin">?</div>',iconSize:[20,20],iconAnchor:[10,10]}),title:`Stopp ${i+1} laut OpenStreetMap`}).addTo(layer)
         .on("click",async()=>{ if(await ask(`Hauspunkt für Stopp ${i+1} übernehmen?`,`Der orange Punkt ist die Stelle, die OpenStreetMap für ${s.addr} kennt. Er wird nur auf diesem Handy für diese Adresse gespeichert. Liegt das Haus woanders: lange auf das richtige Haus drücken.`,"Übernehmen","Abbrechen")) setPos(i,s.osm); }); }
@@ -1648,8 +1651,8 @@ function render(){ setTimeout(()=>declutter(),0);
     else{fillAddr(li.querySelector(".name"),s.addr); li.querySelector("br").remove(); li.querySelector(".addr").remove();}
     if(s.tags&&s.tags.length){ const g=document.createElement("span"); g.className="tags"; fillTags(g,s.tags); li.querySelector(".t").append(g); }
     if(s.notes&&s.notes.length){ const n=document.createElement("span"); n.className="snote"; n.textContent=s.notes.join(" "); li.querySelector(".t").append(n); }
-    if(warn||s.fixed){ const n=document.createElement("span"); n.className=warn?"pwarn":"pfix";
-      n.textContent=warn?`⚠ Hauspunkt prüfen: OpenStreetMap zeigt das Haus ca. ${Math.round(dist(s.ll,s.osm))} m entfernt`:"📍 Eigener Hauspunkt"; li.querySelector(".t").append(n); }
+    if(warn||s.fixed||s.approx){ const n=document.createElement("span"); n.className=warn||s.approx?"pwarn":"pfix";
+      n.textContent=s.approx&&!s.fixed?"⚠ Nur ungefähr (Ortsmitte): Straße nicht gefunden, Adresse prüfen und Hauspunkt per langem Drücken setzen":warn?`⚠ Hauspunkt prüfen: OpenStreetMap zeigt das Haus ca. ${Math.round(dist(s.ll,s.osm))} m entfernt`:"📍 Eigener Hauspunkt"; li.querySelector(".t").append(n); }
     const cb=li.querySelector("input"); cb.checked=s.done;
     cb.addEventListener("click",e=>e.stopPropagation());
     cb.addEventListener("change",()=>{s.done=cb.checked;if(s.done&&i===cur) cur=nextOpen(); render();});
@@ -2303,12 +2306,12 @@ $("pinCancel").addEventListener("click",endPin);
 var cmpLayer=L.layerGroup().addTo(map); let cmpRun=false;
 async function runCompare(){
   if(cmpRun||!tour) return; if(!bcrTour||!pdfTour){ $("cmpState").textContent="Dafür bitte Ausfahrliste (PDF) und .bcr zusammen öffnen."; return; }
-  cmpRun=true; $("cmpBtn").disabled=true; const t=tour, cache=jget("navi-vergleich"); let n=0;
+  cmpRun=true; $("cmpBtn").disabled=true; const t=tour, cache=jget("navi-vergleich2"); let n=0;
   const todo=t.stops.filter(s=>s.addr&&(s.orig||s.ll));
   try{ for(const s of todo){
       const k=addrKey(s); $("cmpState").textContent=`Suche Adresse ${++n} von ${todo.length} …`;
-      if(cache[k]===undefined){ const p=await geocodeOne(s); cache[k]=p||0; jset("navi-vergleich",cache); }
-      s.cmp=cache[k]||null; if(tour!==t) return; drawCompare(); } }
+      if(cache[k]===undefined){ const p=await geocodeOne(s); cache[k]=p||0; jset("navi-vergleich2",cache); }
+      s.cmp=cache[k]&&cache[k][2]!==1?cache[k]:null; s.cmpRough=!!(cache[k]&&cache[k][2]===1); if(tour!==t) return; drawCompare(); } }
   catch(x){ $("cmpState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal starten."; }
   cmpRun=false; $("cmpBtn").disabled=false; drawCompare(true); }
 function drawCompare(done){
@@ -2320,7 +2323,7 @@ function drawCompare(done){
       L.marker(s.cmp,{icon:L.divIcon({className:"",html:'<div class="cmpq"></div>',iconSize:[14,14],iconAnchor:[7,7]}),interactive:false}).addTo(cmpLayer);
       if(d>25) L.marker(s.cmp,{icon:L.divIcon({className:"",html:`<div class="cmplbl">${i+1}: ${d} m</div>`,iconSize:[0,0],iconAnchor:[-10,8]}),interactive:false}).addTo(cmpLayer); }
     else none++;
-    li.className=cls; li.innerHTML=`<span>${i+1}</span><span></span><b>${d===null?"nicht gefunden":d+" m"}</b>`; li.children[1].textContent=s.addr; list.append(li); });
+    li.className=cls; li.innerHTML=`<span>${i+1}</span><span></span><b>${d===null?(s.cmpRough?"nur Ortsmitte":"nicht gefunden"):d+" m"}</b>`; li.children[1].textContent=s.addr; list.append(li); });
   list.hidden=!list.children.length; $("cmpOff").hidden=!ds.length&&!none;
   if(done||ds.length){ ds.sort((a,b)=>a-b); const med=ds.length?ds[Math.floor(ds.length/2)]:0;
     $("cmpState").textContent=(done?"Fertig. ":"")+`Grün bis 25 m: ${ok} · Gelb 25–80 m: ${mid} · Rot über 80 m: ${bad}`+(none?` · nicht gefunden: ${none}`:"")+(ds.length?` · typischer Abstand ${med} m`:""); } }
@@ -2408,7 +2411,7 @@ function depotUi(){ $("depotAddr").value=depot?depot.addr:""; $("depotHint").tex
 depotUi();
 $("depotSave").addEventListener("click",async()=>{ const a=$("depotAddr").value.trim(); if(!a){ depot=null; try{localStorage.removeItem(DEPOT_KEY);}catch(e){} depotUi(); return; }
   $("depotHint").textContent="Suche Adresse …"; let ll=null;
-  try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); }catch(e){}
+  try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); if(ll&&ll[2]===1) ll=null; }catch(e){}
   depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); if(tour) render(); });
 async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
 let km=null, kmBusy=false;

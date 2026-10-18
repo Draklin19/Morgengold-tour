@@ -1041,17 +1041,28 @@ body.drive #map{container-type:size}
  </form>
 </div>
 <script>
-(function(){ const OK="402b32d5ab3a2f8953579210cdb2e40892cb6cc9c04528388a02709d273b2c69", K="navi-zugang", g=document.getElementById("gate");
+// v=83: zwei Varianten unter einem Link. Fahrercode → index.html (stabile Fahrer-Version); Admin-Code → test.html (Test-Version, nur für den Chef).
+// Beide Dateien sind gleich; die Variante ergibt sich aus dem Dateinamen. Freigabe = test.html nach index.html kopieren.
+const IS_TEST=/test\.html$/i.test(location.pathname);
+(function(){ const DRV="402b32d5ab3a2f8953579210cdb2e40892cb6cc9c04528388a02709d273b2c69", ADM="d949b46466968f12b7b7746323f02e1de5460491e13989f39d9f9b5c661515f2", K="navi-zugang", g=document.getElementById("gate");
+  const toTest=()=>location.replace("test.html"+location.search+location.hash), toMain=()=>location.replace("./"+location.search+location.hash);
   let have=null; try{ have=localStorage.getItem(K); }catch(e){}
-  if(have===OK){ g.remove(); return; }
+  if(IS_TEST){ if(have===ADM){ g.remove(); return; } if(have===DRV){ toMain(); return; } }
+  else{ if(have===ADM){ toTest(); return; } if(have===DRV){ g.remove(); return; } }
   document.getElementById("gateForm").addEventListener("submit",async e=>{ e.preventDefault();
-    const c=document.getElementById("gateCode").value.replace(/\s+/g,""), err=document.getElementById("gateErr");
+    const c=document.getElementById("gateCode").value.trim(), err=document.getElementById("gateErr");
     try{ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("morgengold:"+c));
       const h=[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
-      if(h===OK){ try{ localStorage.setItem(K,OK); }catch(e){} g.remove(); }
+      if(h===ADM){ try{ localStorage.setItem(K,ADM); }catch(e){} if(IS_TEST) g.remove(); else toTest(); }
+      else if(h===DRV){ try{ localStorage.setItem(K,DRV); }catch(e){} if(IS_TEST) toMain(); else g.remove(); }
       else err.textContent="Der Code stimmt nicht. Groß- und Kleinschreibung beachten."; }
     catch(x){ err.textContent="Dieser Browser kann den Code nicht prüfen. Bitte Safari oder Chrome nehmen."; } });
 })();
+if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.createElement("button"); t.type="button"; t.id="testBadge"; t.textContent="TEST";
+  t.title="Test-Version. Antippen: zur Fahrer-Version wechseln";
+  t.style.cssText="position:fixed;left:calc(env(safe-area-inset-left,0px));top:42%;z-index:99998;writing-mode:vertical-rl;transform:rotate(180deg);background:#e5383b;color:#fff;font:700 11px/1 system-ui;letter-spacing:.15em;padding:10px 5px;border:0;border-radius:0 8px 8px 0;box-shadow:0 1px 4px rgb(0 0 0 / .3);opacity:.9"; // seitlich am Rand: verdeckt weder Hausnummer oben noch die Leiste unten
+  t.onclick=()=>{ if(confirm("Zur Fahrer-Version wechseln? Danach fragt die App nach einem Code.")){ try{ localStorage.removeItem("navi-zugang"); }catch(e){} location.replace("./"); } };
+  document.body.append(t); });
 </script>
 
 <div class="wrap">

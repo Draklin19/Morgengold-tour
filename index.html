@@ -1047,7 +1047,7 @@ const IS_TEST=/test\.html$/i.test(location.pathname);
 (function(){ const DRV="402b32d5ab3a2f8953579210cdb2e40892cb6cc9c04528388a02709d273b2c69", ADM="d949b46466968f12b7b7746323f02e1de5460491e13989f39d9f9b5c661515f2", K="navi-zugang", g=document.getElementById("gate");
   const toTest=()=>location.replace("test.html"+location.search+location.hash), toMain=()=>location.replace("./"+location.search+location.hash);
   let have=null; try{ have=localStorage.getItem(K); }catch(e){}
-  if(IS_TEST){ if(have===ADM){ g.remove(); return; } if(have===DRV){ toMain(); return; } }
+  if(IS_TEST){ if(have===ADM){ g.remove(); return; } } // mit Fahrercode gespeichert: Abfrage zeigen, damit der Chef seinen Admin-Code eingeben kann
   else{ if(have===ADM){ toTest(); return; } if(have===DRV){ g.remove(); return; } }
   document.getElementById("gateForm").addEventListener("submit",async e=>{ e.preventDefault();
     const c=document.getElementById("gateCode").value.trim(), err=document.getElementById("gateErr");

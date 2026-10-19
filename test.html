@@ -954,7 +954,7 @@ h1{font-size:1.25rem;font-weight:750;letter-spacing:-.01em;line-height:1.15}
 footer{font-size:.75rem;line-height:1.5}
 body.drive .stop .n{width:24px;height:24px;font-size:.72rem}
 a.btn{text-decoration:none}
-body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour),body.no-tour .jump,body.no-tour .map-start{display:none!important} /* ohne Tour nur das Nötigste */
+body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour):not(#rechBox),body.no-tour .jump,body.no-tour .map-start{display:none!important} /* ohne Tour nur das Nötigste */
 </style><style>body{margin:0}
 /* Fahrt-Leiste (v=55): Nummer als eckiger Balken über der Adresse, drei Kunden füllen die ganze Höhe, großer Google-Knopf */
 body.drive .list{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}
@@ -1056,6 +1056,22 @@ details.more:not([open]){gap:0}
 .pin.goal{position:relative;background:#fff;color:#111;font-size:13px;line-height:1}
 .pin.goal::before{content:attr(data-n);position:absolute;left:-9px;bottom:-8px;min-width:14px;height:14px;padding:0 2px;border-radius:7px;background:var(--route);color:#fff;font:700 9px/14px var(--font-body);text-align:center;border:1px solid #fff}
 .pin.goal.next{background:#fff3c4}
+html.fahrer #rechBox{display:none!important}
+#rechBox textarea{font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);width:100%;box-sizing:border-box}
+#rechBox .opts input[type=text],#rechBox input[type=date]{font:inherit;padding:5px 7px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);width:7.5em}
+.rech-cfg{display:flex;flex-direction:column;gap:6px}.rech-cfg summary{font-weight:600;cursor:pointer}.rech-cfg[open]{display:flex}
+.rech-wrap{overflow-x:auto;max-height:60vh;overflow-y:auto}
+.rech-tbl{border-collapse:collapse;width:100%;font-size:.85rem;font-variant-numeric:tabular-nums}
+.rech-tbl th{text-align:left;font-weight:600;color:var(--muted);padding:3px 4px;position:sticky;top:0;background:var(--surface)}
+.rech-tbl td.day{white-space:nowrap;padding-right:8px;vertical-align:middle}
+.rech-tbl td{padding:2px 3px;border-top:1px solid var(--line);vertical-align:top}
+.rech-tbl input{font:inherit;width:3.6em;padding:3px 4px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--fg);text-align:right}
+.rech-tbl input.d{width:6.6em;text-align:left}.rech-tbl input.t{width:7.5em;text-align:left}
+.rech-tbl input.bad{background:#fde2e1;border-color:#d63b2f;color:#7a1610}
+.rech-tbl tr.out td{opacity:.4}
+.rech-tbl td.why{font-size:.75rem;color:#b4232a;padding:0 4px 4px}
+.rech-tbl .okb{padding:2px 6px;font-size:.75rem}
+.rech-sum{font-size:.9rem;display:grid;gap:2px}.rech-sum b{font-size:1.05rem}.rech-sum .warn{color:#b4232a;font-weight:600}
 .gtour .gt-h{font-weight:700}
 .gtour .opts{margin-top:6px}
 .gtour .hint{margin-top:6px;font-size:.82rem}
@@ -1225,6 +1241,26 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <summary>📄 Bericht &amp; Tour neu starten</summary>
         <div class="opts tools"><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button><button class="btn" id="mailBtn" type="button">📧 Bericht per Mail</button><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button></div>
         <p class="hint">„Tour neu starten“ nimmt alle Haken und Zeiten dieser Tour zurück.</p>
+      </details>
+      <details class="mode more" id="rechBox"> <!-- v=94 (nur Admin): Rechnung aus Screenshots der Morgengold-Auslieferungsliste -->
+        <summary>🧾 Rechnung erstellen</summary>
+        <p class="hint">Screenshots der Liste „Auslieferungen“ von Morgengold hinzufügen. Die App liest sie direkt auf dem Handy aus, das Bild wird nicht hochgeladen. Zahlen, die nicht sicher erkannt wurden, sind rot markiert. Bitte mit dem Screenshot vergleichen und bei Bedarf korrigieren.</p>
+        <div class="opts"><label class="btn primary" for="rechFile">＋ Bild hinzufügen</label><input id="rechFile" type="file" accept="image/*" multiple hidden><button class="btn" id="rechClear" type="button">Liste leeren</button></div>
+        <p class="hint" id="rechState"></p>
+        <div class="opts"><label for="rechFrom">Von <input type="date" id="rechFrom"></label><label for="rechTo">Bis <input type="date" id="rechTo"></label></div>
+        <div class="rech-wrap"><table class="rech-tbl" id="rechTbl"><thead><tr><th>Tag</th><th>Lief.</th><th>Gebäck</th><th>km</th><th></th></tr></thead><tbody id="rechRows"></tbody></table></div>
+        <div class="rech-sum" id="rechSum"></div>
+        <details class="rech-cfg"><summary>Rechnungsdaten (Absender, Empfänger, Preise)</summary>
+          <p class="hint">Wird nur auf diesem Handy gespeichert.</p>
+          <label for="rcFrom">Absender (Name, Straße, PLZ Ort, E-Mail – je Zeile)</label><textarea id="rcFrom" rows="4"></textarea>
+          <label for="rcTo">Empfänger (je Zeile)</label><textarea id="rcTo" rows="4"></textarea>
+          <label for="rcBank">Bankverbindung (Inhaber, Bank, IBAN, BIC – je Zeile)</label><textarea id="rcBank" rows="4"></textarea>
+          <div class="opts"><label for="rcNr">Rechnungsnr. <input id="rcNr" type="text"></label><label for="rcKd">Kundennr. <input id="rcKd" type="text"></label></div>
+          <div class="opts"><label for="rcPkm">€ pro km <input id="rcPkm" type="text" inputmode="decimal"></label><label for="rcAnf">Anfahrt km/Tag <input id="rcAnf" type="text" inputmode="decimal"></label><label for="rcPk">€ pro Kunde <input id="rcPk" type="text" inputmode="decimal"></label></div>
+          <label for="rcNote">Hinweis unter der Rechnung</label><textarea id="rcNote" rows="3"></textarea>
+        </details>
+        <label for="rechAnl"><input type="checkbox" id="rechAnl"> Kontroll-Liste als Anlage an die Rechnung hängen</label>
+        <div class="opts"><button class="btn primary" id="rechPdf" type="button">🧾 Rechnung als PDF</button></div>
       </details>
     </div>
   </div>
@@ -2057,6 +2093,135 @@ function ask(title,text,yes,no){ // eigenes Fragefenster, liefert true/false
 }
 $("geoYes").addEventListener("click",()=>askDone&&askDone(true));
 $("geoNo").addEventListener("click",()=>askDone&&askDone(false));
+// v=94 (nur Admin, test.html): Rechnung aus Screenshots der Morgengold-Liste „Auslieferungen“.
+// Texterkennung (Tesseract) läuft im Browser auf dem Handy; nur das Programm und die Sprachdaten werden geladen, das Bild bleibt auf dem Gerät.
+// Jedes Bild wird zweimal gelesen (aufbereitet und original). Weichen die Lesungen ab, ist ein Wert nicht lesbar oder unplausibel, wird die Zelle rot markiert.
+const RECH_ROWS="navi-rechnung-zeilen", RECH_CFG="navi-rechnung-daten";
+const TESS_JS="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js", JSPDF_JS="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+const RC_DEF={from:"",to:"",bank:"",nr:"",kd:"",pkm:"0,25",anf:"15",pk:"1,10",note:"Der Rechnungsbetrag ist nach Erhalt binnen 10 Werktagen zu begleichen.\nKein Umsatzsteuerausweis gem. § 19 UStG.\nVielen Dank für die gute Zusammenarbeit."};
+const RC_IDS={from:"rcFrom",to:"rcTo",bank:"rcBank",nr:"rcNr",kd:"rcKd",pkm:"rcPkm",anf:"rcAnf",pk:"rcPk",note:"rcNote"};
+let rechRows=[]; try{ rechRows=JSON.parse(localStorage.getItem(RECH_ROWS)||"[]")||[]; }catch(e){}
+const rechSave=()=>{ try{ localStorage.setItem(RECH_ROWS,JSON.stringify(rechRows)); }catch(e){} };
+const rcCfg=()=>({...RC_DEF,...jget(RECH_CFG)});
+const deNum=(x,d=2)=>x.toLocaleString("de-DE",{minimumFractionDigits:d,maximumFractionDigits:d});
+const pNum=s=>{ const v=parseFloat(String(s||"").replace(/\s/g,"").replace(",",".")); return isFinite(v)?v:NaN; };
+const r2=x=>Math.round((x+1e-9)*100)/100;
+const isoDay=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const deDay=iso=>iso?iso.slice(8,10)+"."+iso.slice(5,7)+"."+iso.slice(0,4):"";
+function loadJs(src){ return new Promise((ok,no)=>{ if([...document.scripts].some(s=>s.src===src&&s.dataset.ok)) return ok();
+  const s=document.createElement("script"); s.src=src; s.onload=()=>{ s.dataset.ok=1; ok(); }; s.onerror=()=>no(new Error("Programmteil konnte nicht geladen werden. Bitte Internet prüfen.")); document.head.append(s); }); }
+let ocrW=null;
+async function ocrWorker(){ if(ocrW) return ocrW; await loadJs(TESS_JS);
+  ocrW=await Tesseract.createWorker("deu",1,{workerPath:"https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",corePath:"https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",langPath:"https://cdn.jsdelivr.net/npm/@tesseract.js-data/deu@1.0.0/4.0.0_best_int",gzip:true});
+  return ocrW; }
+async function imgPrep(file){ // vergrößern, Graustufen, Kontrast strecken, schwarz/weiß
+  const bmp=await createImageBitmap(file), k=Math.min(2,2600/bmp.width), w=Math.round(bmp.width*k), h=Math.round(bmp.height*k);
+  const c=document.createElement("canvas"); c.width=w; c.height=h; const g=c.getContext("2d"); g.drawImage(bmp,0,0,w,h);
+  const im=g.getImageData(0,0,w,h), p=im.data; let lo=255, hi=0; const gr=new Uint8Array(w*h);
+  for(let i=0;i<gr.length;i++){ const v=(p[i*4]*.299+p[i*4+1]*.587+p[i*4+2]*.114)|0; gr[i]=v; if(v<lo)lo=v; if(v>hi)hi=v; }
+  const sp=Math.max(1,hi-lo); for(let i=0;i<gr.length;i++){ const v=((gr[i]-lo)*255/sp)>170?255:0; p[i*4]=p[i*4+1]=p[i*4+2]=v; }
+  g.putImageData(im,0,0); return c; }
+function rechParse(data){ // Zeilen „TT.MM.JJJJ Tour Lieferungen Gebäckstücke km“
+  const out=[];
+  for(const ln of data.lines||[]){
+    const m=ln.text.replace(/\s+/g," ").match(/(\d{1,2})[.,](\d{1,2})[.,](\d{4})\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)/); if(!m) continue;
+    const [dd,mm,yy]=[+m[1],+m[2],+m[3]]; if(dd<1||dd>31||mm<1||mm>12) continue;
+    const conf=t=>{ const w=(ln.words||[]).find(x=>x.text.trim()===t); return w?w.confidence:100; };
+    out.push({d:`${yy}-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`,tour:m[4],n:m[5],g:m[6],km:m[7],cn:conf(m[5]),cg:conf(m[6]),ck:conf(m[7])}); }
+  return out; }
+const okInt=s=>/^\d{1,4}$/.test(s), okKm=s=>/^\d{1,3}[,.]\d{1,2}$/.test(s);
+function rechMerge(a,b){ // zwei Lesungen zusammenführen und prüfen
+  const byB=new Map(b.map(r=>[r.d,r])), days=[...new Set([...a.map(r=>r.d),...b.map(r=>r.d)])], res=[];
+  for(const d of days){ const x=a.find(r=>r.d===d), y=byB.get(d), bad={}, why=[], row={d,tour:(x||y).tour,n:"",g:"",km:""};
+    for(const [f,ok,lbl,c] of [["n",okInt,"Lieferungen","cn"],["g",okInt,"Gebäckstücke","cg"],["km",okKm,"km","ck"]]){
+      const vx=x&&ok(x[f])?x[f]:null, vy=y&&ok(y[f])?y[f]:null, v=vx??vy;
+      row[f]=v!=null?v.replace(".",","):((x||y)[f]||"");
+      if(v==null){ bad[f]=1; why.push(`${lbl} nicht lesbar („${row[f]}“)`); }
+      else if(vx!=null&&vy!=null&&pNum(vx)!==pNum(vy)){ bad[f]=1; why.push(`${lbl} unsicher: ${vx} oder ${vy}?`); }
+      else if((vx!=null?x:y)[c]<70){ bad[f]=1; why.push(`${lbl} unsicher erkannt`); } }
+    const n=pNum(row.n), g=pNum(row.g), km=pNum(row.km);
+    if(!bad.n&&!bad.g&&(g<n||g>n*10)){ bad.n=bad.g=1; why.push("Lieferungen und Gebäckstücke passen nicht zusammen"); }
+    if(!bad.km&&(km<3||km>300)){ bad.km=1; why.push("km unplausibel"); }
+    row.bad=bad; row.why=why; res.push(row); }
+  return res; }
+async function rechAdd(files){
+  const st=$("rechState"); let added=0, flagged=0;
+  try{ st.textContent="Texterkennung wird geladen …"; const w=await ocrWorker();
+    for(const [i,f] of [...files].entries()){
+      st.textContent=`Lese Bild ${i+1} von ${files.length} …`;
+      const a=rechParse((await w.recognize(await imgPrep(f))).data), b=rechParse((await w.recognize(f)).data);
+      for(const r of rechMerge(a,b)){ const k=rechRows.findIndex(q=>q.d===r.d&&q.tour===r.tour);
+        if(k<0){ rechRows.push(r); added++; } else if(Object.keys(rechRows[k].bad||{}).length&&!Object.keys(r.bad).length) rechRows[k]=r; } }
+    rechRows.sort((p,q)=>p.d<q.d?-1:1); rechSave(); flagged=rechRows.filter(r=>Object.keys(r.bad||{}).length).length;
+    st.textContent=`${added} Liefertage übernommen.`+(flagged?` ⚠ ${flagged} Position${flagged>1?"en":""} nicht sicher erkannt (rot), bitte mit dem Screenshot vergleichen.`:" Alles sicher erkannt, bitte trotzdem kurz prüfen.");
+  }catch(x){ st.textContent=(x&&x.message)||"Bild konnte nicht gelesen werden."; }
+  rechDraw(); }
+function rechInPeriod(r){ const a=$("rechFrom").value, b=$("rechTo").value; return (!a||r.d>=a)&&(!b||r.d<=b); }
+function rechCalc(){ const c=rcCfg(), rows=rechRows.filter(rechInPeriod), tage=rows.length;
+  const km=r2(rows.reduce((s,r)=>s+(pNum(r.km)||0),0)), kd=rows.reduce((s,r)=>s+(pNum(r.n)||0),0), anf=tage*(pNum(c.anf)||0);
+  const pos=[["Kilometer",km,"km",pNum(c.pkm)||0],[`Kilometer Anfahrt (${deNum(pNum(c.anf)||0,0)} km tgl.)`,anf,"km",pNum(c.pkm)||0],["Kunden",kd,"Anzahl",pNum(c.pk)||0]].map(p=>[...p,r2(p[1]*p[3])]);
+  return {c,rows,tage,pos,sum:r2(pos.reduce((s,p)=>s+p[4],0)),bad:rows.filter(r=>Object.keys(r.bad||{}).length).length}; }
+function rechDraw(){ const tb=$("rechRows"); tb.textContent="";
+  let hid=0; rechRows.forEach((r,i)=>{ if(!rechInPeriod(r)){ hid++; return; } const tr=document.createElement("tr");
+    const cell=(f,cls,type)=>{ const td=document.createElement("td"), inp=document.createElement("input"); inp.type=type||"text"; inp.className=cls+(r.bad&&r.bad[f]?" bad":""); inp.value=f==="d"?r.d:r[f]; if(f!=="d"&&f!=="tour") inp.inputMode="decimal";
+      inp.addEventListener("change",()=>{ r[f]=inp.value.trim(); if(r.bad) delete r.bad[f]; if(r.bad&&!Object.keys(r.bad).length) r.why=[]; if(f==="d") rechRows.sort((p,q)=>p.d<q.d?-1:1); rechSave(); rechDraw(); });
+      td.append(inp); return td; };
+    const td0=document.createElement("td"); td0.className="day"; td0.textContent=deDay(r.d).slice(0,6); td0.title=r.tour; tr.append(td0,cell("n",""),cell("g",""),cell("km",""));
+    const td=document.createElement("td"), del=document.createElement("button"); del.type="button"; del.className="btn okb"; del.textContent="✕"; del.title="Zeile löschen";
+    del.addEventListener("click",()=>{ rechRows.splice(i,1); rechSave(); rechDraw(); }); td.append(del); tr.append(td); tb.append(tr);
+    if(r.why&&r.why.length){ const t2=document.createElement("tr"), w=document.createElement("td"); w.colSpan=5; w.className="why";
+      w.textContent="⚠ Position nicht korrekt erkannt: "+r.why.join(" · ")+" ";
+      const ok=document.createElement("button"); ok.type="button"; ok.className="btn okb"; ok.textContent="✓ stimmt";
+      ok.addEventListener("click",()=>{ r.bad={}; r.why=[]; rechSave(); rechDraw(); }); w.append(ok); t2.append(w); tb.append(t2); } });
+  $("rechTbl").hidden=!rechRows.length;
+  const k=rechCalc(), s=$("rechSum"); s.textContent="";
+  if(!rechRows.length){ s.textContent="Noch keine Liefertage. Tippe auf „＋ Bild hinzufügen“."; return; }
+  const add=(t,cls)=>{ const d=document.createElement("div"); d.textContent=t; if(cls) d.className=cls; s.append(d); };
+  add(`${k.tage} Liefertage im Zeitraum`+(hid?` (${hid} weitere außerhalb, ausgeblendet)`:""));
+  k.pos.forEach(p=>add(`${p[0]}: ${deNum(p[1],p[2]==="km"?1:0)} ${p[2]==="Anzahl"?"":"km "}× ${deNum(p[3])} € = ${deNum(p[4])} €`));
+  const b=document.createElement("b"); b.textContent=`Gesamt: ${deNum(k.sum)} €`; s.append(b);
+  if(k.bad) add(`⚠ ${k.bad} Position${k.bad>1?"en":""} im Zeitraum nicht sicher erkannt. Bitte prüfen und mit „✓ stimmt“ bestätigen oder korrigieren.`,"warn"); }
+async function rechPdf(){
+  const k=rechCalc(), c=k.c;
+  if(!k.tage){ toast("Keine Liefertage im gewählten Zeitraum."); return; }
+  if(!c.from.trim()||!c.to.trim()){ toast("Bitte zuerst unter „Rechnungsdaten“ Absender und Empfänger eintragen."); $("rechBox").querySelector(".rech-cfg").open=true; return; }
+  if(k.bad&&!await ask("Nicht alles sicher erkannt",`${k.bad} Position${k.bad>1?"en sind":" ist"} noch rot markiert. Trotzdem eine Rechnung erstellen?`,"Trotzdem erstellen","Abbrechen")) return;
+  try{ await loadJs(JSPDF_JS); }catch(x){ toast(x.message); return; }
+  const {jsPDF}=window.jspdf, doc=new jsPDF({unit:"mm",format:"a4"}), G=[31,111,92], L=20, R=190;
+  const from=c.from.split("\n").map(s=>s.trim()).filter(Boolean), to=c.to.split("\n").map(s=>s.trim()).filter(Boolean), bank=c.bank.split("\n").map(s=>s.trim()).filter(Boolean);
+  const a=$("rechFrom").value||k.rows[0].d, b=$("rechTo").value||k.rows[k.rows.length-1].d, today=deDay(isoDay(new Date()));
+  doc.setTextColor(...G); doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.text(from[0]||"",L,24);
+  doc.setDrawColor(...G); doc.setLineWidth(.8); doc.line(L,28,R,28);
+  doc.setTextColor(90); doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.text(from.slice(0,3).join(" · "),L,45);
+  doc.setTextColor(20); doc.setFontSize(10); to.forEach((t,i)=>doc.text(t,L,52+i*5));
+  doc.setFillColor(238,245,242); doc.rect(122,38,68,34,"F"); doc.setFontSize(9);
+  [["Rechnungsnr.",c.nr||"–"],["Kundennr.",c.kd||"–"],["Datum",today],["Zeitraum",deDay(a)+" – "+deDay(b)]].forEach(([x,y],i)=>{ doc.setTextColor(90); doc.text(x,126,45+i*6.5); doc.setTextColor(20); doc.text(y,186,45+i*6.5,{align:"right"}); });
+  doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.text("Rechnung",L,92);
+  doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.text(`Unsere Leistungen vom ${deDay(a)} bis ${deDay(b)} (${k.tage} Liefertage) stellen wir Ihnen wie folgt in Rechnung:`,L,100,{maxWidth:R-L});
+  let y=110; const col=[L+2,L+12,128,146,170,R-2];
+  doc.setFillColor(...G); doc.rect(L,y,R-L,8,"F"); doc.setTextColor(255); doc.setFont("helvetica","bold"); doc.setFontSize(9);
+  doc.text("Pos.",col[0],y+5.4); doc.text("Bezeichnung",col[1],y+5.4); doc.text("Menge",col[2],y+5.4,{align:"right"}); doc.text("Einheit",col[2]+3,y+5.4); doc.text("Einzel €",col[4],y+5.4,{align:"right"}); doc.text("Gesamt €",col[5],y+5.4,{align:"right"});
+  doc.setTextColor(20); doc.setFont("helvetica","normal"); y+=8;
+  k.pos.forEach((p,i)=>{ y+=8; doc.text(String(i+1),col[0],y); doc.text(p[0],col[1],y); doc.text(deNum(p[1],p[2]==="Anzahl"?0:1),col[2],y,{align:"right"}); doc.text(p[2]==="km"?"KM":p[2],col[2]+3,y); doc.text(deNum(p[3]),col[4],y,{align:"right"}); doc.text(deNum(p[4]),col[5],y,{align:"right"});
+    doc.setDrawColor(213,226,221); doc.setLineWidth(.2); doc.line(L,y+3,R,y+3); });
+  y+=11; const sum=(t,v,bold)=>{ doc.setFont("helvetica",bold?"bold":"normal"); doc.text(t,120,y); doc.text(v,col[5],y,{align:"right"}); y+=6; };
+  sum("Zwischensumme (netto)",deNum(k.sum)+" €"); sum("Umsatzsteuer 0 %","–"); doc.setDrawColor(...G); doc.setLineWidth(.6); doc.line(118,y-3.5,R,y-3.5); y+=1; doc.setFontSize(11); sum("Gesamtbetrag",deNum(k.sum)+" €",true);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9.5); y+=6; c.note.split("\n").forEach(t=>{ doc.text(t,L,y); y+=5; });
+  const foot=()=>{ doc.setDrawColor(213,226,221); doc.setLineWidth(.2); doc.line(L,272,R,272); doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(90); from.forEach((t,i)=>doc.text(t,L,277+i*3.4)); bank.forEach((t,i)=>doc.text(t,120,277+i*3.4)); doc.setTextColor(20); };
+  foot();
+  if($("rechAnl").checked){ doc.addPage(); doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.text(`Anlage: Liefertage ${deDay(a)} – ${deDay(b)}`,L,24);
+    y=34; const head=()=>{ doc.setFillColor(...G); doc.rect(L,y-5,R-L,7,"F"); doc.setTextColor(255); doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.text("Liefertag",L+2,y); doc.text("Tour",L+32,y); doc.text("Lieferungen",130,y,{align:"right"}); doc.text("Gebäckstücke",160,y,{align:"right"}); doc.text("Tourlänge km",R-2,y,{align:"right"}); doc.setTextColor(20); doc.setFont("helvetica","normal"); y+=7; };
+    head(); k.rows.forEach(r=>{ if(y>265){ foot(); doc.addPage(); y=24; head(); } doc.text(deDay(r.d),L+2,y); doc.text(r.tour,L+32,y); doc.text(String(r.n),130,y,{align:"right"}); doc.text(String(r.g),160,y,{align:"right"}); doc.text(String(r.km),R-2,y,{align:"right"}); y+=5.6; });
+    doc.setFont("helvetica","bold"); doc.text("Summe",L+2,y+1); doc.text(String(k.pos[2][1]),130,y+1,{align:"right"}); doc.text(String(k.rows.reduce((s,r)=>s+(pNum(r.g)||0),0)),160,y+1,{align:"right"}); doc.text(deNum(k.pos[0][1],1),R-2,y+1,{align:"right"}); foot(); }
+  const name=`Rechnung_${(c.nr||deDay(b)).replace(/[^\w.-]+/g,"_")}.pdf`, blob=doc.output("blob"), file=new File([blob],name,{type:"application/pdf"});
+  try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+  const u=URL.createObjectURL(blob), l=document.createElement("a"); l.href=u; l.download=name; document.body.append(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),30000); toast("Rechnung gespeichert: "+name); }
+{ const c=rcCfg(); for(const [k,id] of Object.entries(RC_IDS)){ const el=$(id); el.value=c[k]; el.addEventListener("change",()=>{ const v=jget(RECH_CFG); v[k]=el.value; jset(RECH_CFG,v); rechDraw(); }); }
+  const t=new Date(); $("rechFrom").value=isoDay(new Date(t.getFullYear(),t.getMonth(),1)); $("rechTo").value=isoDay(t);
+  ["rechFrom","rechTo"].forEach(id=>$(id).addEventListener("change",rechDraw));
+  $("rechFile").addEventListener("change",e=>{ const f=e.target.files; if(f&&f.length) rechAdd(f).finally(()=>{ e.target.value=""; }); });
+  $("rechClear").addEventListener("click",async()=>{ if(!rechRows.length||await ask("Liste leeren?","Alle eingelesenen Liefertage werden aus der Liste entfernt.","Leeren","Abbrechen")){ rechRows=[]; rechSave(); $("rechState").textContent=""; rechDraw(); } });
+  $("rechPdf").addEventListener("click",rechPdf); rechDraw(); }
 const GEO_TEXT="Mit deinem Standort zeigt die App, wo du gerade bist, folgt dir auf der Karte und hakt Stopps beim Ankommen ab. Der Standort bleibt auf dem Handy und wird nicht gespeichert. GPS schaltet sich spätestens um 10 Uhr automatisch aus.";
 function hideMe(){ stopGps(); if(car) car.remove(); carPos=null; declutter(); clearApproach(); setFollow(true); updateHouseNo(); }
 async function withGeo(fn){ // fn läuft nur, wenn diesmal „Erlauben“ getippt wurde

@@ -1056,6 +1056,9 @@ details.more:not([open]){gap:0}
 .pin.goal{position:relative;background:#fff;color:#111;font-size:13px;line-height:1}
 .pin.goal::before{content:attr(data-n);position:absolute;left:-9px;bottom:-8px;min-width:14px;height:14px;padding:0 2px;border-radius:7px;background:var(--route);color:#fff;font:700 9px/14px var(--font-body);text-align:center;border:1px solid #fff}
 .pin.goal.next{background:#fff3c4}
+.gtour .gt-h{font-weight:700}
+.gtour .opts{margin-top:6px}
+.gtour .hint{margin-top:6px;font-size:.82rem}
 html.fahrer #cmpBox{display:none!important}
 .depotpin{display:inline-block;white-space:nowrap;padding:0 8px;height:22px;border-radius:11px;background:#15803d;color:#fff;font:700 12px/22px var(--font-body);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 body.no-tour .stops-head{display:none}
@@ -1170,6 +1173,11 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
+      <section class="mode gtour" id="gTour"> <!-- v=92: Google-Abschnitte direkt unter der Karte, immer offen -->
+        <div class="gt-h">🗺 Ganze Tour in Google Maps</div>
+        <div class="opts" id="gLinks"></div>
+        <p class="hint">Höchstens 10 Stopps pro Google-Route, ab dem aktuellen Stopp. An Google gehen nur Adressen bzw. Koordinaten, keine Namen.</p>
+      </section>
       <div class="next-card" id="nextCard">
         <span class="lbl" id="nextLbl">Nächster Stopp</span>
         <div class="place"><span class="who" id="nextWho">–</span><span class="town" id="nextTown"></span></div>
@@ -1204,11 +1212,6 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <div class="opts"><button class="btn primary" id="gps" type="button">📍 GPS starten</button></div>
         <p class="hint" id="gpsState" hidden></p>
         <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt einen Kunden ab, sobald du nach der Ankunft wieder wegfährst. Der Standort wird nicht gespeichert und nicht übertragen. Zum Ausprobieren ohne GPS gibt es „Fahrt simulieren“ unter ⚙ Einstellungen.</p>
-      </details>
-      <details class="mode more" id="gTour">
-        <summary>🗺 Ganze Tour in Google Maps</summary>
-        <div class="opts" id="gLinks"></div>
-        <p class="hint">Google Maps nimmt pro Route höchstens 10 Stopps, deshalb ist die Tour in Abschnitte geteilt. Ab dem aktuellen Stopp. An Google gehen nur Adressen bzw. Koordinaten, keine Namen.</p>
       </details>
       <details class="mode" id="loadBox" hidden><summary>Ladeliste für die ganze Tour</summary><ul class="arts" id="loadList"></ul></details>
       <details class="mode more" id="cmpBox">

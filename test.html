@@ -1056,7 +1056,10 @@ details.more:not([open]){gap:0}
 .pin.goal{position:relative;background:#fff;color:#111;font-size:13px;line-height:1}
 .pin.goal::before{content:attr(data-n);position:absolute;left:-9px;bottom:-8px;min-width:14px;height:14px;padding:0 2px;border-radius:7px;background:var(--route);color:#fff;font:700 9px/14px var(--font-body);text-align:center;border:1px solid #fff}
 .pin.goal.next{background:#fff3c4}
-html.fahrer #rechBox{display:none!important}
+html.fahrer #rechBox,html.fahrer .pd-rech{display:none!important}
+.pd-rech{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:8px}
+.pd-rech textarea{font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);width:100%;box-sizing:border-box}
+.pd-rech .opts input{font:inherit;padding:5px 7px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);width:6.5em}
 #rechBox textarea{font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);width:100%;box-sizing:border-box}
 #rechBox .opts input[type=text],#rechBox input[type=date]{font:inherit;padding:5px 7px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);width:7.5em}
 .rech-cfg{display:flex;flex-direction:column;gap:6px}.rech-cfg summary{font-weight:600;cursor:pointer}.rech-cfg[open]{display:flex}
@@ -1137,14 +1140,38 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
 
   <section class="mode" id="settings" hidden>
     <span class="badge">Einstellungen</span>
-    <div class="me-row"><span class="me-prev" id="mePrev"></span><label class="btn" for="meFile">Bild für deine Position wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div>
-    <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
+    <details class="mode more" id="pdBox"> <!-- v=96: persönliche Daten gesammelt in den Einstellungen -->
+      <summary>👤 Persönliche Daten</summary>
+      <div class="opts"><label for="mailTo">E-Mail-Empfänger <input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="mailToSave" type="button">Speichern</button></div>
+      <p class="hint">An wen Tourberichte und Rechnungen gehen (z. B. Morgengold / Timo). Am Ende der Tour fragt die App, ob der Bericht (nur Stopp-Nummern und Zeiten, keine Adressen) an diese Adresse gehen soll. Dein Mail-Programm öffnet sich, gesendet wird erst, wenn du auf Senden drückst.</p>
+      <div class="me-row"><span class="me-prev" id="mePrev"></span><label class="btn" for="meFile">Bild für deine Position wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div>
+      <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
+      <div class="pd-rech">
+        <b>Für Rechnungen</b>
+        <label for="rcFrom">Absender (Name, Straße, PLZ Ort, E-Mail – je Zeile)</label><textarea id="rcFrom" rows="4"></textarea>
+          <label for="rcTo">Empfänger (je Zeile)</label><textarea id="rcTo" rows="4"></textarea>
+          <label for="rcBank">Bankverbindung (Inhaber, Bank, IBAN, BIC – je Zeile)</label><textarea id="rcBank" rows="4"></textarea>
+          <div class="opts"><label for="rcKd">Kundennr. <input id="rcKd" type="text"></label></div>
+          <div class="opts"><label for="rcPkm">€ pro km <input id="rcPkm" type="text" inputmode="decimal"></label><label for="rcAnf">Anfahrt km/Tag <input id="rcAnf" type="text" inputmode="decimal"></label><label for="rcPk">€ pro Kunde <input id="rcPk" type="text" inputmode="decimal"></label></div>
+          <label for="rcNote">Hinweis unter der Rechnung</label><textarea id="rcNote" rows="3"></textarea>
+        <p class="hint">Die Rechnungsnummer bildet die App automatisch aus Ort und Monat (z. B. Rottweil-2026-10). Alles hier bleibt nur auf diesem Handy.</p>
+      </div>
+    </details>
+    <details class="mode more" id="rechBox"> <!-- v=94 (nur Admin): Rechnung aus Screenshots der Morgengold-Auslieferungsliste -->
+      <summary>🧾 Rechnung erstellen</summary>
+      <p class="hint">Screenshots der Liste „Auslieferungen“ von Morgengold hinzufügen. Die App liest sie direkt auf dem Handy aus, das Bild wird nicht hochgeladen. Zahlen, die nicht sicher erkannt wurden, sind rot markiert. Bitte mit dem Screenshot vergleichen und bei Bedarf korrigieren.</p>
+      <div class="opts"><label class="btn primary" for="rechFile">＋ Bild hinzufügen</label><input id="rechFile" type="file" accept="image/*" multiple hidden><button class="btn" id="rechClear" type="button">Liste leeren</button></div>
+      <p class="hint" id="rechState"></p>
+      <div class="opts"><label for="rechMon">Abrechnungsmonat <select id="rechMon"></select></label></div>
+      <div class="rech-wrap"><table class="rech-tbl" id="rechTbl"><thead><tr><th>Tag</th><th>Lief.</th><th>Gebäck</th><th>km</th><th></th></tr></thead><tbody id="rechRows"></tbody></table></div>
+      <div class="rech-sum" id="rechSum"></div>
+      <label for="rechAnl"><input type="checkbox" id="rechAnl"> Kontroll-Liste als Anlage an die Rechnung hängen</label>
+      <div class="opts"><button class="btn primary" id="rechPdf" type="button">🧾 Rechnung als PDF</button></div>
+    </details>
     <div class="opts"><label for="tourUrl">Link zur Tour-Seite <input id="tourUrl" type="url" inputmode="url" placeholder="https://…" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
     <p class="hint">Von dieser Seite lädst du Ausfahrliste und Routendatei herunter. Danach erscheint oben der Knopf „⬇ Tour herunterladen“.</p>
     <div class="opts"><label for="depotAddr">Kommissionierstelle (Start) <input id="depotAddr" type="text" autocomplete="off" placeholder="Straße Nr, PLZ Ort" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="depotSave" type="button">Speichern</button></div>
     <p class="hint" id="depotHint">Ab hier zählt die App beim Fahren die Kilometer bis zum letzten Kunden. Die Adresse bleibt nur auf diesem Handy.</p>
-    <div class="opts"><label for="mailTo">E-Mail für Tourberichte <input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="mailToSave" type="button">Speichern</button></div>
-    <p class="hint">Am Ende der Tour fragt die App, ob der Bericht (nur Stopp-Nummern und Zeiten, keine Adressen) an diese Adresse gehen soll. Dein Mail-Programm öffnet sich, gesendet wird erst, wenn du auf Senden drückst.</p>
     <div class="opts"><label for="fontSel">Schriftgröße Tourleiste <select id="fontSel"><option value="0">1 (sehr klein)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (groß)</option></select></label>
       <label for="dockSel">Tourleiste <select id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label></div>
     <p class="hint">Gilt für die Ansicht nach „Tour starten“. Die Tourleiste lässt sich dort auch verschieben: oben auf „⠿“ gedrückt halten und an den gewünschten Rand ziehen.</p>
@@ -1241,26 +1268,6 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <summary>📄 Bericht &amp; Tour neu starten</summary>
         <div class="opts tools"><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button><button class="btn" id="mailBtn" type="button">📧 Bericht per Mail</button><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button></div>
         <p class="hint">„Tour neu starten“ nimmt alle Haken und Zeiten dieser Tour zurück.</p>
-      </details>
-      <details class="mode more" id="rechBox"> <!-- v=94 (nur Admin): Rechnung aus Screenshots der Morgengold-Auslieferungsliste -->
-        <summary>🧾 Rechnung erstellen</summary>
-        <p class="hint">Screenshots der Liste „Auslieferungen“ von Morgengold hinzufügen. Die App liest sie direkt auf dem Handy aus, das Bild wird nicht hochgeladen. Zahlen, die nicht sicher erkannt wurden, sind rot markiert. Bitte mit dem Screenshot vergleichen und bei Bedarf korrigieren.</p>
-        <div class="opts"><label class="btn primary" for="rechFile">＋ Bild hinzufügen</label><input id="rechFile" type="file" accept="image/*" multiple hidden><button class="btn" id="rechClear" type="button">Liste leeren</button></div>
-        <p class="hint" id="rechState"></p>
-        <div class="opts"><label for="rechMon">Abrechnungsmonat <select id="rechMon"></select></label></div>
-        <div class="rech-wrap"><table class="rech-tbl" id="rechTbl"><thead><tr><th>Tag</th><th>Lief.</th><th>Gebäck</th><th>km</th><th></th></tr></thead><tbody id="rechRows"></tbody></table></div>
-        <div class="rech-sum" id="rechSum"></div>
-        <details class="rech-cfg"><summary>Rechnungsdaten (Absender, Empfänger, Preise)</summary>
-          <p class="hint">Wird nur auf diesem Handy gespeichert.</p>
-          <label for="rcFrom">Absender (Name, Straße, PLZ Ort, E-Mail – je Zeile)</label><textarea id="rcFrom" rows="4"></textarea>
-          <label for="rcTo">Empfänger (je Zeile)</label><textarea id="rcTo" rows="4"></textarea>
-          <label for="rcBank">Bankverbindung (Inhaber, Bank, IBAN, BIC – je Zeile)</label><textarea id="rcBank" rows="4"></textarea>
-          <div class="opts"><label for="rcNr">Rechnungsnr. <input id="rcNr" type="text"></label><label for="rcKd">Kundennr. <input id="rcKd" type="text"></label></div>
-          <div class="opts"><label for="rcPkm">€ pro km <input id="rcPkm" type="text" inputmode="decimal"></label><label for="rcAnf">Anfahrt km/Tag <input id="rcAnf" type="text" inputmode="decimal"></label><label for="rcPk">€ pro Kunde <input id="rcPk" type="text" inputmode="decimal"></label></div>
-          <label for="rcNote">Hinweis unter der Rechnung</label><textarea id="rcNote" rows="3"></textarea>
-        </details>
-        <label for="rechAnl"><input type="checkbox" id="rechAnl"> Kontroll-Liste als Anlage an die Rechnung hängen</label>
-        <div class="opts"><button class="btn primary" id="rechPdf" type="button">🧾 Rechnung als PDF</button></div>
       </details>
     </div>
   </div>
@@ -2098,8 +2105,8 @@ $("geoNo").addEventListener("click",()=>askDone&&askDone(false));
 // Jedes Bild wird zweimal gelesen (aufbereitet und original). Weichen die Lesungen ab, ist ein Wert nicht lesbar oder unplausibel, wird die Zelle rot markiert.
 const RECH_ROWS="navi-rechnung-zeilen", RECH_CFG="navi-rechnung-daten";
 const TESS_JS="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js", JSPDF_JS="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-const RC_DEF={from:"",to:"",bank:"",nr:"",kd:"",pkm:"0,25",anf:"15",pk:"1,10",note:"Der Rechnungsbetrag ist nach Erhalt binnen 10 Werktagen zu begleichen.\nKein Umsatzsteuerausweis gem. § 19 UStG.\nVielen Dank für die gute Zusammenarbeit."};
-const RC_IDS={from:"rcFrom",to:"rcTo",bank:"rcBank",nr:"rcNr",kd:"rcKd",pkm:"rcPkm",anf:"rcAnf",pk:"rcPk",note:"rcNote"};
+const RC_DEF={from:"",to:"",bank:"",kd:"",pkm:"0,25",anf:"15",pk:"1,10",note:"Der Rechnungsbetrag ist nach Erhalt binnen 10 Werktagen zu begleichen.\nKein Umsatzsteuerausweis gem. § 19 UStG.\nVielen Dank für die gute Zusammenarbeit."};
+const RC_IDS={from:"rcFrom",to:"rcTo",bank:"rcBank",kd:"rcKd",pkm:"rcPkm",anf:"rcAnf",pk:"rcPk",note:"rcNote"};
 let rechRows=[]; try{ rechRows=JSON.parse(localStorage.getItem(RECH_ROWS)||"[]")||[]; }catch(e){}
 const rechSave=()=>{ try{ localStorage.setItem(RECH_ROWS,JSON.stringify(rechRows)); }catch(e){} };
 const rcCfg=()=>({...RC_DEF,...jget(RECH_CFG)});
@@ -2187,7 +2194,7 @@ function rechDraw(){ const tb=$("rechRows"); tb.textContent=""; rechPickMonth(fa
   if(!rechRows.length){ s.textContent="Noch keine Liefertage. Tippe auf „＋ Bild hinzufügen“."; return; }
   const add=(t,cls)=>{ const d=document.createElement("div"); d.textContent=t; if(cls) d.className=cls; s.append(d); };
   const tours=[...new Set(k.rows.map(r=>r.tour))];
-  add(`${monName(rechMon)} (01.–${monEnd(rechMon).slice(8)}.) · Tour ${tours.join(", ")||"–"} · ${k.tage} Liefertage`+(hid?` (${hid} Tage aus anderen Monaten ausgeblendet)`:""));
+  add(`${monName(rechMon)} · Tour ${tours.join(", ")||"–"} · ${k.tage} Liefertage`+(hid?` (${hid} Tage aus anderen Monaten ausgeblendet)`:""));
   if(rechMon===isoDay(new Date()).slice(0,7)) add("Hinweis: Dieser Monat ist noch nicht vorbei.","warn");
   if(tours.length>1) add("⚠ Mehrere Touren in diesem Monat: "+tours.join(", "),"warn");
   k.pos.forEach(p=>add(`${p[0]}: ${deNum(p[1],p[2]==="km"?1:0)} ${p[2]==="Anzahl"?"":"km "}× ${deNum(p[3])} € = ${deNum(p[4])} €`));
@@ -2196,18 +2203,19 @@ function rechDraw(){ const tb=$("rechRows"); tb.textContent=""; rechPickMonth(fa
 async function rechPdf(){
   const k=rechCalc(), c=k.c;
   if(!k.tage){ toast("Keine Liefertage im gewählten Monat."); return; }
-  if(!c.from.trim()||!c.to.trim()){ toast("Bitte zuerst unter „Rechnungsdaten“ Absender und Empfänger eintragen."); $("rechBox").querySelector(".rech-cfg").open=true; return; }
+  if(!c.from.trim()||!c.to.trim()){ toast("Bitte zuerst unter „👤 Persönliche Daten“ Absender und Empfänger eintragen."); $("pdBox").open=true; $("pdBox").scrollIntoView({block:"start"}); return; }
   if(k.bad&&!await ask("Nicht alles sicher erkannt",`${k.bad} Position${k.bad>1?"en sind":" ist"} noch rot markiert. Trotzdem eine Rechnung erstellen?`,"Trotzdem erstellen","Abbrechen")) return;
   try{ await loadJs(JSPDF_JS); }catch(x){ toast(x.message); return; }
   const {jsPDF}=window.jspdf, doc=new jsPDF({unit:"mm",format:"a4"}), G=[31,111,92], L=20, R=190;
   const from=c.from.split("\n").map(s=>s.trim()).filter(Boolean), to=c.to.split("\n").map(s=>s.trim()).filter(Boolean), bank=c.bank.split("\n").map(s=>s.trim()).filter(Boolean);
   const a=rechMon+"-01", b=monEnd(rechMon), today=deDay(isoDay(new Date())), tours=[...new Set(k.rows.map(r=>r.tour))].join(", ");
+  const orte=[...new Set(k.rows.map(r=>r.tour.replace(/^\d+[-\s]*/,"")))].join("-"), nr=`${orte}-${rechMon}`; // Rechnungsnr. automatisch: Ort aus der Tour + Jahr-Monat
   doc.setTextColor(...G); doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.text(from[0]||"",L,24);
   doc.setDrawColor(...G); doc.setLineWidth(.8); doc.line(L,28,R,28);
   doc.setTextColor(90); doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.text(from.slice(0,3).join(" · "),L,45);
   doc.setTextColor(20); doc.setFontSize(10); to.forEach((t,i)=>doc.text(t,L,52+i*5));
-  doc.setFillColor(238,245,242); doc.rect(122,38,68,38,"F"); doc.setFontSize(9);
-  [["Rechnungsnr.",c.nr||"–"],["Kundennr.",c.kd||"–"],["Datum",today],["Leistungsmonat",monName(rechMon)],["Zeitraum",deDay(a)+" – "+deDay(b)],["Tour",tours]].forEach(([x,y],i)=>{ doc.setTextColor(90); doc.text(x,126,44+i*5.6); doc.setTextColor(20); doc.text(y,186,44+i*5.6,{align:"right"}); });
+  doc.setFillColor(238,245,242); doc.rect(122,38,68,33,"F"); doc.setFontSize(9);
+  [["Rechnungsnr.",nr],["Kundennr.",c.kd||"–"],["Ausgestellt am",today],["Leistungsmonat",monName(rechMon)],["Tour",tours]].forEach(([x,y],i)=>{ doc.setTextColor(90); doc.text(x,126,44+i*5.6); doc.setTextColor(20); doc.text(y,186,44+i*5.6,{align:"right"}); });
   doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.text("Rechnung",L,92);
   doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.text(`Unsere Leistungen im ${monName(rechMon)} (Tour ${tours}, ${k.tage} Liefertage) stellen wir Ihnen wie folgt in Rechnung:`,L,100,{maxWidth:R-L});
   let y=110; const col=[L+2,L+12,128,146,170,R-2];
@@ -2225,8 +2233,10 @@ async function rechPdf(){
     y=34; const head=()=>{ doc.setFillColor(...G); doc.rect(L,y-5,R-L,7,"F"); doc.setTextColor(255); doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.text("Liefertag",L+2,y); doc.text("Tour",L+32,y); doc.text("Lieferungen",130,y,{align:"right"}); doc.text("Gebäckstücke",160,y,{align:"right"}); doc.text("Tourlänge km",R-2,y,{align:"right"}); doc.setTextColor(20); doc.setFont("helvetica","normal"); y+=7; };
     head(); k.rows.forEach(r=>{ if(y>265){ foot(); doc.addPage(); y=24; head(); } doc.text(deDay(r.d),L+2,y); doc.text(r.tour,L+32,y); doc.text(String(r.n),130,y,{align:"right"}); doc.text(String(r.g),160,y,{align:"right"}); doc.text(String(r.km),R-2,y,{align:"right"}); y+=5.6; });
     doc.setFont("helvetica","bold"); doc.text("Summe",L+2,y+1); doc.text(String(k.pos[2][1]),130,y+1,{align:"right"}); doc.text(String(k.rows.reduce((s,r)=>s+(pNum(r.g)||0),0)),160,y+1,{align:"right"}); doc.text(deNum(k.pos[0][1],1),R-2,y+1,{align:"right"}); foot(); }
-  const name=`Rechnung_${(c.nr||monName(rechMon)).replace(/[^\w.-]+/g,"_")}.pdf`, blob=doc.output("blob"), file=new File([blob],name,{type:"application/pdf"});
-  try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+  const name=`Rechnung_${nr.replace(/[^\w.-]+/g,"_")}.pdf`, blob=doc.output("blob"), file=new File([blob],name,{type:"application/pdf"});
+  let mailAdr=""; try{ mailAdr=localStorage.getItem(MAIL_KEY)||""; }catch(e){}
+  if(mailAdr){ try{ await navigator.clipboard.writeText(mailAdr); toast("E-Mail-Adresse kopiert: "+mailAdr+" (im Mail-Programm einfügen)"); }catch(e){} }
+  try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name,text:"Rechnung "+monName(rechMon)}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
   const u=URL.createObjectURL(blob), l=document.createElement("a"); l.href=u; l.download=name; document.body.append(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),30000); toast("Rechnung gespeichert: "+name); }
 { const c=rcCfg(); for(const [k,id] of Object.entries(RC_IDS)){ const el=$(id); el.value=c[k]; el.addEventListener("change",()=>{ const v=jget(RECH_CFG); v[k]=el.value; jset(RECH_CFG,v); rechDraw(); }); }
   $("rechMon").addEventListener("change",()=>{ rechMon=$("rechMon").value; rechDraw(); });

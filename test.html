@@ -1247,7 +1247,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <p class="hint">Screenshots der Liste „Auslieferungen“ von Morgengold hinzufügen. Die App liest sie direkt auf dem Handy aus, das Bild wird nicht hochgeladen. Zahlen, die nicht sicher erkannt wurden, sind rot markiert. Bitte mit dem Screenshot vergleichen und bei Bedarf korrigieren.</p>
         <div class="opts"><label class="btn primary" for="rechFile">＋ Bild hinzufügen</label><input id="rechFile" type="file" accept="image/*" multiple hidden><button class="btn" id="rechClear" type="button">Liste leeren</button></div>
         <p class="hint" id="rechState"></p>
-        <div class="opts"><label for="rechFrom">Von <input type="date" id="rechFrom"></label><label for="rechTo">Bis <input type="date" id="rechTo"></label></div>
+        <div class="opts"><label for="rechMon">Abrechnungsmonat <select id="rechMon"></select></label></div>
         <div class="rech-wrap"><table class="rech-tbl" id="rechTbl"><thead><tr><th>Tag</th><th>Lief.</th><th>Gebäck</th><th>km</th><th></th></tr></thead><tbody id="rechRows"></tbody></table></div>
         <div class="rech-sum" id="rechSum"></div>
         <details class="rech-cfg"><summary>Rechnungsdaten (Absender, Empfänger, Preise)</summary>
@@ -2152,16 +2152,25 @@ async function rechAdd(files){
       const a=rechParse((await w.recognize(await imgPrep(f))).data), b=rechParse((await w.recognize(f)).data);
       for(const r of rechMerge(a,b)){ const k=rechRows.findIndex(q=>q.d===r.d&&q.tour===r.tour);
         if(k<0){ rechRows.push(r); added++; } else if(Object.keys(rechRows[k].bad||{}).length&&!Object.keys(r.bad).length) rechRows[k]=r; } }
-    rechRows.sort((p,q)=>p.d<q.d?-1:1); rechSave(); flagged=rechRows.filter(r=>Object.keys(r.bad||{}).length).length;
+    rechRows.sort((p,q)=>p.d<q.d?-1:1); rechSave(); rechPickMonth(true); flagged=rechRows.filter(r=>Object.keys(r.bad||{}).length).length;
     st.textContent=`${added} Liefertage übernommen.`+(flagged?` ⚠ ${flagged} Position${flagged>1?"en":""} nicht sicher erkannt (rot), bitte mit dem Screenshot vergleichen.`:" Alles sicher erkannt, bitte trotzdem kurz prüfen.");
   }catch(x){ st.textContent=(x&&x.message)||"Bild konnte nicht gelesen werden."; }
   rechDraw(); }
-function rechInPeriod(r){ const a=$("rechFrom").value, b=$("rechTo").value; return (!a||r.d>=a)&&(!b||r.d<=b); }
+// v=95: immer ganzer Kalendermonat (1. bis letzter Tag); Monat und Jahr kommen aus den eingelesenen Tagen
+const MONATE=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+let rechMon="";
+const monName=ym=>ym?MONATE[+ym.slice(5,7)-1]+" "+ym.slice(0,4):"";
+const monEnd=ym=>ym+"-"+String(new Date(+ym.slice(0,4),+ym.slice(5,7),0).getDate()).padStart(2,"0");
+function rechMonths(){ const c={}; rechRows.forEach(r=>{ const m=r.d.slice(0,7); c[m]=(c[m]||0)+1; }); return c; }
+function rechPickMonth(auto){ const c=rechMonths(), ms=Object.keys(c).sort().reverse(), sel=$("rechMon");
+  if(auto||!c[rechMon]){ const now=isoDay(new Date()).slice(0,7); rechMon=ms.find(m=>m<now)||ms[0]||""; } // zuletzt abgeschlossener Monat, sonst der neueste
+  sel.textContent=""; ms.forEach(m=>{ const o=document.createElement("option"); o.value=m; o.textContent=`${monName(m)} (${c[m]} Tage)`; sel.append(o); }); sel.value=rechMon; sel.disabled=!ms.length; }
+function rechInPeriod(r){ return !!rechMon&&r.d.slice(0,7)===rechMon; }
 function rechCalc(){ const c=rcCfg(), rows=rechRows.filter(rechInPeriod), tage=rows.length;
   const km=r2(rows.reduce((s,r)=>s+(pNum(r.km)||0),0)), kd=rows.reduce((s,r)=>s+(pNum(r.n)||0),0), anf=tage*(pNum(c.anf)||0);
   const pos=[["Kilometer",km,"km",pNum(c.pkm)||0],[`Kilometer Anfahrt (${deNum(pNum(c.anf)||0,0)} km tgl.)`,anf,"km",pNum(c.pkm)||0],["Kunden",kd,"Anzahl",pNum(c.pk)||0]].map(p=>[...p,r2(p[1]*p[3])]);
   return {c,rows,tage,pos,sum:r2(pos.reduce((s,p)=>s+p[4],0)),bad:rows.filter(r=>Object.keys(r.bad||{}).length).length}; }
-function rechDraw(){ const tb=$("rechRows"); tb.textContent="";
+function rechDraw(){ const tb=$("rechRows"); tb.textContent=""; rechPickMonth(false);
   let hid=0; rechRows.forEach((r,i)=>{ if(!rechInPeriod(r)){ hid++; return; } const tr=document.createElement("tr");
     const cell=(f,cls,type)=>{ const td=document.createElement("td"), inp=document.createElement("input"); inp.type=type||"text"; inp.className=cls+(r.bad&&r.bad[f]?" bad":""); inp.value=f==="d"?r.d:r[f]; if(f!=="d"&&f!=="tour") inp.inputMode="decimal";
       inp.addEventListener("change",()=>{ r[f]=inp.value.trim(); if(r.bad) delete r.bad[f]; if(r.bad&&!Object.keys(r.bad).length) r.why=[]; if(f==="d") rechRows.sort((p,q)=>p.d<q.d?-1:1); rechSave(); rechDraw(); });
@@ -2177,27 +2186,30 @@ function rechDraw(){ const tb=$("rechRows"); tb.textContent="";
   const k=rechCalc(), s=$("rechSum"); s.textContent="";
   if(!rechRows.length){ s.textContent="Noch keine Liefertage. Tippe auf „＋ Bild hinzufügen“."; return; }
   const add=(t,cls)=>{ const d=document.createElement("div"); d.textContent=t; if(cls) d.className=cls; s.append(d); };
-  add(`${k.tage} Liefertage im Zeitraum`+(hid?` (${hid} weitere außerhalb, ausgeblendet)`:""));
+  const tours=[...new Set(k.rows.map(r=>r.tour))];
+  add(`${monName(rechMon)} (01.–${monEnd(rechMon).slice(8)}.) · Tour ${tours.join(", ")||"–"} · ${k.tage} Liefertage`+(hid?` (${hid} Tage aus anderen Monaten ausgeblendet)`:""));
+  if(rechMon===isoDay(new Date()).slice(0,7)) add("Hinweis: Dieser Monat ist noch nicht vorbei.","warn");
+  if(tours.length>1) add("⚠ Mehrere Touren in diesem Monat: "+tours.join(", "),"warn");
   k.pos.forEach(p=>add(`${p[0]}: ${deNum(p[1],p[2]==="km"?1:0)} ${p[2]==="Anzahl"?"":"km "}× ${deNum(p[3])} € = ${deNum(p[4])} €`));
   const b=document.createElement("b"); b.textContent=`Gesamt: ${deNum(k.sum)} €`; s.append(b);
   if(k.bad) add(`⚠ ${k.bad} Position${k.bad>1?"en":""} im Zeitraum nicht sicher erkannt. Bitte prüfen und mit „✓ stimmt“ bestätigen oder korrigieren.`,"warn"); }
 async function rechPdf(){
   const k=rechCalc(), c=k.c;
-  if(!k.tage){ toast("Keine Liefertage im gewählten Zeitraum."); return; }
+  if(!k.tage){ toast("Keine Liefertage im gewählten Monat."); return; }
   if(!c.from.trim()||!c.to.trim()){ toast("Bitte zuerst unter „Rechnungsdaten“ Absender und Empfänger eintragen."); $("rechBox").querySelector(".rech-cfg").open=true; return; }
   if(k.bad&&!await ask("Nicht alles sicher erkannt",`${k.bad} Position${k.bad>1?"en sind":" ist"} noch rot markiert. Trotzdem eine Rechnung erstellen?`,"Trotzdem erstellen","Abbrechen")) return;
   try{ await loadJs(JSPDF_JS); }catch(x){ toast(x.message); return; }
   const {jsPDF}=window.jspdf, doc=new jsPDF({unit:"mm",format:"a4"}), G=[31,111,92], L=20, R=190;
   const from=c.from.split("\n").map(s=>s.trim()).filter(Boolean), to=c.to.split("\n").map(s=>s.trim()).filter(Boolean), bank=c.bank.split("\n").map(s=>s.trim()).filter(Boolean);
-  const a=$("rechFrom").value||k.rows[0].d, b=$("rechTo").value||k.rows[k.rows.length-1].d, today=deDay(isoDay(new Date()));
+  const a=rechMon+"-01", b=monEnd(rechMon), today=deDay(isoDay(new Date())), tours=[...new Set(k.rows.map(r=>r.tour))].join(", ");
   doc.setTextColor(...G); doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.text(from[0]||"",L,24);
   doc.setDrawColor(...G); doc.setLineWidth(.8); doc.line(L,28,R,28);
   doc.setTextColor(90); doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.text(from.slice(0,3).join(" · "),L,45);
   doc.setTextColor(20); doc.setFontSize(10); to.forEach((t,i)=>doc.text(t,L,52+i*5));
-  doc.setFillColor(238,245,242); doc.rect(122,38,68,34,"F"); doc.setFontSize(9);
-  [["Rechnungsnr.",c.nr||"–"],["Kundennr.",c.kd||"–"],["Datum",today],["Zeitraum",deDay(a)+" – "+deDay(b)]].forEach(([x,y],i)=>{ doc.setTextColor(90); doc.text(x,126,45+i*6.5); doc.setTextColor(20); doc.text(y,186,45+i*6.5,{align:"right"}); });
+  doc.setFillColor(238,245,242); doc.rect(122,38,68,38,"F"); doc.setFontSize(9);
+  [["Rechnungsnr.",c.nr||"–"],["Kundennr.",c.kd||"–"],["Datum",today],["Leistungsmonat",monName(rechMon)],["Zeitraum",deDay(a)+" – "+deDay(b)],["Tour",tours]].forEach(([x,y],i)=>{ doc.setTextColor(90); doc.text(x,126,44+i*5.6); doc.setTextColor(20); doc.text(y,186,44+i*5.6,{align:"right"}); });
   doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.text("Rechnung",L,92);
-  doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.text(`Unsere Leistungen vom ${deDay(a)} bis ${deDay(b)} (${k.tage} Liefertage) stellen wir Ihnen wie folgt in Rechnung:`,L,100,{maxWidth:R-L});
+  doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.text(`Unsere Leistungen im ${monName(rechMon)} (Tour ${tours}, ${k.tage} Liefertage) stellen wir Ihnen wie folgt in Rechnung:`,L,100,{maxWidth:R-L});
   let y=110; const col=[L+2,L+12,128,146,170,R-2];
   doc.setFillColor(...G); doc.rect(L,y,R-L,8,"F"); doc.setTextColor(255); doc.setFont("helvetica","bold"); doc.setFontSize(9);
   doc.text("Pos.",col[0],y+5.4); doc.text("Bezeichnung",col[1],y+5.4); doc.text("Menge",col[2],y+5.4,{align:"right"}); doc.text("Einheit",col[2]+3,y+5.4); doc.text("Einzel €",col[4],y+5.4,{align:"right"}); doc.text("Gesamt €",col[5],y+5.4,{align:"right"});
@@ -2209,16 +2221,15 @@ async function rechPdf(){
   doc.setFont("helvetica","normal"); doc.setFontSize(9.5); y+=6; c.note.split("\n").forEach(t=>{ doc.text(t,L,y); y+=5; });
   const foot=()=>{ doc.setDrawColor(213,226,221); doc.setLineWidth(.2); doc.line(L,272,R,272); doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(90); from.forEach((t,i)=>doc.text(t,L,277+i*3.4)); bank.forEach((t,i)=>doc.text(t,120,277+i*3.4)); doc.setTextColor(20); };
   foot();
-  if($("rechAnl").checked){ doc.addPage(); doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.text(`Anlage: Liefertage ${deDay(a)} – ${deDay(b)}`,L,24);
+  if($("rechAnl").checked){ doc.addPage(); doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.text(`Anlage: Liefertage ${monName(rechMon)} · Tour ${tours}`,L,24);
     y=34; const head=()=>{ doc.setFillColor(...G); doc.rect(L,y-5,R-L,7,"F"); doc.setTextColor(255); doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.text("Liefertag",L+2,y); doc.text("Tour",L+32,y); doc.text("Lieferungen",130,y,{align:"right"}); doc.text("Gebäckstücke",160,y,{align:"right"}); doc.text("Tourlänge km",R-2,y,{align:"right"}); doc.setTextColor(20); doc.setFont("helvetica","normal"); y+=7; };
     head(); k.rows.forEach(r=>{ if(y>265){ foot(); doc.addPage(); y=24; head(); } doc.text(deDay(r.d),L+2,y); doc.text(r.tour,L+32,y); doc.text(String(r.n),130,y,{align:"right"}); doc.text(String(r.g),160,y,{align:"right"}); doc.text(String(r.km),R-2,y,{align:"right"}); y+=5.6; });
     doc.setFont("helvetica","bold"); doc.text("Summe",L+2,y+1); doc.text(String(k.pos[2][1]),130,y+1,{align:"right"}); doc.text(String(k.rows.reduce((s,r)=>s+(pNum(r.g)||0),0)),160,y+1,{align:"right"}); doc.text(deNum(k.pos[0][1],1),R-2,y+1,{align:"right"}); foot(); }
-  const name=`Rechnung_${(c.nr||deDay(b)).replace(/[^\w.-]+/g,"_")}.pdf`, blob=doc.output("blob"), file=new File([blob],name,{type:"application/pdf"});
+  const name=`Rechnung_${(c.nr||monName(rechMon)).replace(/[^\w.-]+/g,"_")}.pdf`, blob=doc.output("blob"), file=new File([blob],name,{type:"application/pdf"});
   try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
   const u=URL.createObjectURL(blob), l=document.createElement("a"); l.href=u; l.download=name; document.body.append(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),30000); toast("Rechnung gespeichert: "+name); }
 { const c=rcCfg(); for(const [k,id] of Object.entries(RC_IDS)){ const el=$(id); el.value=c[k]; el.addEventListener("change",()=>{ const v=jget(RECH_CFG); v[k]=el.value; jset(RECH_CFG,v); rechDraw(); }); }
-  const t=new Date(); $("rechFrom").value=isoDay(new Date(t.getFullYear(),t.getMonth(),1)); $("rechTo").value=isoDay(t);
-  ["rechFrom","rechTo"].forEach(id=>$(id).addEventListener("change",rechDraw));
+  $("rechMon").addEventListener("change",()=>{ rechMon=$("rechMon").value; rechDraw(); });
   $("rechFile").addEventListener("change",e=>{ const f=e.target.files; if(f&&f.length) rechAdd(f).finally(()=>{ e.target.value=""; }); });
   $("rechClear").addEventListener("click",async()=>{ if(!rechRows.length||await ask("Liste leeren?","Alle eingelesenen Liefertage werden aus der Liste entfernt.","Leeren","Abbrechen")){ rechRows=[]; rechSave(); $("rechState").textContent=""; rechDraw(); } });
   $("rechPdf").addEventListener("click",rechPdf); rechDraw(); }

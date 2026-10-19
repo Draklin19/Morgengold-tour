@@ -1455,6 +1455,7 @@ async function checkOne(s){
   return h&&h.address&&h.address.house_number?[+h.lat,+h.lon]:0; // 0: OpenStreetMap kennt das Haus nicht genau
 }
 async function checkTour(){
+  if(!IS_TEST) return; // v=91: Fahrer-Version ohne Hauspunkt-Prüfung (nur Ausfahrliste + .bcr), nur der Chef sieht sie in test.html
   if(!tour||!bcrTour||!pdfTour) return; const seq=++checkSeq, t=tour, cache=jget(OSM_KEY);
   for(const s of t.stops){
     if(!s.ll||!s.addr||!s.town||s.fixed) continue;
@@ -1638,7 +1639,7 @@ function render(){ setTimeout(()=>declutter(),0);
   { let d=null; try{ d=JSON.parse(localStorage.getItem("navi-depot")||"null"); }catch(e){} // Kommissionierstelle als Start-Symbol
     if(d&&d.ll) L.marker(d.ll,{icon:L.divIcon({className:"",html:'<div class="depotpin">▶ Start</div>',iconSize:[58,22],iconAnchor:[29,11]}),interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer); }
   tour.stops.forEach((s,i)=>{
-    const warn=s.warn&&!s.fixed&&s.osm;
+    const warn=IS_TEST&&s.warn&&!s.fixed&&s.osm;
     const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn||s.approx?" warn":"");
     if(warn&&!s.done){ L.polyline([s.ll,s.osm],{color:"#f59e0b",weight:2,dashArray:"4 6"}).addTo(layer);
       L.marker(s.osm,{icon:L.divIcon({className:"",html:'<div class="osmpin">?</div>',iconSize:[20,20],iconAnchor:[10,10]}),title:`Stopp ${i+1} laut OpenStreetMap`}).addTo(layer)
@@ -1736,7 +1737,7 @@ async function loadFoot(i){
 }
 function fit(){ const p=tour?tour.stops.filter(s=>s.ll).map(s=>s.ll):[]; if(p.length) fitVis(L.latLngBounds(p).pad(0.12)); else map.setView([48.166,8.627],12); }
 function focusStop(i){ const s=tour.stops[i]; if(!s.ll) return; setFollow(false);
-  if(s.warn&&!s.fixed&&s.osm) fitVis(L.latLngBounds([s.ll,s.osm]).pad(.6),{maxZoom:18}); else map.setView(s.ll,16); }
+  if(IS_TEST&&s.warn&&!s.fixed&&s.osm) fitVis(L.latLngBounds([s.ll,s.osm]).pad(.6),{maxZoom:18}); else map.setView(s.ll,16); }
 // Lange auf die Karte drücken: Hauspunkt für den aktuellen oder den nächstgelegenen Stopp hierher setzen
 map.on("contextmenu",e=>{ if(!tour) return; const p=[e.latlng.lat,e.latlng.lng], c=[];
   if(cur>=0) c.push(cur);

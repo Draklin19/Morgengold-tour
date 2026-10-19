@@ -1056,6 +1056,7 @@ details.more:not([open]){gap:0}
 .pin.goal{position:relative;background:#fff;color:#111;font-size:13px;line-height:1}
 .pin.goal::before{content:attr(data-n);position:absolute;left:-9px;bottom:-8px;min-width:14px;height:14px;padding:0 2px;border-radius:7px;background:var(--route);color:#fff;font:700 9px/14px var(--font-body);text-align:center;border:1px solid #fff}
 .pin.goal.next{background:#fff3c4}
+html.fahrer #cmpBox{display:none!important}
 .depotpin{display:inline-block;white-space:nowrap;padding:0 8px;height:22px;border-radius:11px;background:#15803d;color:#fff;font:700 12px/22px var(--font-body);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 body.no-tour .stops-head{display:none}
 </style></head><body>
@@ -1074,6 +1075,7 @@ body.no-tour .stops-head{display:none}
 // v=83: zwei Varianten unter einem Link. Fahrercode → index.html (stabile Fahrer-Version); Admin-Code → test.html (Test-Version, nur für den Chef).
 // Beide Dateien sind gleich; die Variante ergibt sich aus dem Dateinamen. Freigabe = test.html nach index.html kopieren.
 const IS_TEST=/test\.html$/i.test(location.pathname);
+if(!IS_TEST) document.documentElement.classList.add("fahrer"); // v=90: Fahrer-Version ohne Vergleichs-Werkzeug
 (function(){ const DRV="402b32d5ab3a2f8953579210cdb2e40892cb6cc9c04528388a02709d273b2c69", ADM="d949b46466968f12b7b7746323f02e1de5460491e13989f39d9f9b5c661515f2", K="navi-zugang", g=document.getElementById("gate");
   const toTest=()=>location.replace("test.html"+location.search+location.hash), toMain=()=>location.replace("./"+location.search+location.hash);
   let have=null; try{ have=localStorage.getItem(K); }catch(e){}

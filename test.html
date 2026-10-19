@@ -2384,8 +2384,9 @@ function avgStand(list){ const v=list.map(standOf).filter(d=>d!=null&&d>=5000&&d
 function reportSummary(){ // Zusammenfassung für Datei und Mail
   const st=tour.stops, n=st.filter(s=>s.done).length, ts=st.filter(s=>s.at).map(s=>s.at), dp=st.filter(s=>s.dep).map(s=>s.dep), out=[["Erledigt",`${n} von ${st.length}`]];
   if(!km||km.key!==kmKey()) kmLoad();
-  if(km) out.push(["Gefahrene km (Kommissionierstelle bis letzter Kunde)",(km.m/1000).toFixed(1).replace(".",",")+(km.end?"":" (Tour noch nicht fertig)")+(km.est>0?` · davon ca. ${(km.est/1000).toFixed(1).replace(".",",")} km nachgerechnet`:"")]);
-  if(ts.length) out.push(["Erster Stopp",hhmm(Math.min(...ts))],["Letzter Stopp",hhmm(Math.max(...(dp.length?dp:ts)))]);
+  // v=93: km und Uhrzeiten immer aufführen, auch ohne Daten (dann mit Grund), damit der Bericht vollständig aussieht
+  out.push(["Gefahrene km (Kommissionierstelle bis letzter Kunde)",km?(km.m/1000).toFixed(1).replace(".",",")+" km"+(km.end?"":" (Tour noch nicht fertig)")+(km.est>0?` · davon ca. ${(km.est/1000).toFixed(1).replace(".",",")} km nachgerechnet`:""):!(depot&&depot.ll)?"– (Kommissionierstelle in ⚙ Einstellungen nicht eingetragen)":"– (keine GPS-Daten: Tour nicht mit „Tour starten“/GPS gefahren)"]);
+  out.push(["Erster Stopp",ts.length?hhmm(Math.min(...ts)):"–"],["Letzter Stopp",ts.length?hhmm(Math.max(...(dp.length?dp:ts))):"–"]);
   if(ts.length&&dp.length) out.push(["Gesamtzeit (erster bis letzter Stopp)",hm((Math.max(...dp)-Math.min(...ts))/1000)]);
   const all=avgStand(st), pro=avgStand(st.filter(s=>(s.tags||[]).includes("pro"))), rkl=avgStand(st.filter(s=>(s.tags||[]).includes("rkl")));
   const cnt=f=>st.filter(s=>f(s)&&standOf(s)!=null).length;
@@ -2398,7 +2399,7 @@ function mailReport(){ // Mail-Programm mit fertigem Bericht öffnen: nur Stopp-
   if(!tour) return; let to=""; try{ to=localStorage.getItem(MAIL_KEY)||""; }catch(e){}
   const day=dayLabel(tourDay())||tourDay(), L=[`Tourbericht ${tourTitle()} · ${day}`,""];
   tour.stops.forEach((s,i)=>{ const d=standOf(s); L.push(`Stopp ${i+1}: ${s.done?"erledigt":"offen"}${s.at?" · an "+hhmm(s.at):""}${s.dep?" · ab "+hhmm(s.dep):""}${d!=null?" · "+mmss(d)+" Min.":""}${(s.tags||[]).includes("pro")?" · Probe":""}${(s.tags||[]).includes("rkl")?" · Reklamation":""}`); });
-  L.push(""); reportSummary().forEach(r=>L.push(r.join(": ")));
+  L.push(""); reportSummary().forEach(r=>L.push(r.join(": "))); L.push("Bericht erstellt: "+hhmm(Date.now()));
   location.href=`mailto:${encodeURIComponent(to).replace(/%40/g,"@")}?subject=${encodeURIComponent("Tourbericht "+tourTitle()+" "+day)}&body=${encodeURIComponent(L.join("\n"))}`; }
 async function tourFinished(){ // letzter Stopp erledigt: einmal fragen, ob der Bericht an den Chef geht
   let to=""; try{ to=localStorage.getItem(MAIL_KEY)||""; }catch(e){} if(!to||!tour||tour.mailAsked) return; tour.mailAsked=true;

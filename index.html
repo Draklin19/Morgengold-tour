@@ -848,6 +848,14 @@ body.drive .dock-grip{display:block}
 .dock-zones .z-left{left:0;top:0;bottom:0;width:30%}.dock-zones .z-right{right:0;top:0;bottom:0;width:30%}
 .dock-zones .z-top{left:0;right:0;top:0;height:30%}.dock-zones .z-bottom{left:0;right:0;bottom:0;height:30%}
 body.drive .side>.mode,body.drive .side>.jump,body.drive #nextOsm{display:none!important}
+body.no-tour #cmpBox{display:none}
+.cmp-list{margin:0;padding:0;list-style:none;display:grid;gap:2px;font-size:.9rem;max-height:50vh;overflow:auto}
+.cmp-list li{display:grid;grid-template-columns:2.2em minmax(0,1fr) auto;gap:8px;padding:4px 6px;border-radius:6px}
+.cmp-list li b{font-variant-numeric:tabular-nums}
+.cmp-list .ok{background:#e3f4ea}.cmp-list .mid{background:#fdf1d6}.cmp-list .bad{background:#fbe0de}.cmp-list .none{background:#eceff1}
+.cmpq{width:14px;height:14px;background:#2f6fe4;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0 / .4)}
+.cmplbl{background:rgb(255 255 255 / .9);border-radius:6px;padding:1px 5px;font:700 11px var(--font-body);white-space:nowrap;box-shadow:0 1px 2px rgb(0 0 0 / .3)}
+
 body.drive .list{max-height:none;flex:1 1 auto;min-height:0;overflow:auto}
 body.drive .next-card{padding:6px 8px;gap:4px;flex:0 0 auto}
 body.drive .next-card .lbl,body.drive .next-card .town,body.drive #nextAddr:empty{display:none}
@@ -1028,6 +1036,28 @@ body.drive .dock-tog{background:rgb(0 0 0 / .88);color:#f2f5f3}
 body.drive .eta:not([hidden]){background:rgb(0 0 0 / .85);color:#f2f5f3}
 body.drive .eta small{display:block;font-weight:600;font-size:.62em;color:var(--muted)}
 body.drive #map{container-type:size}
+
+/* v=85: Hauptseite unter der Karte aufgeräumt */
+.next-card .row{display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
+.next-card .row #nextGmaps{grid-column:1/-1}
+.stops-box{display:flex;flex-direction:column;gap:8px}
+.stops-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 2px 0}
+.stops-head h2{font:700 1.05rem var(--font-body);margin:0}
+.stops-head .list-tools{border:0;padding:0}
+.stops-box .jump{gap:6px}
+.stops-box .jump input{width:5.5em}
+details.more>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;font-weight:700}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::after{content:"▾";color:var(--muted);transition:transform .2s}
+details.more[open]>summary::after{transform:rotate(180deg)}
+details.more:not([open]){gap:0}
+.opts.tools{display:grid!important;grid-template-columns:1fr;gap:8px}
+#nextOsm{display:none!important}
+.pin.goal{position:relative;background:#fff;color:#111;font-size:13px;line-height:1}
+.pin.goal::before{content:attr(data-n);position:absolute;left:-9px;bottom:-8px;min-width:14px;height:14px;padding:0 2px;border-radius:7px;background:var(--route);color:#fff;font:700 9px/14px var(--font-body);text-align:center;border:1px solid #fff}
+.pin.goal.next{background:#fff3c4}
+.depotpin{display:inline-block;white-space:nowrap;padding:0 8px;height:22px;border-radius:11px;background:#15803d;color:#fff;font:700 12px/22px var(--font-body);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+body.no-tour .stops-head{display:none}
 </style></head><body>
 <!-- v=81: Zugangscode beim ersten Öffnen (hält Fremde fern, die zufällig auf den Link stoßen; im Code steht nur der Prüfwert, nicht der Code) -->
 <div id="gate" style="position:fixed;inset:0;z-index:99999;background:#f4f1ea;display:flex;align-items:center;justify-content:center;padding:24px;font-family:var(--font-body,system-ui)">
@@ -1090,6 +1120,8 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
     <div class="opts"><label for="tourUrl">Link zur Tour-Seite <input id="tourUrl" type="url" inputmode="url" placeholder="https://…" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
     <p class="hint">Von dieser Seite lädst du Ausfahrliste und Routendatei herunter. Danach erscheint oben der Knopf „⬇ Tour herunterladen“.</p>
+    <div class="opts"><label for="depotAddr">Kommissionierstelle (Start) <input id="depotAddr" type="text" autocomplete="off" placeholder="Straße Nr, PLZ Ort" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="depotSave" type="button">Speichern</button></div>
+    <p class="hint" id="depotHint">Ab hier zählt die App beim Fahren die Kilometer bis zum letzten Kunden. Die Adresse bleibt nur auf diesem Handy.</p>
     <div class="opts"><label for="mailTo">E-Mail für Tourberichte <input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="mailToSave" type="button">Speichern</button></div>
     <p class="hint">Am Ende der Tour fragt die App, ob der Bericht (nur Stopp-Nummern und Zeiten, keine Adressen) an diese Adresse gehen soll. Dein Mail-Programm öffnet sich, gesendet wird erst, wenn du auf Senden drückst.</p>
     <div class="opts"><label for="fontSel">Schriftgröße Tourleiste <select id="fontSel"><option value="0">1 (sehr klein)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (groß)</option></select></label>
@@ -1144,15 +1176,24 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <span class="side-hint" id="nextSide" hidden></span>
         <div class="note" id="nextNote" hidden></div>
         <ul class="arts" id="nextArts" hidden></ul>
-        <div class="row">
-          <button class="btn" id="prev" type="button">‹ Zurück zum letzten Kunden</button>
-          <button class="btn primary" id="nextDone" type="button">Stopp erledigt</button>
+        <div class="row"> <!-- v=85: aufgeräumt: Abhaken und Zurück nebeneinander, Google darunter -->
+          <button class="btn" id="prev" type="button">‹ Zurück</button>
+          <button class="btn primary" id="nextDone" type="button">✓ Erledigt</button>
           <a class="btn primary" id="nextGmaps" href="#" target="_blank" rel="noopener">Mit Google Maps hinfahren</a>
-          <a class="btn" id="nextOsm" href="#" target="_blank" rel="noopener">Auf OpenStreetMap ansehen</a>
+          <a class="btn" id="nextOsm" href="#" target="_blank" rel="noopener" hidden>Auf OpenStreetMap ansehen</a>
         </div>
       </div>
-      <div class="mode" role="group" aria-labelledby="modeLbl">
-        <span class="badge" id="modeLbl">Abhaken</span>
+      <section class="stops-box" aria-labelledby="stopsH">
+        <div class="stops-head"><h2 id="stopsH">Alle Stopps</h2><div class="list-tools" id="listTools"><label class="all-chk"><input type="checkbox" id="allChk"> Alle abhaken</label></div></div>
+        <form class="jump" id="jumpForm">
+        <label for="jumpNo">Ab Nr.</label>
+        <input id="jumpNo" type="number" inputmode="numeric" min="1" placeholder="z. B. 12">
+        <button class="btn" type="submit">Ab hier</button>
+      </form>
+        <ul class="list" id="list"></ul>
+      </section>
+      <details class="mode more">
+        <summary>📍 Abhaken &amp; GPS</summary>
         <div class="opts">
           <label><input type="radio" name="mode" id="modeAuto" value="auto" checked> Automatisch beim Wegfahren vom Haus</label>
           <label><input type="radio" name="mode" id="modeManual" value="manual"> Nur manuell</label>
@@ -1161,20 +1202,25 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <div class="opts"><button class="btn primary" id="gps" type="button">📍 GPS starten</button></div>
         <p class="hint" id="gpsState" hidden></p>
         <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt einen Kunden ab, sobald du nach der Ankunft wieder wegfährst. Der Standort wird nicht gespeichert und nicht übertragen. Zum Ausprobieren ohne GPS gibt es „Fahrt simulieren“ unter ⚙ Einstellungen.</p>
-      </div>
-      <div class="mode" id="gTour">
-        <span class="badge">Tour in Google Maps</span>
+      </details>
+      <details class="mode more" id="gTour">
+        <summary>🗺 Ganze Tour in Google Maps</summary>
         <div class="opts" id="gLinks"></div>
         <p class="hint">Google Maps nimmt pro Route höchstens 10 Stopps, deshalb ist die Tour in Abschnitte geteilt. Ab dem aktuellen Stopp. An Google gehen nur Adressen bzw. Koordinaten, keine Namen.</p>
-      </div>
+      </details>
       <details class="mode" id="loadBox" hidden><summary>Ladeliste für die ganze Tour</summary><ul class="arts" id="loadList"></ul></details>
-      <form class="jump" id="jumpForm">
-        <label for="jumpNo">Fahrt beginnen ab Nr.</label>
-        <input id="jumpNo" type="number" inputmode="numeric" min="1" placeholder="z. B. 12">
-        <button class="btn" type="submit">Ab hier starten</button>
-      </form>
-      <div class="list-tools" id="listTools"><label class="all-chk"><input type="checkbox" id="allChk"> Alle</label><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button><button class="btn" id="mailBtn" type="button">📧 Bericht per Mail</button></div>
-      <ul class="list" id="list"></ul>
+      <details class="mode more" id="cmpBox">
+        <summary>🔍 Vergleich: nur Ausfahrliste ↔ .bcr</summary>
+        <p class="hint">Sucht jede Adresse aus der Ausfahrliste so, wie die App es ohne .bcr täte, und legt diese Punkte (blaue Quadrate) über die Punkte aus der .bcr. Ein Strich verbindet beide, daneben steht der Abstand. Dabei gehen nur Straße, Hausnummer und Ort an OpenStreetMap, keine Namen.</p>
+        <div class="opts"><button class="btn primary" id="cmpBtn" type="button">Vergleich starten</button><button class="btn" id="cmpOff" type="button" hidden>Vergleich ausblenden</button></div>
+        <p class="hint" id="cmpState"></p>
+        <ol class="cmp-list" id="cmpList" hidden></ol>
+      </details>
+      <details class="mode more">
+        <summary>📄 Bericht &amp; Tour neu starten</summary>
+        <div class="opts tools"><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button><button class="btn" id="mailBtn" type="button">📧 Bericht per Mail</button><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button></div>
+        <p class="hint">„Tour neu starten“ nimmt alle Haken und Zeiten dieser Tour zurück.</p>
+      </details>
     </div>
   </div>
   <div class="ask" id="geoAsk" hidden role="dialog" aria-modal="true" aria-labelledby="geoAskT">
@@ -1346,31 +1392,35 @@ function fillArts(ul,cols){ ul.textContent=""; cols.flatMap(artItems).forEach(it
 let geoRunning=false;
 async function geocodeOne(s){
   const m=(s.town||"").match(/^(\d{5})\s+(.+)$/), plz=m?m[1]:"", ort=m?m[2]:s.town;
-  const tries=[
-    {street:s.addr,postalcode:plz,city:ort},
-    {q:`${s.addr}, ${plz} ${ort}`},
-    {street:s.addr,postalcode:plz}
-  ];
-  for(const t of tries){
+  // v=89: nur Treffer in derselben PLZ bzw. demselben Ort annehmen (sonst landet z. B. ein Tippfehler in einer Straße weit weg).
+  // Wird die Straße dort nicht gefunden, gibt es die Ortsmitte als Notpunkt zurück: [lat, lon, 1] = ungefähr.
+  const ortN=x=>(x||"").toLowerCase().replace(/\s+(b\.|bei|a\.|am|an der|im|ob der)\s.*$/,"").replace(/[^a-zäöüß]/g,"");
+  const want=ortN(ort);
+  const fits=h=>{ const a=h.address||{};
+    if(plz&&a.postcode) return a.postcode===plz;
+    if(!want) return !plz;
+    return [a.city,a.town,a.village,a.municipality,a.hamlet,a.suburb].some(x=>x&&ortN(x)===want)||ortN(h.display_name).includes(want); };
+  const ask1=async t=>{
     const u=new URL("https://nominatim.openstreetmap.org/search");
-    Object.entries({...t,format:"jsonv2",limit:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
+    Object.entries({...t,format:"jsonv2",limit:"5",addressdetails:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
+    const w=lastAsk+1100-Date.now(); if(w>0) await new Promise(ok=>setTimeout(ok,w)); lastAsk=Date.now(); // höchstens 1 Anfrage pro Sekunde, auch neben dem Hauspunkt-Abgleich
     const r=await fetch(u.toString()); if(!r.ok) throw new Error("Adresssuche nicht erreichbar ("+r.status+")");
-    const j=await r.json(); await new Promise(ok=>setTimeout(ok,1100));
-    if(j.length) return [parseFloat(j[0].lat),parseFloat(j[0].lon)];
-  }
+    const h=(await r.json()).find(fits); return h?[parseFloat(h.lat),parseFloat(h.lon)]:null; };
+  if(s.addr) for(const t of [{street:s.addr,postalcode:plz,city:ort},{q:`${s.addr}, ${plz} ${ort}`},{street:s.addr,postalcode:plz}]){ const p=await ask1(t); if(p) return p; }
+  if(plz||ort){ const p=await ask1({postalcode:plz,city:ort})||(plz&&ort?await ask1({q:`${plz} ${ort}`}):null); if(p) return [p[0],p[1],1]; }
   return null;
 }
 async function geocodeTour(){
   if(geoRunning||!tour) return; geoRunning=true; $("geoBtn").disabled=true;
-  const todo=tour.stops.filter(s=>!s.ll&&s.addr); let done=0; const miss=[];
+  const todo=tour.stops.filter(s=>!s.ll&&s.addr); let done=0; const miss=[], rough=[];
   try{
     for(const s of todo){
       $("geoState").textContent=`Suche Adresse ${++done} von ${todo.length} …`;
       const p=await geocodeOne(s);
-      if(p){ s.ll=p; s.via=[]; s.geo=true; } else miss.push(tour.stops.indexOf(s)+1);
+      if(p){ s.ll=p.slice(0,2); s.approx=p[2]===1; s.via=[]; s.geo=true; if(s.approx) rough.push(tour.stops.indexOf(s)+1); } else miss.push(tour.stops.indexOf(s)+1);
       render(); if(done===1||done===todo.length) fit();
     }
-    $("geoState").textContent=miss.length?`Fertig. Nicht gefunden: Stopp ${miss.join(", ")}. Diese Stopps fehlen auf der Karte, Google Maps findet sie trotzdem über die Adresse.`:"Fertig, alle Adressen gefunden. Die Punkte können einige Meter neben dem Haus liegen.";
+    $("geoState").textContent=(miss.length?`Fertig. Nicht gefunden: Stopp ${miss.join(", ")}. Diese Stopps fehlen auf der Karte, Google Maps findet sie trotzdem über die Adresse.`:rough.length?"Fertig.":"Fertig, alle Adressen gefunden. Die Punkte können einige Meter neben dem Haus liegen.")+(rough.length?` ⚠ Nur ungefähr (Ortsmitte): Stopp ${rough.join(", ")}. Bitte Adresse prüfen und Hauspunkt per langem Drücken setzen.`:"");
   }catch(x){ $("geoState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal versuchen."; }
   geoRunning=false; $("geoBtn").disabled=false; routeTour(); $("geoBox").hidden=!tour.stops.some(s=>!s.ll);
 }
@@ -1380,10 +1430,10 @@ const CORR_KEY="navi-korrektur", OSM_KEY="navi-osmpunkte", WARN_M=80;
 const jget=k=>{ try{ return JSON.parse(localStorage.getItem(k)||"{}")||{}; }catch(e){ return {}; } };
 const jset=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} };
 const addrKey=s=>s.addr?(s.addr+"|"+(((s.town||"").match(/\d{5}/)||[""])[0])).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/[^a-z0-9äöü|]/g,""):"";
-function applyCorr(t){ const c=jget(CORR_KEY);
+function applyCorr(t){ if(typeof cmpLayer!=="undefined"&&cmpLayer){ cmpLayer.clearLayers(); const l=document.getElementById("cmpList"); if(l){ l.hidden=true; document.getElementById("cmpState").textContent=""; } } const c=jget(CORR_KEY);
   t.stops.forEach(s=>{ const k=addrKey(s), p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; } }); }
 function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s.ll;
-  s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.said=false;
+  s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.approx=false; s.said=false;
   if(k){ const c=jget(CORR_KEY); c[k]=s.ll; jset(CORR_KEY,c); }
   map.closePopup(); corrUi(); render(); routeTour(); toast(`Hauspunkt für Stopp ${i+1} gespeichert`); }
 function resetPos(i){ const s=tour.stops[i], k=addrKey(s), c=jget(CORR_KEY); delete c[k]; jset(CORR_KEY,c);
@@ -1582,13 +1632,16 @@ function render(){ setTimeout(()=>declutter(),0);
   // Beim Fahren zeigt die Leiste nur drei Zeilen: zuletzt erledigt, aktuell, danach
   let nearPrev=-1; for(let k=(cur<0?tour.stops.length:cur)-1;k>=0;k--) if(tour.stops[k].done){ nearPrev=k; break; }
   let nearNext=cur<0?-1:tour.stops.findIndex((q,k)=>k>cur&&!q.done); if(cur>=0&&nearNext<0) nearNext=tour.stops.findIndex((q,k)=>k!==cur&&!q.done);
+  let lastIdx=-1; tour.stops.forEach((q,k)=>{ if(q.ll) lastIdx=k; }); // letzter Kunde: Zielfahne
+  { let d=null; try{ d=JSON.parse(localStorage.getItem("navi-depot")||"null"); }catch(e){} // Kommissionierstelle als Start-Symbol
+    if(d&&d.ll) L.marker(d.ll,{icon:L.divIcon({className:"",html:'<div class="depotpin">▶ Start</div>',iconSize:[58,22],iconAnchor:[29,11]}),interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer); }
   tour.stops.forEach((s,i)=>{
     const warn=s.warn&&!s.fixed&&s.osm;
-    const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn?" warn":"");
+    const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn||s.approx?" warn":"");
     if(warn&&!s.done){ L.polyline([s.ll,s.osm],{color:"#f59e0b",weight:2,dashArray:"4 6"}).addTo(layer);
       L.marker(s.osm,{icon:L.divIcon({className:"",html:'<div class="osmpin">?</div>',iconSize:[20,20],iconAnchor:[10,10]}),title:`Stopp ${i+1} laut OpenStreetMap`}).addTo(layer)
         .on("click",async()=>{ if(await ask(`Hauspunkt für Stopp ${i+1} übernehmen?`,`Der orange Punkt ist die Stelle, die OpenStreetMap für ${s.addr} kennt. Er wird nur auf diesem Handy für diese Adresse gespeichert. Liegt das Haus woanders: lange auf das richtige Haus drücken.`,"Übernehmen","Abbrechen")) setPos(i,s.osm); }); }
-    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0,zIndexOffset0:i===nextIdx?1000:0}).addTo(layer);
+    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:i===lastIdx?`<div class="${cls} goal" data-n="${i+1}">🏁</div>`:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0,zIndexOffset0:i===nextIdx?1000:0,si:i}).addTo(layer);
     m.on("click",()=>pick(i)); markers.push(m); }
     const li=document.createElement("li");
     li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":"")+(i===nearPrev?" near-prev":"")+(i===nearNext?" near-next":"")+(s.tags&&s.tags.length?" tag-"+s.tags[0]:""); li.tabIndex=0; li.dataset.i=i;
@@ -1598,8 +1651,8 @@ function render(){ setTimeout(()=>declutter(),0);
     else{fillAddr(li.querySelector(".name"),s.addr); li.querySelector("br").remove(); li.querySelector(".addr").remove();}
     if(s.tags&&s.tags.length){ const g=document.createElement("span"); g.className="tags"; fillTags(g,s.tags); li.querySelector(".t").append(g); }
     if(s.notes&&s.notes.length){ const n=document.createElement("span"); n.className="snote"; n.textContent=s.notes.join(" "); li.querySelector(".t").append(n); }
-    if(warn||s.fixed){ const n=document.createElement("span"); n.className=warn?"pwarn":"pfix";
-      n.textContent=warn?`⚠ Hauspunkt prüfen: OpenStreetMap zeigt das Haus ca. ${Math.round(dist(s.ll,s.osm))} m entfernt`:"📍 Eigener Hauspunkt"; li.querySelector(".t").append(n); }
+    if(warn||s.fixed||s.approx){ const n=document.createElement("span"); n.className=warn||s.approx?"pwarn":"pfix";
+      n.textContent=s.approx&&!s.fixed?"⚠ Nur ungefähr (Ortsmitte): Straße nicht gefunden, Adresse prüfen und Hauspunkt per langem Drücken setzen":warn?`⚠ Hauspunkt prüfen: OpenStreetMap zeigt das Haus ca. ${Math.round(dist(s.ll,s.osm))} m entfernt`:"📍 Eigener Hauspunkt"; li.querySelector(".t").append(n); }
     const cb=li.querySelector("input"); cb.checked=s.done;
     cb.addEventListener("click",e=>e.stopPropagation());
     cb.addEventListener("change",()=>{s.done=cb.checked;if(s.done&&i===cur) cur=nextOpen(); render();});
@@ -1736,20 +1789,20 @@ function moveCar(p,dur,noPan){
 let lastDraw=0; // Akku: höchstens ca. 15 Bilder pro Sekunde zeichnen (halbe Rechenarbeit, sieht trotzdem flüssig aus)
 // v=78: Kommt das Männchen an eine Hausnummer, rückt die Nummer wie eine Sprechblase zur Seite; ein Strich zeigt auf die echte Stelle (die bleibt unverändert)
 let rotDeg=0;
-function declutter(){
-  const on=car&&map.hasLayer(car)&&carPos; const P=on?map.latLngToLayerPoint(car.getLatLng()):null;
-  const r=rotDeg*Math.PI/180, up=[-Math.sin(r),-Math.cos(r)], side=[Math.cos(r),-Math.sin(r)];
-  const c=P?[P.x+up[0]*25,P.y+up[1]*25]:null, R=21; // Mitte des Gesichts (34 px Kreis über dem Fußpunkt)
+function declutter(){ // v=85: nur beim Fahren, nah dran (Zoom ab 16, unter 40 m) und nur der aktuelle Stopp; rückt EINMAL zur Seite und bleibt dort fest
+  const drive=document.body.classList.contains("drive")||document.body.classList.contains("sim");
+  const on=drive&&car&&map.hasLayer(car)&&carPos&&map.getZoom()>=16; const cp=on?car.getLatLng():null;
+  const r=rotDeg*Math.PI/180, side=[Math.cos(r),-Math.sin(r)], L=46;
   markers.forEach(m=>{ const el=m.getElement(); if(!el) return; const pin=el.querySelector(".pin"); if(!pin) return;
-    let lead=el.querySelector(".lead"); let ox=0, oy=0;
-    if(c){ const A=map.latLngToLayerPoint(m.getLatLng()); let dx=A.x-c[0], dy=A.y-c[1], d=Math.hypot(dx,dy);
-      const lim=R+18+(lead?10:0); // etwas Spielraum, damit es nicht hin und her springt
-      if(d<lim){ const sg=(dx*side[0]+dy*side[1])<-2?-1:1; // seitlich neben das Männchen, auf der Seite, wo das Haus liegt (sonst rechts)
-        ox=c[0]+side[0]*sg*(R+30)-A.x; oy=c[1]+side[1]*sg*(R+30)-A.y; } }
-    if(ox||oy){ pin.style.translate=`${ox.toFixed(1)}px ${oy.toFixed(1)}px`;
+    let lead=el.querySelector(".lead"), lk=m._lk||0;
+    if(on&&m.options.si===cur){ const d=map.distance(cp,m.getLatLng());
+      if(!lk&&d<40){ const A=map.latLngToLayerPoint(m.getLatLng()), C=map.latLngToLayerPoint(cp); lk=((C.x-A.x)*side[0]+(C.y-A.y)*side[1])>0?-1:1; } // Seite einmal festlegen: weg vom Männchen
+      else if(lk&&d>60) lk=0; }
+    else lk=0;
+    m._lk=lk;
+    if(lk){ const ox=side[0]*lk*L, oy=side[1]*lk*L; pin.style.translate=`${ox.toFixed(1)}px ${oy.toFixed(1)}px`;
       if(!lead){ lead=document.createElement("div"); lead.className="lead"; el.prepend(lead); }
-      lead.style.width=Math.hypot(ox,oy).toFixed(1)+"px"; lead.style.transform=`rotate(${Math.atan2(oy,ox)}rad)`;
-      m.setZIndexOffset(2500); }
+      lead.style.width=L+"px"; lead.style.transform=`rotate(${Math.atan2(oy,ox)}rad)`; m.setZIndexOffset(2500); }
     else if(lead){ pin.style.translate=""; lead.remove(); m.setZIndexOffset(m.options.zIndexOffset0||0); } }); }
 map.on("zoomend viewreset",declutter);
 function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<66&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
@@ -1915,6 +1968,7 @@ function trackSide(){
   setLive(cur, dx*(P[1]-a[1])-dy*(P[0]-a[0])>0?"links":"rechts","gps");
 }
 function checkArrival(){
+  kmEnd(); if(carPos) kmFix(carPos,gpsAcc);
   updateHouseNo(); checkTurns(); updateEta();
   if(!tour||cur<0||!carPos) return;
   trackSide();
@@ -2248,6 +2302,33 @@ function startPin(i){ if(!tour) return; const s=tour.stops[i]; endPin();
   map.setView(at,Math.max(map.getZoom(),18)); if(navigator.vibrate) try{navigator.vibrate(30);}catch(e){} }
 function endPin(){ if(!pinEdit) return; map.off("click",pinEdit.tap); pinEdit.m.remove(); pinEdit=null; $("pinBar").hidden=true; }
 $("pinCancel").addEventListener("click",endPin);
+// v=86 (Test): Vergleich der Hauspunkte "nur Ausfahrliste" (Adresssuche wie ohne .bcr) gegen die Punkte aus der .bcr
+var cmpLayer=L.layerGroup().addTo(map); let cmpRun=false;
+async function runCompare(){
+  if(cmpRun||!tour) return; if(!bcrTour||!pdfTour){ $("cmpState").textContent="Dafür bitte Ausfahrliste (PDF) und .bcr zusammen öffnen."; return; }
+  cmpRun=true; $("cmpBtn").disabled=true; const t=tour, cache=jget("navi-vergleich2"); let n=0;
+  const todo=t.stops.filter(s=>s.addr&&(s.orig||s.ll));
+  try{ for(const s of todo){
+      const k=addrKey(s); $("cmpState").textContent=`Suche Adresse ${++n} von ${todo.length} …`;
+      if(cache[k]===undefined){ const p=await geocodeOne(s); cache[k]=p||0; jset("navi-vergleich2",cache); }
+      s.cmp=cache[k]&&cache[k][2]!==1?cache[k]:null; s.cmpRough=!!(cache[k]&&cache[k][2]===1); if(tour!==t) return; drawCompare(); } }
+  catch(x){ $("cmpState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal starten."; }
+  cmpRun=false; $("cmpBtn").disabled=false; drawCompare(true); }
+function drawCompare(done){
+  cmpLayer.clearLayers(); if(!tour) return; const list=$("cmpList"); list.innerHTML=""; let ok=0,mid=0,bad=0,none=0; const ds=[];
+  tour.stops.forEach((s,i)=>{ const b=s.orig||s.ll; if(s.cmp===undefined||!b) return;
+    const li=document.createElement("li"); let d=null, cls="none";
+    if(s.cmp){ d=Math.round(dist(s.cmp,b)); ds.push(d); cls=d<=25?"ok":d<=80?"mid":"bad"; if(cls==="ok")ok++; else if(cls==="mid")mid++; else bad++;
+      L.polyline([b,s.cmp],{color:d<=25?"#2e9e5b":d<=80?"#e0a100":"#d63b2f",weight:3,dashArray:"5 5",interactive:false}).addTo(cmpLayer);
+      L.marker(s.cmp,{icon:L.divIcon({className:"",html:'<div class="cmpq"></div>',iconSize:[14,14],iconAnchor:[7,7]}),interactive:false}).addTo(cmpLayer);
+      if(d>25) L.marker(s.cmp,{icon:L.divIcon({className:"",html:`<div class="cmplbl">${i+1}: ${d} m</div>`,iconSize:[0,0],iconAnchor:[-10,8]}),interactive:false}).addTo(cmpLayer); }
+    else none++;
+    li.className=cls; li.innerHTML=`<span>${i+1}</span><span></span><b>${d===null?(s.cmpRough?"nur Ortsmitte":"nicht gefunden"):d+" m"}</b>`; li.children[1].textContent=s.addr; list.append(li); });
+  list.hidden=!list.children.length; $("cmpOff").hidden=!ds.length&&!none;
+  if(done||ds.length){ ds.sort((a,b)=>a-b); const med=ds.length?ds[Math.floor(ds.length/2)]:0;
+    $("cmpState").textContent=(done?"Fertig. ":"")+`Grün bis 25 m: ${ok} · Gelb 25–80 m: ${mid} · Rot über 80 m: ${bad}`+(none?` · nicht gefunden: ${none}`:"")+(ds.length?` · typischer Abstand ${med} m`:""); } }
+$("cmpBtn").addEventListener("click",()=>{ runCompare(); fit(); });
+$("cmpOff").addEventListener("click",()=>{ cmpLayer.clearLayers(); $("cmpList").hidden=true; $("cmpOff").hidden=true; $("cmpState").textContent=""; if(tour) tour.stops.forEach(s=>delete s.cmp); });
 $("codeSwitch").addEventListener("click",()=>{ try{ localStorage.removeItem("navi-zugang"); }catch(e){} location.replace("./"); }); // v=84: Code wechseln in der App (Startbildschirm-App hat eigenen Speicher, getrennt vom Browser)
 $("pinSave").addEventListener("click",()=>{ if(!pinEdit) return; const {i,m}=pinEdit, q=m.getLatLng(); endPin(); setPos(i,[q.lat,q.lng]); });
 // Haken per Wischen in der Stoppliste:
@@ -2296,6 +2377,8 @@ function learnStand(s){ const d=standOf(s); if(d==null||d<5000||d>30*60000) retu
 function avgStand(list){ const v=list.map(standOf).filter(d=>d!=null&&d>=5000&&d<=30*60000); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; }
 function reportSummary(){ // Zusammenfassung für Datei und Mail
   const st=tour.stops, n=st.filter(s=>s.done).length, ts=st.filter(s=>s.at).map(s=>s.at), dp=st.filter(s=>s.dep).map(s=>s.dep), out=[["Erledigt",`${n} von ${st.length}`]];
+  if(!km||km.key!==kmKey()) kmLoad();
+  if(km) out.push(["Gefahrene km (Kommissionierstelle bis letzter Kunde)",(km.m/1000).toFixed(1).replace(".",",")+(km.end?"":" (Tour noch nicht fertig)")+(km.est>0?` · davon ca. ${(km.est/1000).toFixed(1).replace(".",",")} km nachgerechnet`:"")]);
   if(ts.length) out.push(["Erster Stopp",hhmm(Math.min(...ts))],["Letzter Stopp",hhmm(Math.max(...(dp.length?dp:ts)))]);
   if(ts.length&&dp.length) out.push(["Gesamtzeit (erster bis letzter Stopp)",hm((Math.max(...dp)-Math.min(...ts))/1000)]);
   const all=avgStand(st), pro=avgStand(st.filter(s=>(s.tags||[]).includes("pro"))), rkl=avgStand(st.filter(s=>(s.tags||[]).includes("rkl")));
@@ -2319,6 +2402,38 @@ try{ $("mailTo").value=localStorage.getItem(MAIL_KEY)||""; }catch(e){}
 $("mailToSave").addEventListener("click",()=>{ const v=$("mailTo").value.trim(); try{ if(v) localStorage.setItem(MAIL_KEY,v); else localStorage.removeItem(MAIL_KEY); }catch(e){} toast(v?"E-Mail gespeichert":"E-Mail entfernt"); });
 // Restzeit beim Fahren: restliche Strecke (Anfahrt + Route zu den offenen Stopps) plus durchschnittliche Standzeit je offenem Stopp
 let etaAt=0;
+// v=87 (Test): gefahrene Kilometer ab der Kommissionierstelle bis zum letzten Kunden. Gespeichert wird nur die Summe (pro Tour, auf dem Handy).
+// Startet die App mitten in der Tour, wird der schon gefahrene Teil als Straßenstrecke nachgerechnet: Kommissionierstelle → erledigte Kunden → jetzige Position.
+const DEPOT_KEY="navi-depot", KM_KEY="navi-km";
+let depot=null; try{ depot=JSON.parse(localStorage.getItem(DEPOT_KEY)||"null"); }catch(e){}
+const DEPOT_TXT="Ab hier zählt die App beim Fahren die Kilometer bis zum letzten Kunden. Die Adresse bleibt nur auf diesem Handy.";
+function depotUi(){ $("depotAddr").value=depot?depot.addr:""; $("depotHint").textContent=!depot?DEPOT_TXT:depot.ll?"✓ Gefunden. "+DEPOT_TXT:"Adresse nicht gefunden. Bitte als „Straße Nr, PLZ Ort“ eingeben und Internet prüfen."; }
+depotUi();
+$("depotSave").addEventListener("click",async()=>{ const a=$("depotAddr").value.trim(); if(!a){ depot=null; try{localStorage.removeItem(DEPOT_KEY);}catch(e){} depotUi(); return; }
+  $("depotHint").textContent="Suche Adresse …"; let ll=null;
+  try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); if(ll&&ll[2]===1) ll=null; }catch(e){}
+  depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); if(tour) render(); });
+async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
+let km=null, kmBusy=false;
+const kmKey=()=>tourTitle()+"|"+tourDay();
+function kmLoad(){ km=jget(KM_KEY)[kmKey()]||null; }
+function kmSave(){ const all=jget(KM_KEY), k=kmKey(); all[k]=km; const ks=Object.keys(all); if(ks.length>20) delete all[ks[0]]; jset(KM_KEY,all); }
+async function kmFix(p,acc){
+  if(!tour||!depot||!depot.ll||!p||kmBusy) return; if(!km||km.key!==kmKey()) kmLoad();
+  if(km&&km.end) return;
+  if(!km){ // erster Standort dieser Tour
+    kmBusy=true; let base=0; const done=tour.stops.filter(s=>s.done&&s.ll);
+    if(dist(p,depot.ll)>150||done.length){ // nicht an der Kommissionierstelle: bisherigen Weg als Straßenstrecke nachrechnen
+      const pts=[depot.ll,...done.map(s=>s.ll),p];
+      for(let k=1;k<pts.length;k++) base+=await roadDist(pts[k-1],pts[k]); }
+    km={key:kmKey(),m:base,est:base,last:p,t:Date.now(),end:false}; kmBusy=false; kmSave(); updateEta(true); return; }
+  const d=dist(km.last,p), gap=Date.now()-km.t;
+  if(d<Math.max(10,(acc||0)*1.5)) return; // Zittern im Stand ignorieren
+  if(gap>60000&&d>300){ kmBusy=true; const r=await roadDist(km.last,p); km.m+=r; km.est+=r; kmBusy=false; } // Lücke (App nicht vorne): Straßenstrecke einsetzen
+  else km.m+=d;
+  km.last=p; km.t=Date.now(); kmSave(); }
+function kmEnd(){ if(km&&!km.end&&tour&&!tour.stops.some(s=>!s.done)){ km.end=true; km.endAt=Date.now(); kmSave(); } } // letzter Kunde abgehakt: Zähler steht
+const kmText=()=>km&&depot&&depot.ll?`${(km.m/1000).toFixed(1).replace(".",",")} km gefahren${km.end?" ✓":""}`:"";
 function updateEta(force){
   const el=$("eta"); if(!el) return;
   if(!tour||cur<0||!document.body.classList.contains("drive")){ el.hidden=true; return; }
@@ -2333,7 +2448,7 @@ function updateEta(force){
   const today=avgStand(tour.stops), h=Object.assign({n:0,sum:0},jget(STAND_KEY)), hist=h.n>=3?h.sum/h.n:null;
   const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??45000; // neue Fahrer: Start mit 45 Sekunden
   const sec=m/mps+open.length*per/1000;
-  el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit</small>`; }
+  el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit${kmText()?" · "+kmText():""}</small>`; }
 $("gmChip").addEventListener("click",()=>$("nextGmaps").click());
 $("backChip").addEventListener("click",()=>$("prev").click()); // wie „Zurück zum letzten Kunden“: jeder Druck einen Kunden zurück
  // gleicher Link wie „Mit Google Maps hinfahren“

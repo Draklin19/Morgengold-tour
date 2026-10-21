@@ -955,6 +955,7 @@ footer{font-size:.75rem;line-height:1.5}
 body.drive .stop .n{width:24px;height:24px;font-size:.72rem}
 a.btn{text-decoration:none}
 body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour):not(#rechBox),body.no-tour .jump,body.no-tour .map-start{display:none!important} /* ohne Tour nur das Nötigste */
+.eta-km{color:#7fe0a8;white-space:nowrap}
 </style><style>body{margin:0}
 /* Fahrt-Leiste (v=55): Nummer als eckiger Balken über der Adresse, drei Kunden füllen die ganze Höhe, großer Google-Knopf */
 body.drive .list{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}
@@ -983,7 +984,7 @@ body.drive .toast{bottom:calc(100px + env(safe-area-inset-bottom,0px))} /* über
 body.drive .back-chip{display:grid;place-items:center;pointer-events:auto;flex:0 0 auto;width:min(5.4rem,15cqi);border:0;border-radius:12px;background:#0b0d0c;color:#f2f5f3;box-shadow:0 2px 10px rgb(0 0 0 / .3);cursor:pointer;padding:6px;font:700 1.05rem/1.1 var(--font-body);font-size:min(1.05rem,3.4cqi)}
 @media (max-aspect-ratio:1/1){ /* Hochformat (v=71): Restzeit über die ganze Breite, darunter drei große Knöpfe */
  body.drive .map-bar{flex-wrap:wrap;width:calc(100% - 20px);gap:8px}
- body.drive .eta:not([hidden]){order:5;flex:1 1 100%;min-height:20cqi;display:flex!important;flex-direction:column;justify-content:center;font-size:5.6cqi!important;padding:8px 10px!important} /* v=76: Restzeit unten groß */
+ body.drive .eta:not([hidden]){order:5;flex:1 1 100%;min-height:20cqi;display:flex!important;flex-direction:column;justify-content:center;font-size:4.5cqi!important;padding:8px 10px!important} /* v=76: Restzeit unten groß */
  body.drive .back-chip,body.drive .gm-chip,body.drive .stop-chip:not([hidden]){flex:1 1 0!important;width:0!important;min-width:0!important;overflow:hidden;height:13cqi;padding:4px!important}
  body.drive .toast{bottom:calc(64vw + 40px)}
  body.drive .back-chip{font-size:4.2cqi!important} body.drive .gm-chip{font-size:3.4cqi!important} body.drive .gm-chip svg{width:5.5cqi;height:5.5cqi}
@@ -1034,7 +1035,7 @@ body.drive .side .dock-grip{background:#141816;border-color:#2a302d}
 body.drive .side .next-card::before{opacity:.6}
 body.drive .dock-tog{background:rgb(0 0 0 / .88);color:#f2f5f3}
 body.drive .eta:not([hidden]){background:rgb(0 0 0 / .85);color:#f2f5f3}
-body.drive .eta small{display:block;font-weight:600;font-size:.62em;color:var(--muted)}
+body.drive .eta small{display:block;white-space:normal;font-weight:600;font-size:.62em;color:var(--muted)}
 body.drive #map{container-type:size}
 
 /* v=85: Hauptseite unter der Karte aufgeräumt */
@@ -2641,8 +2642,8 @@ function updateEta(force){
   const mps=tour.road&&tour.road.sec&&km>0?km/tour.road.sec:8.3; // Fahrgeschwindigkeit aus der Straßenroute, sonst ca. 30 km/h
   const today=avgStand(tour.stops), h=Object.assign({n:0,sum:0},jget(STAND_KEY)), hist=h.n>=3?h.sum/h.n:null;
   const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??45000; // neue Fahrer: Start mit 45 Sekunden
-  const sec=m/mps+open.length*per/1000;
-  el.hidden=false; el.innerHTML=`Noch ${hm(sec)} · fertig ${hhmm(Date.now()+sec*1000)}<small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit${kmText()?" · "+kmText():""}</small>`; }
+  const sec=m/mps+open.length*per/1000; // v=98: m = Restkilometer bis zum letzten offenen Kunden, grün in der Leiste (zählt beim Fahren runter)
+  el.hidden=false; el.innerHTML=`<span>Noch ${hm(sec)} · <b class="eta-km">${(m/1000).toFixed(1).replace(".",",")} km</b> · fertig ${hhmm(Date.now()+sec*1000)}</span><small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit${kmText()?" · "+kmText():""}</small>`; }
 $("gmChip").addEventListener("click",()=>$("nextGmaps").click());
 $("backChip").addEventListener("click",()=>$("prev").click()); // wie „Zurück zum letzten Kunden“: jeder Druck einen Kunden zurück
  // gleicher Link wie „Mit Google Maps hinfahren“

@@ -956,6 +956,48 @@ body.drive .stop .n{width:24px;height:24px;font-size:.72rem}
 a.btn{text-decoration:none}
 body.no-tour .stats,body.no-tour #gTour,body.no-tour .side>.mode:not(#gTour):not(#rechBox),body.no-tour .jump,body.no-tour .map-start{display:none!important} /* ohne Tour nur das Nötigste */
 .eta-km{color:#7fe0a8;white-space:nowrap}
+/* v=99: Einstellungen im Stil der Handy-Einstellungen */
+#settings.set{background:transparent;box-shadow:none;border:0;padding:0;gap:0}
+.set-hd{display:flex;justify-content:space-between;align-items:center;margin:2px 4px 4px}
+.set-hd b{font:700 1.45rem var(--font-display)}
+.set-hd .btn{border-radius:999px;padding:8px 18px}
+.set-gl{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:16px 8px 6px}
+.set-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.set-row{display:block;border-top:1px solid var(--line)}
+.set-card>.set-row:first-child{border-top:0}
+.set-row>summary,.set-row.r{display:flex!important;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;list-style:none;min-height:30px}
+.set-row>summary::-webkit-details-marker{display:none}
+.set-row>summary::after{content:"›";color:var(--muted);font-size:1.3rem;line-height:1;transition:transform .2s}
+.set-row[open]>summary::after{transform:rotate(90deg)}
+.set-row .t{flex:1;min-width:0;font-weight:600;font-size:.98rem;text-align:left}
+.set-row .t small{display:block;font-weight:400;font-size:.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.set-row .ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:1rem;flex:none}
+.ic.c-blue{background:#e3eeff}.ic.c-green{background:#e0f4e9}.ic.c-amber{background:#fff1d1}.ic.c-purple{background:#eee6ff}.ic.c-gray{background:#eceef0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .ic{background:#26302c!important}}
+:root[data-theme="dark"] .ic{background:#26302c!important}
+.set-row .me-prev{width:32px;height:32px;border-width:1px;flex:none}
+.set-row .me-prev svg{width:20px;height:20px;margin-top:5px}
+.set-body{display:flex;flex-direction:column;gap:10px;padding:2px 14px 14px 58px}
+.set-body.pd-rech{border-top:0;padding-top:2px}
+.set-in{display:flex;gap:8px}
+.set-in input{flex:1;min-width:0;font:inherit;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.set-body .btn{padding:9px 14px}
+.set-body select{font:500 .95rem var(--font-body);padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.set-body .hint{font-size:.8rem;color:var(--muted);margin:0}
+input.sw{appearance:none;-webkit-appearance:none;width:50px;height:30px;border-radius:15px;background:var(--line);position:relative;flex:none;margin:0;cursor:pointer;transition:background .2s}
+input.sw::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgb(0 0 0 / .25);transition:transform .2s}
+input.sw:checked{background:#34c759}
+input.sw:checked::after{transform:translateX(20px)}
+input.sw:focus-visible{outline:3px solid var(--route);outline-offset:2px}
+.seg{display:flex;background:var(--bg);border-radius:10px;padding:2px;flex:none}
+.seg button{font:600 .9rem var(--font-body);border:0;background:transparent;color:var(--muted);padding:6px 10px;border-radius:8px;cursor:pointer}
+.seg button.on{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgb(0 0 0 / .15)}
+select.set-val{font:500 .95rem var(--font-body);border:0;background:transparent;color:var(--muted);padding:4px 2px;text-align:right;cursor:pointer;flex:none}
+.set-link{font:600 .98rem var(--font-body);border:0;background:transparent;color:var(--fg);padding:0;cursor:pointer;width:100%}
+button.set-row.set-link{border-top:1px solid var(--line)}
+.set-row .chev{color:var(--muted);font-size:1.3rem}
+.set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
+html.fahrer #pdBox{display:none!important}
 </style><style>body{margin:0}
 /* Fahrt-Leiste (v=55): Nummer als eckiger Balken über der Adresse, drei Kunden füllen die ganze Höhe, großer Google-Knopf */
 body.drive .list{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}
@@ -1139,54 +1181,65 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <a class="btn big" id="tourLink" href="#" target="_blank" rel="noopener" hidden>⬇ Tour herunterladen</a>
   </div>
 
-  <section class="mode" id="settings" hidden>
-    <span class="badge">Einstellungen</span>
-    <details class="mode more" id="pdBox"> <!-- v=96: persönliche Daten gesammelt in den Einstellungen -->
-      <summary>👤 Persönliche Daten</summary>
-      <div class="opts"><label for="mailTo">E-Mail-Empfänger <input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="mailToSave" type="button">Speichern</button></div>
-      <p class="hint">An wen Tourberichte und Rechnungen gehen (z. B. Morgengold / Timo). Am Ende der Tour fragt die App, ob der Bericht (nur Stopp-Nummern und Zeiten, keine Adressen) an diese Adresse gehen soll. Dein Mail-Programm öffnet sich, gesendet wird erst, wenn du auf Senden drückst.</p>
-      <div class="me-row"><span class="me-prev" id="mePrev"></span><label class="btn" for="meFile">Bild für deine Position wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div>
-      <p class="hint">Das Bild erscheint auf der Karte an deiner Position. Es bleibt nur auf diesem Handy und wird nicht hochgeladen.</p>
-      <div class="pd-rech">
-        <b>Für Rechnungen</b>
-        <label for="rcFrom">Absender (Name, Straße, PLZ Ort, E-Mail – je Zeile)</label><textarea id="rcFrom" rows="4"></textarea>
+  <section class="mode set" id="settings" hidden> <!-- v=99: Einstellungen neu: Gruppen auf Karten, Schalter, kurze Hinweise -->
+    <div class="set-hd"><b>Einstellungen</b><button class="btn primary" id="setClose" type="button">Fertig</button></div>
+    <div class="set-gl">Persönlich</div>
+    <div class="set-card">
+      <details class="set-row"><summary><span class="me-prev" id="mePrev"></span><span class="t">Bild für meine Position<small>Auf der Karte an deiner Position</small></span></summary>
+        <div class="set-body"><div class="opts"><label class="btn" for="meFile">Bild wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div></div></details>
+      <details class="set-row"><summary><span class="ic c-blue">✉️</span><span class="t">E-Mail-Empfänger<small id="mailSub"></small></span></summary>
+        <div class="set-body"><div class="set-in"><input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de"><button class="btn" id="mailToSave" type="button">Speichern</button></div>
+        <p class="hint">Für Tourberichte und Rechnungen. Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p></div></details>
+      <details class="set-row" id="pdBox"><summary><span class="ic c-amber">🧾</span><span class="t">Daten für Rechnungen<small>Absender, Empfänger, Bank, Preise</small></span></summary>
+        <div class="set-body pd-rech">
+          <label for="rcFrom">Absender (Name, Straße, PLZ Ort, E-Mail – je Zeile)</label><textarea id="rcFrom" rows="4"></textarea>
           <label for="rcTo">Empfänger (je Zeile)</label><textarea id="rcTo" rows="4"></textarea>
           <label for="rcBank">Bankverbindung (Inhaber, Bank, IBAN, BIC – je Zeile)</label><textarea id="rcBank" rows="4"></textarea>
           <div class="opts"><label for="rcKd">Kundennr. <input id="rcKd" type="text"></label></div>
           <div class="opts"><label for="rcPkm">€ pro km <input id="rcPkm" type="text" inputmode="decimal"></label><label for="rcAnf">Anfahrt km/Tag <input id="rcAnf" type="text" inputmode="decimal"></label><label for="rcPk">€ pro Kunde <input id="rcPk" type="text" inputmode="decimal"></label></div>
           <label for="rcNote">Hinweis unter der Rechnung</label><textarea id="rcNote" rows="3"></textarea>
-        <p class="hint">Die Rechnungsnummer bildet die App automatisch aus Ort und Monat (z. B. Rottweil-2026-10). Alles hier bleibt nur auf diesem Handy.</p>
-      </div>
-    </details>
-    <details class="mode more" id="rechBox"> <!-- v=94 (nur Admin): Rechnung aus Screenshots der Morgengold-Auslieferungsliste -->
-      <summary>🧾 Rechnung erstellen</summary>
-      <p class="hint">Screenshots der Liste „Auslieferungen“ von Morgengold hinzufügen. Die App liest sie direkt auf dem Handy aus, das Bild wird nicht hochgeladen. Zahlen, die nicht sicher erkannt wurden, sind rot markiert. Bitte mit dem Screenshot vergleichen und bei Bedarf korrigieren.</p>
-      <div class="opts"><label class="btn primary" for="rechFile">＋ Bild hinzufügen</label><input id="rechFile" type="file" accept="image/*" multiple hidden><button class="btn" id="rechClear" type="button">Liste leeren</button></div>
-      <p class="hint" id="rechState"></p>
-      <div class="opts"><label for="rechMon">Abrechnungsmonat <select id="rechMon"></select></label></div>
-      <div class="rech-wrap"><table class="rech-tbl" id="rechTbl"><thead><tr><th>Tag</th><th>Lief.</th><th>Gebäck</th><th>km</th><th></th></tr></thead><tbody id="rechRows"></tbody></table></div>
-      <div class="rech-sum" id="rechSum"></div>
-      <label for="rechAnl"><input type="checkbox" id="rechAnl"> Kontroll-Liste als Anlage an die Rechnung hängen</label>
-      <div class="opts"><button class="btn primary" id="rechPdf" type="button">🧾 Rechnung als PDF</button></div>
-    </details>
-    <div class="opts"><label for="tourUrl">Link zur Tour-Seite <input id="tourUrl" type="url" inputmode="url" placeholder="https://…" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
-    <p class="hint">Von dieser Seite lädst du Ausfahrliste und Routendatei herunter. Danach erscheint oben der Knopf „⬇ Tour herunterladen“.</p>
-    <div class="opts"><label for="depotAddr">Kommissionierstelle (Start) <input id="depotAddr" type="text" autocomplete="off" placeholder="Straße Nr, PLZ Ort" style="font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);min-width:14em"></label><button class="btn" id="depotSave" type="button">Speichern</button></div>
-    <p class="hint" id="depotHint">Ab hier zählt die App beim Fahren die Kilometer bis zum letzten Kunden. Die Adresse bleibt nur auf diesem Handy.</p>
-    <div class="opts"><label for="fontSel">Schriftgröße Tourleiste <select id="fontSel"><option value="0">1 (sehr klein)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (groß)</option></select></label>
-      <label for="dockSel">Tourleiste <select id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label></div>
-    <p class="hint">Gilt für die Ansicht nach „Tour starten“. Die Tourleiste lässt sich dort auch verschieben: oben auf „⠿“ gedrückt halten und an den gewünschten Rand ziehen.</p>
-    <label><input type="checkbox" id="voiceOn"> Sprachansage vor jedem Stopp („Gleich Hausnummer 18, Haus rechts“)</label>
-    <label><input type="checkbox" id="turnOn"> Abbiege-Ansagen nach „Tour starten“ („In 200 Metern rechts abbiegen auf Musterstraße“)</label>
-    <div class="opts"><label for="voiceSel">Stimme <select id="voiceSel"><option value="">Standard</option></select></label><button class="btn" id="voiceTry" type="button">🔊 Anhören</button></div>
-    <p class="hint" id="voiceHint">Welche Stimmen es gibt, hängt vom Handy ab. Weitere Stimmen lassen sich in den Handy-Einstellungen unter „Sprachausgabe“ bzw. „Text-in-Sprache“ herunterladen.</p>
-    <div class="opts"><button class="btn" id="sim" type="button">▶ Fahrt simulieren</button><label for="simSel">Tempo <select id="simSel"><option value="0">1 (langsam)</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5 (schnell)</option></select></label></div>
-    <p class="hint">Zeigt ohne GPS, wie die Fahrt abläuft und Stopps abgehakt werden. Die Einstellungen schließen sich dabei. Zum Beenden hier wieder auf „Simulation stoppen“ tippen.</p>
-    <div class="opts"><span id="corrInfo">Eigene Hauspunkte: 0</span><button class="btn" id="corrClear" type="button">Eigene Hauspunkte löschen</button></div>
-    <p class="hint">Liegt ein Haus auf der Karte falsch: lange auf die Adresse in der Liste drücken und den Pin auf das richtige Haus ziehen, oder lange auf das richtige Haus in der Karte drücken und „Hauspunkt hier setzen“ tippen. Der Punkt bleibt nur auf diesem Handy und gilt für jede weitere Tour mit dieser Adresse. Stopps mit ⚠ liegen weit weg von der Stelle, die OpenStreetMap für die Adresse kennt.</p>
-    <div class="opts"><button class="btn" id="codeSwitch" type="button">🔑 Anderen Zugangscode eingeben</button></div>
-    <p class="hint">Die App fragt danach wieder nach dem Zugangscode.</p>
-    <div class="opts"><button class="btn primary" id="setClose" type="button">Fertig</button></div>
+          <p class="hint">Die Rechnungsnummer bildet die App aus Ort und Monat (z. B. Rottweil-2026-10).</p>
+        </div></details>
+    </div>
+    <div class="set-gl">Tour</div>
+    <div class="set-card">
+      <details class="set-row"><summary><span class="ic c-green">📍</span><span class="t">Kommissionierstelle (Start)<small id="depotSub"></small></span></summary>
+        <div class="set-body"><div class="set-in"><input id="depotAddr" type="text" autocomplete="off" placeholder="Straße Nr, PLZ Ort"><button class="btn" id="depotSave" type="button">Speichern</button></div>
+        <p class="hint" id="depotHint">Ab hier zählt die App beim Fahren die Kilometer bis zum letzten Kunden. Die Adresse bleibt nur auf diesem Handy.</p></div></details>
+      <details class="set-row"><summary><span class="ic c-green">🔗</span><span class="t">Link zur Tour-Seite<small id="tourUrlSub"></small></span></summary>
+        <div class="set-body"><div class="set-in"><input id="tourUrl" type="url" inputmode="url" placeholder="https://…"><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
+        <p class="hint">Von dort lädst du Ausfahrliste und Routendatei. Oben erscheint dann „⬇ Tour herunterladen“.</p></div></details>
+      <details class="set-row" id="rechBox"><summary><span class="ic c-amber">🧾</span><span class="t">Rechnung erstellen<small>Aus Screenshots der Auslieferungsliste</small></span></summary> <!-- v=94 (nur Admin) -->
+        <div class="set-body">
+          <p class="hint">Screenshots der Liste „Auslieferungen“ hinzufügen. Die App liest sie auf dem Handy aus, nichts wird hochgeladen. Unsichere Zahlen sind rot markiert, bitte mit dem Screenshot vergleichen.</p>
+          <div class="opts"><label class="btn primary" for="rechFile">＋ Bild hinzufügen</label><input id="rechFile" type="file" accept="image/*" multiple hidden><button class="btn" id="rechClear" type="button">Liste leeren</button></div>
+          <p class="hint" id="rechState"></p>
+          <div class="opts"><label for="rechMon">Abrechnungsmonat <select id="rechMon"></select></label></div>
+          <div class="rech-wrap"><table class="rech-tbl" id="rechTbl"><thead><tr><th>Tag</th><th>Lief.</th><th>Gebäck</th><th>km</th><th></th></tr></thead><tbody id="rechRows"></tbody></table></div>
+          <div class="rech-sum" id="rechSum"></div>
+          <label for="rechAnl"><input type="checkbox" id="rechAnl"> Kontroll-Liste als Anlage anhängen</label>
+          <div class="opts"><button class="btn primary" id="rechPdf" type="button">🧾 Rechnung als PDF</button></div>
+        </div></details>
+    </div>
+    <div class="set-gl">Beim Fahren</div>
+    <div class="set-card">
+      <label class="set-row r" for="voiceOn"><span class="ic c-purple">🔊</span><span class="t">Ansage vor jedem Stopp<small>„Gleich Hausnummer 18, Haus rechts“</small></span><input type="checkbox" class="sw" id="voiceOn"></label>
+      <label class="set-row r" for="turnOn"><span class="ic c-purple">↪️</span><span class="t">Abbiege-Ansagen<small>„In 200 Metern rechts abbiegen“</small></span><input type="checkbox" class="sw" id="turnOn"></label>
+      <details class="set-row"><summary><span class="ic c-purple">🗣</span><span class="t">Stimme<small id="voiceSub">Standard</small></span></summary>
+        <div class="set-body"><div class="opts"><select id="voiceSel" aria-label="Stimme"><option value="">Standard</option></select><button class="btn" id="voiceTry" type="button">🔊 Anhören</button></div>
+        <p class="hint" id="voiceHint">Welche Stimmen es gibt, hängt vom Handy ab. Weitere lassen sich in den Handy-Einstellungen unter „Text-in-Sprache“ laden.</p></div></details>
+      <div class="set-row r"><span class="ic c-blue">🔤</span><span class="t">Schrift</span><span class="seg" id="fontSeg" role="group" aria-label="Schriftgröße Tourleiste"></span><select id="fontSel" hidden><option value="0">1</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5</option></select></div>
+      <label class="set-row r" for="dockSel"><span class="ic c-blue">▥</span><span class="t">Tourleiste<small>Im Querformat</small></span><select class="set-val" id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label>
+    </div>
+    <div class="set-gl">Werkzeuge</div>
+    <div class="set-card">
+      <div class="set-row r"><span class="ic c-gray">🚗</span><button class="t set-link" id="sim" type="button">▶ Fahrt simulieren</button><select class="set-val" id="simSel" aria-label="Tempo"><option value="0">Tempo 1</option><option value="1">Tempo 2</option><option value="2">Tempo 3</option><option value="3">Tempo 4</option><option value="4">Tempo 5</option></select></div>
+      <details class="set-row"><summary><span class="ic c-gray">🏠</span><span class="t">Eigene Hauspunkte<small id="corrInfo">0 gespeichert</small></span></summary>
+        <div class="set-body"><p class="hint">Haus falsch auf der Karte? Lange auf die Adresse in der Liste drücken und den Pin aufs richtige Haus ziehen. Der Punkt gilt auf diesem Handy für jede weitere Tour.</p>
+        <div class="opts"><button class="btn" id="corrClear" type="button">Alle eigenen Hauspunkte löschen</button></div></div></details>
+      <button class="set-row r set-link" id="codeSwitch" type="button"><span class="ic c-gray">🔑</span><span class="t">Anderen Zugangscode eingeben</span><span class="chev">›</span></button>
+    </div>
+    <p class="set-foot">🔒 Alles bleibt nur auf diesem Handy.</p>
   </section>
 
   <div class="confirm" id="confirmBox" hidden>
@@ -1488,7 +1541,7 @@ function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s
 function resetPos(i){ const s=tour.stops[i], k=addrKey(s), c=jget(CORR_KEY); delete c[k]; jset(CORR_KEY,c);
   if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; s.said=false;
   map.closePopup(); corrUi(); render(); routeTour(); checkTour(); toast(`Stopp ${i+1}: Punkt aus der Routendatei`); }
-function corrUi(){ $("corrInfo").textContent="Eigene Hauspunkte: "+Object.keys(jget(CORR_KEY)).length; }
+function corrUi(){ $("corrInfo").textContent=Object.keys(jget(CORR_KEY)).length+" gespeichert"; }
 // Abgleich: jede Adresse bei OpenStreetMap suchen (nur Straße, Hausnummer, Ort) und mit dem Punkt aus der .bcr vergleichen.
 // Nur wenn OpenStreetMap genau dieses Haus kennt; mehr als 80 m Abstand = ⚠. Ergebnisse bleiben auf dem Handy, damit
 // dieselbe Adresse nicht jeden Tag neu gesucht wird.
@@ -2550,7 +2603,18 @@ $("pinSave").addEventListener("click",()=>{ if(!pinEdit) return; const {i,m}=pin
   ["pointerup","pointercancel"].forEach(t=>window.addEventListener(t,()=>{ clearTimeout(hold); hold=null; if(held){ held=false; swallow(); } })); // Finger kann nach dem Scrollen zur Karte woanders losgelassen werden
   list.addEventListener("click",e=>{ if(eat){ e.preventDefault(); e.stopPropagation(); } },true); // Klick nach dem Wischen nicht doppelt zählen
 })();
-const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o));};
+// v=99: Untertitel in den Einstellungen (zeigen nur, ob etwas eingetragen ist)
+function setSubs(){
+  const mt=$("mailTo").value.trim(); $("mailSub").textContent=mt||"Nicht eingetragen";
+  let u=""; try{ u=new URL($("tourUrl").value.trim()).hostname; }catch(e){} $("tourUrlSub").textContent=u||"Nicht eingetragen";
+  $("depotSub").textContent=!depot?"Nicht eingetragen":depot.ll?"✓ Gefunden":"⚠ Adresse nicht gefunden";
+  const vs=$("voiceSel"); $("voiceSub").textContent=vs.selectedIndex>=0?vs.options[vs.selectedIndex].text:"Standard";
+  [...$("fontSeg").children].forEach((b,i)=>b.classList.toggle("on",i===+$("fontSel").value)); }
+[0,1,2,3,4].forEach(i=>{ const b=document.createElement("button"); b.type="button"; b.textContent=i+1; b.setAttribute("aria-label","Schriftgröße "+(i+1));
+  b.addEventListener("click",()=>{ $("fontSel").value=String(i); $("fontSel").dispatchEvent(new Event("change")); setSubs(); }); $("fontSeg").appendChild(b); });
+["mailToSave","tourUrlSave","depotSave"].forEach(id=>$(id).addEventListener("click",()=>setTimeout(setSubs,50)));
+$("voiceSel").addEventListener("change",setSubs);
+const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o)); if(o) setSubs();};
 $("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));
 $("setClose").addEventListener("click",()=>setOpen(false));
 $("sim").addEventListener("click",()=>{ if(simTimer){ setOpen(false); $("map").scrollIntoView({behavior:"smooth",block:"center"}); } });
@@ -2607,7 +2671,7 @@ depotUi();
 $("depotSave").addEventListener("click",async()=>{ const a=$("depotAddr").value.trim(); if(!a){ depot=null; try{localStorage.removeItem(DEPOT_KEY);}catch(e){} depotUi(); return; }
   $("depotHint").textContent="Suche Adresse …"; let ll=null;
   try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); if(ll&&ll[2]===1) ll=null; }catch(e){}
-  depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); if(tour) render(); });
+  depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); try{ setSubs(); }catch(e){} if(tour) render(); });
 async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
 let km=null, kmBusy=false;
 const kmKey=()=>tourTitle()+"|"+tourDay();

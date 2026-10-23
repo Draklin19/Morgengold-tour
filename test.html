@@ -998,6 +998,10 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
+.sim-speed{display:none}
+body.sim .sim-speed{display:flex;flex-direction:column;align-items:center;gap:6px;position:absolute;right:10px;top:50%;transform:translateY(-50%);z-index:1001;background:var(--surface);border-radius:999px;padding:10px 6px;box-shadow:var(--shadow);font-size:1.2rem}
+.sim-track{width:36px;height:190px;position:relative}
+.sim-track input{position:absolute;left:50%;top:50%;width:190px;margin:0;transform:translate(-50%,-50%) rotate(-90deg);accent-color:var(--route);height:30px}
 body.no-tour #restartTop{display:none}
 #restartTop{font-size:1.35rem;font-weight:700}
 /* v=103: Hinweise beim Fahren oben auf der Karte */
@@ -1265,7 +1269,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     </div>
     <div class="set-gl" data-grp="3">Werkzeuge</div>
     <div class="set-card" data-grp="3">
-      <div class="set-row r"><span class="ic c-gray">🚗</span><button class="t set-link" id="sim" type="button">▶ Fahrt simulieren</button><select class="set-val" id="simSel" aria-label="Tempo"><option value="0">Tempo 1</option><option value="1">Tempo 2</option><option value="2">Tempo 3</option><option value="3">Tempo 4</option><option value="4">Tempo 5</option></select></div>
+      <div class="set-row r"><span class="ic c-gray">🚗</span><button class="t set-link" id="sim" type="button">▶ Fahrt simulieren</button></div>
       <details class="set-row"><summary><span class="ic c-gray">🏠</span><span class="t">Eigene Hauspunkte<small id="corrInfo">0 gespeichert</small></span></summary>
         <div class="set-body"><p class="hint">Haus falsch auf der Karte? Lange auf die Adresse in der Liste drücken und den Pin aufs richtige Haus ziehen. Der Punkt gilt auf diesem Handy für jede weitere Tour.</p>
         <ul class="corr-list" id="corrList"></ul>
@@ -1300,7 +1304,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
   </section>
 
   <div class="main">
-    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="drive-ban gps-ban" id="gpsBan" role="alert" hidden>⚠ Kein GPS-Signal<small>Deine Position wird gerade nicht aktualisiert</small></div><button type="button" class="drive-ban note-ban" id="noteBan" hidden></button><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
+    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="sim-speed" id="simSpeed"><span aria-hidden="true">🐇</span><div class="sim-track"><input type="range" id="simRange" min="2" max="60" step="1" aria-label="Tempo der Simulation"></div><span aria-hidden="true">🐢</span></div><div class="drive-ban gps-ban" id="gpsBan" role="alert" hidden>⚠ Kein GPS-Signal<small>Deine Position wird gerade nicht aktualisiert</small></div><button type="button" class="drive-ban note-ban" id="noteBan" hidden></button><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
       <section class="mode gtour" id="gTour"> <!-- v=92: Google-Abschnitte direkt unter der Karte, immer offen -->
@@ -2037,10 +2041,11 @@ function updateHouseNo(){ let el=$("houseNo"); if(!el){ el=document.createElemen
 function setSideBar(side){ let b=$("sideBar"); if(!b){ b=document.createElement("div"); b.id="sideBar"; b.innerHTML="<span></span>"; $("map").appendChild(b); }
   b.className=side==="links"||side==="rechts"?side:""; b.firstChild.textContent=side?`HAUS ${side.toUpperCase()}`:""; }
 // Simulationstempo: 5 Stufen, Stufe 5 = bisheriges Tempo (40 m pro Takt)
-const SIM_KEY="navi-simtempo", SIM_STEPS=[8,16,24,32,40]; let simIdxSpeed=2;
-try{ const v=localStorage.getItem(SIM_KEY); if(v!==null&&SIM_STEPS[+v]) simIdxSpeed=+v; }catch(e){}
-$("simSel").value=String(simIdxSpeed);
-$("simSel").addEventListener("change",e=>{ simIdxSpeed=+e.target.value; try{localStorage.setItem(SIM_KEY,simIdxSpeed);}catch(x){} });
+// v=105: Tempo der Simulation mit Schieberegler am Kartenrand (Meter pro Takt), statt Tempo-Menü in den Einstellungen
+const SIM_KEY="navi-simtempo-m"; let simM=24;
+try{ const v=+localStorage.getItem(SIM_KEY); if(v>=2&&v<=60) simM=v; }catch(e){}
+$("simRange").value=String(simM);
+$("simRange").addEventListener("input",e=>{ simM=+e.target.value; try{localStorage.setItem(SIM_KEY,simM);}catch(x){} });
 // Springt der Fahrer zu einem späteren Haus vor, merkt sich die App den offenen Stopp davor (backTo).
 // Nach dem Abhaken geht es dorthin zurück, statt ihn zu überspringen.
 let backTo=-1;
@@ -2181,7 +2186,7 @@ $("sim").addEventListener("click",()=>{
   if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[34,42],iconAnchor:[17,42]}),zIndexOffset:2000});
   car.setLatLng(carPos).addTo(map); $("sim").textContent="■ Simulation stoppen"; document.body.classList.add("sim"); gpsAcc=0; head=null; headFrom=null;
   simTimer=setInterval(()=>{
-    let left=SIM_STEPS[simIdxSpeed]; // Meter pro Takt, im Tempo-Menü änderbar
+    let left=simM; // Meter pro Takt, mit dem Schieberegler änderbar
     while(left>0&&simIdx<line.length-1){
       const nxt=line[simIdx+1], d=dist(carPos,nxt);
       if(d<=left){carPos=nxt.slice();simIdx++;left-=d;}

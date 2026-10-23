@@ -998,6 +998,9 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
+.set-sub{display:flex!important;align-items:center;gap:10px;min-height:34px}
+.set-sub .t{font-weight:600;font-size:.95rem}
+.set-body select{max-width:11em}
 </style><style>body{margin:0}
 /* Fahrt-Leiste (v=55): Nummer als eckiger Balken über der Adresse, drei Kunden füllen die ganze Höhe, großer Google-Knopf */
 body.drive .list{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}
@@ -1223,13 +1226,18 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     </div>
     <div class="set-gl">Beim Fahren</div>
     <div class="set-card">
-      <label class="set-row r" for="voiceOn"><span class="ic c-purple">🔊</span><span class="t">Ansage vor jedem Stopp<small>„Gleich Hausnummer 18, Haus rechts“</small></span><input type="checkbox" class="sw" id="voiceOn"></label>
-      <label class="set-row r" for="turnOn"><span class="ic c-purple">↪️</span><span class="t">Abbiege-Ansagen<small>„In 200 Metern rechts abbiegen“</small></span><input type="checkbox" class="sw" id="turnOn"></label>
-      <details class="set-row"><summary><span class="ic c-purple">🗣</span><span class="t">Stimme<small id="voiceSub">Standard</small></span></summary>
-        <div class="set-body"><div class="opts"><select id="voiceSel" aria-label="Stimme"><option value="">Standard</option></select><button class="btn" id="voiceTry" type="button">🔊 Anhören</button></div>
-        <p class="hint" id="voiceHint">Welche Stimmen es gibt, hängt vom Handy ab. Weitere lassen sich in den Handy-Einstellungen unter „Text-in-Sprache“ laden.</p></div></details>
-      <div class="set-row r"><span class="ic c-blue">🔤</span><span class="t">Schrift</span><span class="seg" id="fontSeg" role="group" aria-label="Schriftgröße Tourleiste"></span><select id="fontSel" hidden><option value="0">1</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5</option></select></div>
-      <label class="set-row r" for="dockSel"><span class="ic c-blue">▥</span><span class="t">Tourleiste<small>Im Querformat</small></span><select class="set-val" id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label>
+      <details class="set-row"><summary><span class="ic c-purple">🔊</span><span class="t">Sprachansagen<small id="voiceSub"></small></span></summary> <!-- v=100: Ansagen + Stimme zusammengeführt -->
+        <div class="set-body">
+          <label class="set-sub" for="voiceOn"><span class="t">Ansage vor jedem Stopp<small>„Gleich Hausnummer 18, Haus rechts“</small></span><input type="checkbox" class="sw" id="voiceOn"></label>
+          <label class="set-sub" for="turnOn"><span class="t">Abbiege-Ansagen<small>„In 200 Metern rechts abbiegen“</small></span><input type="checkbox" class="sw" id="turnOn"></label>
+          <div class="set-sub"><span class="t">Stimme</span><select id="voiceSel" aria-label="Stimme"><option value="">Standard</option></select><button class="btn" id="voiceTry" type="button" aria-label="Stimme anhören">🔊</button></div>
+          <p class="hint" id="voiceHint">Welche Stimmen es gibt, hängt vom Handy ab. Weitere lassen sich in den Handy-Einstellungen unter „Text-in-Sprache“ laden.</p>
+        </div></details>
+      <details class="set-row"><summary><span class="ic c-blue">🔤</span><span class="t">Anzeige beim Fahren<small id="viewSub"></small></span></summary> <!-- v=100: Schrift + Tourleiste zusammengeführt -->
+        <div class="set-body">
+          <div class="set-sub"><span class="t">Schrift</span><span class="seg" id="fontSeg" role="group" aria-label="Schriftgröße Tourleiste"></span><select id="fontSel" hidden><option value="0">1</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5</option></select></div>
+          <label class="set-sub" for="dockSel"><span class="t">Tourleiste<small>Im Querformat</small></span><select id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label>
+        </div></details>
     </div>
     <div class="set-gl">Werkzeuge</div>
     <div class="set-card">
@@ -2608,12 +2616,13 @@ function setSubs(){
   const mt=$("mailTo").value.trim(); $("mailSub").textContent=mt||"Nicht eingetragen";
   let u=""; try{ u=new URL($("tourUrl").value.trim()).hostname; }catch(e){} $("tourUrlSub").textContent=u||"Nicht eingetragen";
   $("depotSub").textContent=!depot?"Nicht eingetragen":depot.ll?"✓ Gefunden":"⚠ Adresse nicht gefunden";
-  const vs=$("voiceSel"); $("voiceSub").textContent=vs.selectedIndex>=0?vs.options[vs.selectedIndex].text:"Standard";
+  const on=[$("voiceOn").checked&&"Stopps",$("turnOn").checked&&"Abbiegen"].filter(Boolean); $("voiceSub").textContent=on.length?"An: "+on.join(" und "):"Aus";
+  $("viewSub").textContent="Schrift "+(+$("fontSel").value+1)+" · Tourleiste "+$("dockSel").options[$("dockSel").selectedIndex].text;
   [...$("fontSeg").children].forEach((b,i)=>b.classList.toggle("on",i===+$("fontSel").value)); }
 [0,1,2,3,4].forEach(i=>{ const b=document.createElement("button"); b.type="button"; b.textContent=i+1; b.setAttribute("aria-label","Schriftgröße "+(i+1));
   b.addEventListener("click",()=>{ $("fontSel").value=String(i); $("fontSel").dispatchEvent(new Event("change")); setSubs(); }); $("fontSeg").appendChild(b); });
 ["mailToSave","tourUrlSave","depotSave"].forEach(id=>$(id).addEventListener("click",()=>setTimeout(setSubs,50)));
-$("voiceSel").addEventListener("change",setSubs);
+["voiceOn","turnOn","dockSel"].forEach(id=>$(id).addEventListener("change",setSubs));
 const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o)); if(o) setSubs();};
 $("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));
 $("setClose").addEventListener("click",()=>setOpen(false));

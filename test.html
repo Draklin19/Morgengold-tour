@@ -998,6 +998,18 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
+.set-tabs{display:flex;background:var(--line);border-radius:12px;padding:3px;margin:8px 0 4px;gap:2px}
+.set-tabs button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;font:600 .78rem var(--font-body);border:0;background:transparent;color:var(--muted);padding:9px 2px;border-radius:9px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.set-tabs .ti{font-size:1.1rem;line-height:1.2}
+.set-tabs button.on{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgb(0 0 0 / .15)}
+#settings.tabbed .set-gl{display:none}
+#settings.tabbed .set-card{margin-top:10px}
+#settings.tabbed [data-grp].off{display:none}
+.corr-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.corr-list li{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:.92rem}
+.corr-list li:first-child{border-top:0}
+.corr-list li span{flex:1;min-width:0}
+.corr-list li button{font:600 .85rem var(--font-body);border:1px solid var(--line);background:var(--surface);color:#c0392b;border-radius:8px;padding:5px 10px;cursor:pointer}
 .set-sub{display:flex!important;align-items:center;gap:10px;min-height:34px}
 .set-sub .t{font-weight:600;font-size:.95rem}
 .set-body select{max-width:11em}
@@ -1186,8 +1198,9 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
 
   <section class="mode set" id="settings" hidden> <!-- v=99: Einstellungen neu: Gruppen auf Karten, Schalter, kurze Hinweise -->
     <div class="set-hd"><b>Einstellungen</b><button class="btn primary" id="setClose" type="button">Fertig</button></div>
-    <div class="set-gl">Persönlich</div>
-    <div class="set-card">
+    <div class="set-tabs" id="setTabs" role="tablist" aria-label="Einstellungen-Gruppen"><button type="button" role="tab" data-g="0"><span class="ti">👤</span>Persönlich</button><button type="button" role="tab" data-g="1"><span class="ti">🗺</span>Tour</button><button type="button" role="tab" data-g="2"><span class="ti">🚗</span>Fahren</button><button type="button" role="tab" data-g="3"><span class="ti">🛠</span>Werkzeuge</button></div> <!-- v=101: Gruppen als Leiste auswählbar -->
+    <div class="set-gl" data-grp="0">Persönlich</div>
+    <div class="set-card" data-grp="0">
       <details class="set-row"><summary><span class="me-prev" id="mePrev"></span><span class="t">Bild für meine Position<small>Auf der Karte an deiner Position</small></span></summary>
         <div class="set-body"><div class="opts"><label class="btn" for="meFile">Bild wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div></div></details>
       <details class="set-row"><summary><span class="ic c-blue">✉️</span><span class="t">E-Mail-Empfänger<small id="mailSub"></small></span></summary>
@@ -1204,8 +1217,8 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
           <p class="hint">Die Rechnungsnummer bildet die App aus Ort und Monat (z. B. Rottweil-2026-10).</p>
         </div></details>
     </div>
-    <div class="set-gl">Tour</div>
-    <div class="set-card">
+    <div class="set-gl" data-grp="1">Tour</div>
+    <div class="set-card" data-grp="1">
       <details class="set-row"><summary><span class="ic c-green">📍</span><span class="t">Kommissionierstelle (Start)<small id="depotSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="depotAddr" type="text" autocomplete="off" placeholder="Straße Nr, PLZ Ort"><button class="btn" id="depotSave" type="button">Speichern</button></div>
         <p class="hint" id="depotHint">Ab hier zählt die App beim Fahren die Kilometer bis zum letzten Kunden. Die Adresse bleibt nur auf diesem Handy.</p></div></details>
@@ -1224,8 +1237,8 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
           <div class="opts"><button class="btn primary" id="rechPdf" type="button">🧾 Rechnung als PDF</button></div>
         </div></details>
     </div>
-    <div class="set-gl">Beim Fahren</div>
-    <div class="set-card">
+    <div class="set-gl" data-grp="2">Beim Fahren</div>
+    <div class="set-card" data-grp="2">
       <details class="set-row"><summary><span class="ic c-purple">🔊</span><span class="t">Sprachansagen<small id="voiceSub"></small></span></summary> <!-- v=100: Ansagen + Stimme zusammengeführt -->
         <div class="set-body">
           <label class="set-sub" for="voiceOn"><span class="t">Ansage vor jedem Stopp<small>„Gleich Hausnummer 18, Haus rechts“</small></span><input type="checkbox" class="sw" id="voiceOn"></label>
@@ -1239,11 +1252,12 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
           <label class="set-sub" for="dockSel"><span class="t">Tourleiste<small>Im Querformat</small></span><select id="dockSel"><option value="left">links</option><option value="right">rechts</option><option value="top">oben</option><option value="bottom">unten</option></select></label>
         </div></details>
     </div>
-    <div class="set-gl">Werkzeuge</div>
-    <div class="set-card">
+    <div class="set-gl" data-grp="3">Werkzeuge</div>
+    <div class="set-card" data-grp="3">
       <div class="set-row r"><span class="ic c-gray">🚗</span><button class="t set-link" id="sim" type="button">▶ Fahrt simulieren</button><select class="set-val" id="simSel" aria-label="Tempo"><option value="0">Tempo 1</option><option value="1">Tempo 2</option><option value="2">Tempo 3</option><option value="3">Tempo 4</option><option value="4">Tempo 5</option></select></div>
       <details class="set-row"><summary><span class="ic c-gray">🏠</span><span class="t">Eigene Hauspunkte<small id="corrInfo">0 gespeichert</small></span></summary>
         <div class="set-body"><p class="hint">Haus falsch auf der Karte? Lange auf die Adresse in der Liste drücken und den Pin aufs richtige Haus ziehen. Der Punkt gilt auf diesem Handy für jede weitere Tour.</p>
+        <ul class="corr-list" id="corrList"></ul>
         <div class="opts"><button class="btn" id="corrClear" type="button">Alle eigenen Hauspunkte löschen</button></div></div></details>
       <button class="set-row r set-link" id="codeSwitch" type="button"><span class="ic c-gray">🔑</span><span class="t">Anderen Zugangscode eingeben</span><span class="chev">›</span></button>
     </div>
@@ -1536,20 +1550,29 @@ async function geocodeTour(){
 }
 // Eigene Hauspunkte: pro Adresse nur auf diesem Handy gespeichert (localStorage navi-korrektur) und bei jeder Tour
 // mit derselben Adresse benutzt, für Karte, Google-Link, Haus links/rechts und Ansage.
-const CORR_KEY="navi-korrektur", OSM_KEY="navi-osmpunkte", WARN_M=80;
+const CORR_KEY="navi-korrektur", OSM_KEY="navi-osmpunkte", WARN_M=80, CORR_NAME_KEY="navi-korrektur-namen"; // v=101: Straße + Ort je eigenem Hauspunkt, nur zur Anzeige, bleibt auf dem Handy
+const corrName=s=>[s.addr,(s.town||"").trim()].filter(Boolean).join(", ");
 const jget=k=>{ try{ return JSON.parse(localStorage.getItem(k)||"{}")||{}; }catch(e){ return {}; } };
 const jset=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} };
 const addrKey=s=>s.addr?(s.addr+"|"+(((s.town||"").match(/\d{5}/)||[""])[0])).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/[^a-z0-9äöü|]/g,""):"";
 function applyCorr(t){ if(typeof cmpLayer!=="undefined"&&cmpLayer){ cmpLayer.clearLayers(); const l=document.getElementById("cmpList"); if(l){ l.hidden=true; document.getElementById("cmpState").textContent=""; } } const c=jget(CORR_KEY);
-  t.stops.forEach(s=>{ const k=addrKey(s), p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; } }); }
+  const nm=jget(CORR_NAME_KEY); let nn=false;
+  t.stops.forEach(s=>{ const k=addrKey(s), p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; if(!nm[k]){ nm[k]=corrName(s); nn=true; } } }); if(nn){ jset(CORR_NAME_KEY,nm); corrUi(); } }
 function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s.ll;
   s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.approx=false; s.said=false;
-  if(k){ const c=jget(CORR_KEY); c[k]=s.ll; jset(CORR_KEY,c); }
+  if(k){ const c=jget(CORR_KEY); c[k]=s.ll; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); nm[k]=corrName(s); jset(CORR_NAME_KEY,nm); }
   map.closePopup(); corrUi(); render(); routeTour(); toast(`Hauspunkt für Stopp ${i+1} gespeichert`); }
-function resetPos(i){ const s=tour.stops[i], k=addrKey(s), c=jget(CORR_KEY); delete c[k]; jset(CORR_KEY,c);
+function resetPos(i){ const s=tour.stops[i], k=addrKey(s), c=jget(CORR_KEY); delete c[k]; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); delete nm[k]; jset(CORR_NAME_KEY,nm);
   if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; s.said=false;
   map.closePopup(); corrUi(); render(); routeTour(); checkTour(); toast(`Stopp ${i+1}: Punkt aus der Routendatei`); }
-function corrUi(){ $("corrInfo").textContent=Object.keys(jget(CORR_KEY)).length+" gespeichert"; }
+function corrUi(){ const c=jget(CORR_KEY), nm=jget(CORR_NAME_KEY), ks=Object.keys(c); $("corrInfo").textContent=ks.length+" gespeichert";
+  const ul=$("corrList"); if(!ul) return; ul.innerHTML="";
+  ks.map(k=>[k,nm[k]||k.replace(/([a-zäöü])(\d)/,"$1 $2").replace("|"," · ")]).sort((a,b)=>a[1].localeCompare(b[1],"de")).forEach(([k,label])=>{ // ältere Punkte ohne gespeicherten Namen: Kurzform aus dem Schlüssel
+    const li=document.createElement("li"), sp=document.createElement("span"), b=document.createElement("button");
+    sp.textContent=label; b.type="button"; b.textContent="✕"; b.setAttribute("aria-label","Hauspunkt löschen: "+label);
+    b.addEventListener("click",()=>{ const i=tour?tour.stops.findIndex(s=>addrKey(s)===k):-1;
+      if(i>=0) resetPos(i); else { const c2=jget(CORR_KEY), n2=jget(CORR_NAME_KEY); delete c2[k]; delete n2[k]; jset(CORR_KEY,c2); jset(CORR_NAME_KEY,n2); corrUi(); toast("Hauspunkt gelöscht"); } });
+    li.append(sp,b); ul.appendChild(li); }); }
 // Abgleich: jede Adresse bei OpenStreetMap suchen (nur Straße, Hausnummer, Ort) und mit dem Punkt aus der .bcr vergleichen.
 // Nur wenn OpenStreetMap genau dieses Haus kennt; mehr als 80 m Abstand = ⚠. Ergebnisse bleiben auf dem Handy, damit
 // dieselbe Adresse nicht jeden Tag neu gesucht wird.
@@ -2266,7 +2289,7 @@ function rechDraw(){ const tb=$("rechRows"); tb.textContent=""; rechPickMonth(fa
 async function rechPdf(){
   const k=rechCalc(), c=k.c;
   if(!k.tage){ toast("Keine Liefertage im gewählten Monat."); return; }
-  if(!c.from.trim()||!c.to.trim()){ toast("Bitte zuerst unter „👤 Persönliche Daten“ Absender und Empfänger eintragen."); $("pdBox").open=true; $("pdBox").scrollIntoView({block:"start"}); return; }
+  if(!c.from.trim()||!c.to.trim()){ toast("Bitte zuerst unter „👤 Persönliche Daten“ Absender und Empfänger eintragen."); setTab(0); $("pdBox").open=true; $("pdBox").scrollIntoView({block:"start"}); return; }
   if(k.bad&&!await ask("Nicht alles sicher erkannt",`${k.bad} Position${k.bad>1?"en sind":" ist"} noch rot markiert. Trotzdem eine Rechnung erstellen?`,"Trotzdem erstellen","Abbrechen")) return;
   try{ await loadJs(JSPDF_JS); }catch(x){ toast(x.message); return; }
   const {jsPDF}=window.jspdf, doc=new jsPDF({unit:"mm",format:"a4"}), G=[31,111,92], L=20, R=190;
@@ -2542,7 +2565,7 @@ $("geoBtn").addEventListener("click",geocodeTour);
 corrUi();
 $("corrClear").addEventListener("click",async()=>{
   if(!await ask("Eigene Hauspunkte löschen?","Alle selbst gesetzten Hauspunkte und gemerkten Adressen werden von diesem Handy entfernt. Danach gelten wieder die Punkte aus der Routendatei.","Löschen","Abbrechen")) return;
-  try{ localStorage.removeItem(CORR_KEY); localStorage.removeItem(OSM_KEY); }catch(e){}
+  try{ localStorage.removeItem(CORR_KEY); localStorage.removeItem(OSM_KEY); localStorage.removeItem(CORR_NAME_KEY); }catch(e){}
   if(tour) tour.stops.forEach(s=>{ if(s.fixed){ if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; } s.warn=false; s.osm=null; });
   corrUi(); if(tour){ render(); routeTour(); checkTour(); } toast("Eigene Hauspunkte gelöscht"); });
 // Pin verschieben: lange auf eine Adresse in der Liste drücken, dann den Pin auf das richtige Haus ziehen (oder auf die Karte tippen).
@@ -2623,6 +2646,12 @@ function setSubs(){
   b.addEventListener("click",()=>{ $("fontSel").value=String(i); $("fontSel").dispatchEvent(new Event("change")); setSubs(); }); $("fontSeg").appendChild(b); });
 ["mailToSave","tourUrlSave","depotSave"].forEach(id=>$(id).addEventListener("click",()=>setTimeout(setSubs,50)));
 ["voiceOn","turnOn","dockSel"].forEach(id=>$(id).addEventListener("change",setSubs));
+let setTabIdx=0; try{ setTabIdx=+(localStorage.getItem("navi-set-tab")||0)||0; }catch(e){}
+function setTab(g){ setTabIdx=g; try{ localStorage.setItem("navi-set-tab",g); }catch(e){}
+  $("settings").classList.add("tabbed"); document.querySelectorAll("#settings [data-grp]").forEach(el=>el.classList.toggle("off",+el.dataset.grp!==g));
+  document.querySelectorAll("#setTabs button").forEach(b=>{ const on=+b.dataset.g===g; b.classList.toggle("on",on); b.setAttribute("aria-selected",String(on)); }); }
+document.querySelectorAll("#setTabs button").forEach(b=>b.addEventListener("click",()=>setTab(+b.dataset.g)));
+setTab(setTabIdx);
 const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o)); if(o) setSubs();};
 $("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));
 $("setClose").addEventListener("click",()=>setOpen(false));

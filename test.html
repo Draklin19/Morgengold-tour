@@ -998,6 +998,13 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
+/* v=103: Hinweise beim Fahren oben auf der Karte */
+.drive-ban{display:none}
+body.drive .drive-ban:not([hidden]){display:block;position:absolute;left:12px;right:12px;top:78px;z-index:1001;border-radius:14px;padding:12px 16px;font:700 1.25rem/1.25 var(--font-body);text-align:left;box-shadow:0 4px 16px rgb(0 0 0 / .35);border:0;white-space:pre-line}
+body.drive .drive-ban small{display:block;font-size:.72em;font-weight:500;opacity:.85}
+body.drive .gps-ban{background:#c0392b;color:#fff;pointer-events:none}
+body.drive .note-ban{background:#f2b51c;color:#2a1e00;cursor:pointer}
+body.drive .gps-ban:not([hidden])~.note-ban{top:150px}
 .set-tabs{display:flex;background:var(--line);border-radius:12px;padding:3px;margin:8px 0 4px;gap:2px}
 .set-tabs button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;font:600 .78rem var(--font-body);border:0;background:transparent;color:var(--muted);padding:9px 2px;border-radius:9px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .set-tabs .ti{font-size:1.1rem;line-height:1.2}
@@ -1290,7 +1297,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
   </section>
 
   <div class="main">
-    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
+    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="drive-ban gps-ban" id="gpsBan" role="alert" hidden>⚠ Kein GPS-Signal<small>Deine Position wird gerade nicht aktualisiert</small></div><button type="button" class="drive-ban note-ban" id="noteBan" hidden></button><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
       <section class="mode gtour" id="gTour"> <!-- v=92: Google-Abschnitte direkt unter der Karte, immer offen -->
@@ -1662,10 +1669,25 @@ const TILE_SOURCES={
   topo:{url:"https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",opt:{subdomains:"abc",maxZoom:17,attribution:OSM_ATTR+", SRTM | &copy; OpenTopoMap"}}
 };
 let tileLayer=null;
+// v=103: Kartenbilder auf dem Handy zwischenspeichern (Cache „navi-karte“, höchstens ca. 4000 Bilder, älteste fliegen raus, nach 30 Tagen neu laden).
+// Spart Datenvolumen und hilft bei schlechtem Netz. Klappt etwas nicht, lädt das Bild ganz normal aus dem Netz.
+const TILE_CACHE="navi-karte", TILE_MAX=4000, TILE_DAYS=30; let tilePut=0;
+function tileSrc(url){ if(!("caches" in window)) return Promise.resolve(url);
+  return caches.open(TILE_CACHE).then(c=>c.match(url).then(r=>{
+    if(r&&Date.now()-(+r.headers.get("x-navi-t")||0)<TILE_DAYS*864e5) return r.blob();
+    return fetch(url,{mode:"cors",credentials:"omit"}).then(n=>{ if(!n.ok) throw new Error(n.status);
+      return n.blob().then(b=>{ c.put(url,new Response(b,{headers:{"content-type":b.type||"image/png","x-navi-t":String(Date.now())}})).catch(()=>{});
+        if(++tilePut%200===0) c.keys().then(k=>{ if(k.length>TILE_MAX) k.slice(0,k.length-TILE_MAX+500).forEach(q=>c.delete(q)); }).catch(()=>{});
+        return b; }); }).catch(e=>{ if(r) return r.blob(); throw e; }); // offline: auch ein altes Bild ist besser als keins
+  })).then(b=>URL.createObjectURL(b)).catch(()=>url); }
+const CachedTiles=L.TileLayer.extend({ createTile(coords,done){ const tile=document.createElement("img");
+  L.DomEvent.on(tile,"load",()=>{ if(tile.src.startsWith("blob:")) URL.revokeObjectURL(tile.src); this._tileOnLoad(done,tile); });
+  L.DomEvent.on(tile,"error",L.Util.bind(this._tileOnError,this,done,tile));
+  tile.alt=""; tile.setAttribute("role","presentation"); const url=this.getTileUrl(coords); tileSrc(url).then(u=>{ tile.src=u; }); return tile; } });
 function useTiles(key){
   if(tileLayer) map.removeLayer(tileLayer);
   const t=TILE_SOURCES[key]; let ok=0,bad=0;
-  tileLayer=L.tileLayer(t.url,t.opt).addTo(map);
+  tileLayer=(key==="esri"?new CachedTiles(t.url,t.opt):L.tileLayer(t.url,t.opt)).addTo(map);
   document.getElementById("mapErr").hidden=true;
   tileLayer.on("tileload",()=>{ok++;});
   tileLayer.on("tileerror",()=>{bad++; if(!ok&&bad>=4){ if(key==="carto"||key==="nacht") return useTiles("esri"); document.getElementById("mapErr").hidden=false; }}); // CARTO nicht erreichbar: Esri als Ersatz
@@ -2118,6 +2140,14 @@ function trackSide(){
   const d=Math.abs(dx*(P[1]-a[1])-dy*(P[0]-a[0]))/Math.sqrt(L2); if(d<3||d>60) return;
   setLive(cur, dx*(P[1]-a[1])-dy*(P[0]-a[0])>0?"links":"rechts","gps");
 }
+// v=103: Lieferhinweis (z. B. Ablageort) und Probe/Reklamation kurz vor dem Haus groß einblenden; Tippen blendet ihn aus
+let noteFor=-1, noteHid=-1;
+function noteBan(dd){ const b=$("noteBan"); if(!b) return; const s=tour&&cur>=0?tour.stops[cur]:null;
+  const tg=s?(s.tags||[]).map(t=>({pro:"🟡 Probe",rkl:"🔴 Reklamation",trk:"🟢 Trinkgeld"})[t]).filter(Boolean):[], nt=s?(s.notes||[]).filter(Boolean):[];
+  const show=!!s&&(nt.length||tg.length)&&dd<=ANNOUNCE_M+50&&noteHid!==cur&&document.body.classList.contains("drive");
+  if(!show){ b.hidden=true; noteFor=-1; return; }
+  if(noteFor!==cur){ noteFor=cur; b.textContent=`Stopp ${cur+1}: `+[...tg,...nt].join("\n"); } b.hidden=false; }
+$("noteBan").addEventListener("click",()=>{ noteHid=cur; $("noteBan").hidden=true; });
 function checkArrival(){
   kmEnd(); if(carPos) kmFix(carPos,gpsAcc);
   updateHouseNo(); checkTurns(); updateEta();
@@ -2127,6 +2157,7 @@ function checkArrival(){
   if(!s.ll) return;
   const dd=Math.min(dist(carPos,s.ll),s.park?dist(carPos,s.park):Infinity); // am Anfahrpunkt geparkt zählt als angekommen
   if(dd<=ANNOUNCE_M&&!s.said){ s.said=true; announced=cur; announce(cur); saveTour(); } // jedes Haus genau einmal ansagen, auch nach Neustart
+  noteBan(dd);
   if($("modeAuto").checked){
     // Automatisch abhaken erst beim Wegfahren: Ankunft im Umkreis merken (nächster Punkt = Ankunftszeit),
     // abgehakt wird, sobald man sich wieder entfernt (aus dem Umkreis raus oder 25 m weiter weg als am nächsten Punkt). Kein Zeitzähler.
@@ -2159,7 +2190,11 @@ $("sim").addEventListener("click",()=>{
   render();
   map.setView(carPos,16);
 });
-let gpsWatch=null, wakeLock=null;
+let gpsWatch=null, wakeLock=null, gpsWallFix=0;
+// v=103: Warnung nur, wenn beim Fahren wirklich kein (brauchbarer) Standort kommt: 20 s ohne Meldung oder Genauigkeit schlechter als 100 m
+setInterval(()=>{ const b=$("gpsBan"); if(!b) return;
+  const on=gpsWatch!==null&&document.body.classList.contains("drive")&&!simTimer&&document.visibilityState==="visible"&&Date.now()-gpsStartedAt>20000&&(Date.now()-gpsWallFix>20000||gpsAcc>100);
+  b.hidden=!on; },3000);
 function stopGps(){ if(gpsWatch!==null) navigator.geolocation.clearWatch(gpsWatch); gpsWatch=null; $("gps").textContent="📍 GPS starten"; try{wakeLock&&wakeLock.release();}catch(e){} wakeLock=null; }
 $("gps").addEventListener("click",()=>{
   if(gpsWatch!==null){stopGps();$("gpsState").hidden=true;return;}
@@ -2173,7 +2208,7 @@ async function startGps(){
   $("gpsState").textContent="Warte auf GPS …";$("gpsState").hidden=false; gpsStartedAt=Date.now(); planAsk(); let firstFix=true;
   try{ if(navigator.wakeLock) wakeLock=await navigator.wakeLock.request("screen"); }catch(e){}
   gpsWatch=navigator.geolocation.watchPosition(pos=>{
-    carPos=[pos.coords.latitude,pos.coords.longitude]; gpsAcc=pos.coords.accuracy||0;
+    carPos=[pos.coords.latitude,pos.coords.longitude]; gpsAcc=pos.coords.accuracy||0; gpsWallFix=Date.now();
     if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[34,42],iconAnchor:[17,42]}),zIndexOffset:2000});
     if(!disp) car.setLatLng(carPos); car.addTo(map); gpsSpeed=pos.coords.speed; setHead(carPos,pos.coords.heading,pos.coords.speed,gpsAcc);
     { const t=performance.now(), dt=lastFixAt?t-lastFixAt:1000; lastFixAt=t; moveCar(carPos,Math.min(2000,Math.max(300,dt)),firstFix&&document.body.classList.contains("drive")); }

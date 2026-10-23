@@ -998,6 +998,8 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
+body.no-tour #restartTop{display:none}
+#restartTop{font-size:1.35rem;font-weight:700}
 /* v=103: Hinweise beim Fahren oben auf der Karte */
 .drive-ban{display:none}
 body.drive .drive-ban:not([hidden]){display:block;position:absolute;left:12px;right:12px;top:78px;z-index:1001;border-radius:14px;padding:12px 16px;font:700 1.25rem/1.25 var(--font-body);text-align:left;box-shadow:0 4px 16px rgb(0 0 0 / .35);border:0;white-space:pre-line}
@@ -1192,6 +1194,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       <div><h1>Morgengold Tour</h1><p class="route-name" id="routeName">Keine Tour geladen</p></div>
     </div>
     <div class="top-icons">
+      <button class="icon-btn" id="restartTop" type="button" title="Tour neu starten" aria-label="Tour neu starten">↺</button> <!-- v=104: Tour neu starten schnell erreichbar -->
       <button class="icon-btn" id="clear" type="button" title="Tour löschen" aria-label="Tour löschen">🗑</button>
       <button class="icon-btn" id="setBtn" type="button" aria-expanded="false" aria-controls="settings" title="Einstellungen" aria-label="Einstellungen">⚙</button>
     </div>
@@ -2855,6 +2858,7 @@ $("restartBtn").addEventListener("click",async()=>{ if(!tour) return;
   stopSim(); tour.stops.forEach(s=>{ s.done=false; s.said=false; s.at=0; s.dep=0; }); tour.mailAsked=false; cur=0; backTo=-1; announced=-1; live={stop:-1,side:"",src:""}; turnSaid=new Set(); turnStop=-1;
   render(); fit(); toast("Tour beginnt wieder bei Stopp 1"); });
 
+$("restartTop").addEventListener("click",()=>$("restartBtn").click());
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 // Aktuelle Tour auf dem Handy merken (höchstens 18 Stunden, bis „Tour löschen“), damit sie ein Neuladen der Seite übersteht,
 // etwa wenn das iPhone die App beim Fotoauswählen oder im Hintergrund neu startet. Ohne Kundennamen.

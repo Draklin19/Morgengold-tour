@@ -1009,6 +1009,7 @@ html.fahrer #pdBox{display:none!important}
 .corr-list li{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:.92rem}
 .corr-list li:first-child{border-top:0}
 .corr-list li span{flex:1;min-width:0}
+.corr-list li button.map{color:var(--fg)}
 .corr-list li button{font:600 .85rem var(--font-body);border:1px solid var(--line);background:var(--surface);color:#c0392b;border-radius:8px;padding:5px 10px;cursor:pointer}
 .set-sub{display:flex!important;align-items:center;gap:10px;min-height:34px}
 .set-sub .t{font-weight:600;font-size:.95rem}
@@ -1550,19 +1551,19 @@ async function geocodeTour(){
 }
 // Eigene Hauspunkte: pro Adresse nur auf diesem Handy gespeichert (localStorage navi-korrektur) und bei jeder Tour
 // mit derselben Adresse benutzt, für Karte, Google-Link, Haus links/rechts und Ansage.
-const CORR_KEY="navi-korrektur", OSM_KEY="navi-osmpunkte", WARN_M=80, CORR_NAME_KEY="navi-korrektur-namen"; // v=101: Straße + Ort je eigenem Hauspunkt, nur zur Anzeige, bleibt auf dem Handy
+const CORR_KEY="navi-korrektur", OSM_KEY="navi-osmpunkte", WARN_M=80, CORR_NAME_KEY="navi-korrektur-namen", CORR_ORIG_KEY="navi-korrektur-alt"; // v=102: ursprünglicher Punkt (aus der Routendatei) je eigenem Hauspunkt, für „Karte“ // v=101: Straße + Ort je eigenem Hauspunkt, nur zur Anzeige, bleibt auf dem Handy
 const corrName=s=>[s.addr,(s.town||"").trim()].filter(Boolean).join(", ");
 const jget=k=>{ try{ return JSON.parse(localStorage.getItem(k)||"{}")||{}; }catch(e){ return {}; } };
 const jset=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} };
 const addrKey=s=>s.addr?(s.addr+"|"+(((s.town||"").match(/\d{5}/)||[""])[0])).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/[^a-z0-9äöü|]/g,""):"";
 function applyCorr(t){ if(typeof cmpLayer!=="undefined"&&cmpLayer){ cmpLayer.clearLayers(); const l=document.getElementById("cmpList"); if(l){ l.hidden=true; document.getElementById("cmpState").textContent=""; } } const c=jget(CORR_KEY);
-  const nm=jget(CORR_NAME_KEY); let nn=false;
-  t.stops.forEach(s=>{ const k=addrKey(s), p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; if(!nm[k]){ nm[k]=corrName(s); nn=true; } } }); if(nn){ jset(CORR_NAME_KEY,nm); corrUi(); } }
+  const nm=jget(CORR_NAME_KEY), og=jget(CORR_ORIG_KEY); let nn=false;
+  t.stops.forEach(s=>{ const k=addrKey(s), p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; if(!nm[k]){ nm[k]=corrName(s); nn=true; } if(!og[k]&&s.orig){ og[k]=s.orig; nn=true; } } }); if(nn){ jset(CORR_NAME_KEY,nm); jset(CORR_ORIG_KEY,og); corrUi(); } }
 function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s.ll;
   s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.approx=false; s.said=false;
-  if(k){ const c=jget(CORR_KEY); c[k]=s.ll; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); nm[k]=corrName(s); jset(CORR_NAME_KEY,nm); }
+  if(k){ const c=jget(CORR_KEY); c[k]=s.ll; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); nm[k]=corrName(s); jset(CORR_NAME_KEY,nm); if(s.orig){ const og=jget(CORR_ORIG_KEY); og[k]=s.orig; jset(CORR_ORIG_KEY,og); } }
   map.closePopup(); corrUi(); render(); routeTour(); toast(`Hauspunkt für Stopp ${i+1} gespeichert`); }
-function resetPos(i){ const s=tour.stops[i], k=addrKey(s), c=jget(CORR_KEY); delete c[k]; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); delete nm[k]; jset(CORR_NAME_KEY,nm);
+function resetPos(i){ const s=tour.stops[i], k=addrKey(s), c=jget(CORR_KEY); delete c[k]; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); delete nm[k]; jset(CORR_NAME_KEY,nm); const og=jget(CORR_ORIG_KEY); delete og[k]; jset(CORR_ORIG_KEY,og);
   if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; s.said=false;
   map.closePopup(); corrUi(); render(); routeTour(); checkTour(); toast(`Stopp ${i+1}: Punkt aus der Routendatei`); }
 function corrUi(){ const c=jget(CORR_KEY), nm=jget(CORR_NAME_KEY), ks=Object.keys(c); $("corrInfo").textContent=ks.length+" gespeichert";
@@ -1571,8 +1572,23 @@ function corrUi(){ const c=jget(CORR_KEY), nm=jget(CORR_NAME_KEY), ks=Object.key
     const li=document.createElement("li"), sp=document.createElement("span"), b=document.createElement("button");
     sp.textContent=label; b.type="button"; b.textContent="✕"; b.setAttribute("aria-label","Hauspunkt löschen: "+label);
     b.addEventListener("click",()=>{ const i=tour?tour.stops.findIndex(s=>addrKey(s)===k):-1;
-      if(i>=0) resetPos(i); else { const c2=jget(CORR_KEY), n2=jget(CORR_NAME_KEY); delete c2[k]; delete n2[k]; jset(CORR_KEY,c2); jset(CORR_NAME_KEY,n2); corrUi(); toast("Hauspunkt gelöscht"); } });
-    li.append(sp,b); ul.appendChild(li); }); }
+      if(i>=0) resetPos(i); else { const c2=jget(CORR_KEY), n2=jget(CORR_NAME_KEY); const o2=jget(CORR_ORIG_KEY); delete c2[k]; delete n2[k]; delete o2[k]; jset(CORR_KEY,c2); jset(CORR_NAME_KEY,n2); jset(CORR_ORIG_KEY,o2); corrUi(); toast("Hauspunkt gelöscht"); } });
+    const m=document.createElement("button"); m.type="button"; m.className="map"; m.textContent="📍 Karte"; m.setAttribute("aria-label","Auf der Karte zeigen: "+label);
+    m.addEventListener("click",()=>corrShow(k,label));
+    li.append(sp,m,b); ul.appendChild(li); }); }
+// v=102: eigenen Hauspunkt (grün) und ursprünglichen Punkt aus der Routendatei (grau) auf der Karte zeigen
+let corrShowLayer=null;
+function corrShow(k,label){
+  const p=jget(CORR_KEY)[k]; if(!p) return; let o=jget(CORR_ORIG_KEY)[k];
+  if(!o&&tour){ const s=tour.stops.find(x=>addrKey(x)===k); if(s&&s.orig) o=s.orig; }
+  if(!corrShow.on){ corrShow.on=1; map.on("click",()=>{ if(corrShowLayer){ corrShowLayer.remove(); corrShowLayer=null; } }); } // Tippen auf die Karte blendet es wieder aus
+  if(corrShowLayer) corrShowLayer.remove(); corrShowLayer=L.layerGroup().addTo(map);
+  L.circleMarker(p,{radius:11,color:"#fff",weight:3,fillColor:"#17a34a",fillOpacity:1}).bindTooltip("Neu gesetzt",{permanent:true,direction:"top",offset:[0,-10]}).addTo(corrShowLayer);
+  if(o){ L.polyline([o,p],{color:"#555",weight:3,dashArray:"6 6"}).addTo(corrShowLayer);
+    L.circleMarker(o,{radius:9,color:"#fff",weight:3,fillColor:"#8a8f8c",fillOpacity:1}).bindTooltip("Ursprünglich",{permanent:true,direction:"bottom",offset:[0,10]}).addTo(corrShowLayer); }
+  setOpen(false); $("map").scrollIntoView({behavior:"smooth",block:"center"});
+  setTimeout(()=>{ map.invalidateSize(); if(o) map.fitBounds(L.latLngBounds([o,p]),{padding:[70,70],maxZoom:18}); else map.setView(p,18); },250);
+  toast(o?`${Math.round(dist(o,p))} m Abstand zum ursprünglichen Punkt`:"Ursprünglicher Punkt nicht bekannt"); }
 // Abgleich: jede Adresse bei OpenStreetMap suchen (nur Straße, Hausnummer, Ort) und mit dem Punkt aus der .bcr vergleichen.
 // Nur wenn OpenStreetMap genau dieses Haus kennt; mehr als 80 m Abstand = ⚠. Ergebnisse bleiben auf dem Handy, damit
 // dieselbe Adresse nicht jeden Tag neu gesucht wird.
@@ -2565,7 +2581,7 @@ $("geoBtn").addEventListener("click",geocodeTour);
 corrUi();
 $("corrClear").addEventListener("click",async()=>{
   if(!await ask("Eigene Hauspunkte löschen?","Alle selbst gesetzten Hauspunkte und gemerkten Adressen werden von diesem Handy entfernt. Danach gelten wieder die Punkte aus der Routendatei.","Löschen","Abbrechen")) return;
-  try{ localStorage.removeItem(CORR_KEY); localStorage.removeItem(OSM_KEY); localStorage.removeItem(CORR_NAME_KEY); }catch(e){}
+  try{ localStorage.removeItem(CORR_KEY); localStorage.removeItem(OSM_KEY); localStorage.removeItem(CORR_NAME_KEY); localStorage.removeItem(CORR_ORIG_KEY); }catch(e){}
   if(tour) tour.stops.forEach(s=>{ if(s.fixed){ if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; } s.warn=false; s.osm=null; });
   corrUi(); if(tour){ render(); routeTour(); checkTour(); } toast("Eigene Hauspunkte gelöscht"); });
 // Pin verschieben: lange auf eine Adresse in der Liste drücken, dann den Pin auf das richtige Haus ziehen (oder auf die Karte tippen).

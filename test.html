@@ -690,8 +690,10 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 #file,#fileAll{position:absolute;width:1px;height:1px;opacity:0}
 /* Schmale hellgrüne Leiste am Kartenrand: auf dieser Seite liegt das Haus des nächsten Kunden */
 /* Große, verblasste Hausnummer oben auf der Karte, wenn man dem Kunden nahe kommt */
-#houseNo{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:640;pointer-events:none;font-size:72px;font-weight:800;line-height:1;color:#14532d;text-shadow:0 0 8px #fff,0 0 2px #fff;opacity:0;transition:opacity .6s;display:none}
-body.drive #houseNo,body.sim #houseNo{display:block}
+body:not(.drive):not(.sim) .st-pill{display:none}
+.st-wrap{position:absolute;width:0;height:0}
+.st-pill{position:absolute;translate:-50% -50%;background:#1f6f4a;color:#fff;font:800 20px/1.15 var(--font-body);padding:7px 15px;border-radius:999px;border:2px solid #fff;box-shadow:0 2px 10px rgb(0 0 0 / .35);white-space:nowrap;pointer-events:none}
+.st-pill.above{translate:-50% calc(-100% - 24px)}
 #sideBar{position:absolute;top:0;bottom:0;width:48px;z-index:650;pointer-events:none;display:none;align-items:center}
 #sideBar span{writing-mode:vertical-rl;font-size:12px;font-weight:800;letter-spacing:.08em;color:#14532d;padding:0 4px}
 /* gleiches Hellgrün, am Rand kräftig, zur Bildschirmmitte hin verblassend */
@@ -2069,11 +2071,25 @@ function pick(i){ markJump(i); cur=i; render(); focusStop(i); }
 function toast(msg){const t=$("toast");t.classList.remove("up");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
 function stopSim(){const was=simTimer!==null;clearInterval(simTimer);simTimer=null;if(!document.body.classList.contains("drive")) try{ clearApproach(); }catch(e){}$("sim").textContent="▶ Fahrt simulieren";document.body.classList.remove("sim");if(was&&tour) render();}
 const HOUSE_M=150; // ab dieser Entfernung erscheint die Hausnummer
-function updateHouseNo(){ let el=$("houseNo"); if(!el){ el=document.createElement("div"); el.id="houseNo"; $("map").appendChild(el); }
-  const s=tour&&cur>=0?tour.stops[cur]:null; let op=0;
-  if(s&&s.ll&&carPos){ const d=dist(carPos,s.ll), m=(s.addr||"").match(/(\d+\s*[a-zA-Z]?(?:\s*[\/-]\s*\d+[a-zA-Z]?)?)\s*$/);
-    if(m&&d<HOUSE_M){ el.textContent=m[1].replace(/\s+/g,""); op=Math.min(.75,.15+.6*(1-d/HOUSE_M)); } }
-  el.style.opacity=op.toFixed(2); }
+// v=119: statt der großen Hausnummer ein grünes Schild „Straße Nr.“ auf der grünen Linie, sobald man in die Straße des Kunden einbiegt
+// (nach der letzten Abbiegung vor dem Haus oder ab 150 m). Bleibt waagerecht, auch wenn sich die Karte dreht.
+let stPill=null;
+function updateHouseNo(){
+  const s=tour&&cur>=0?tour.stops[cur]:null, drv=document.body.classList.contains("drive")||!!simTimer;
+  let show=false, pos=null, txt="", near=false;
+  if(drv&&s&&s.ll&&carPos&&s.addr){ const d=dist(carPos,s.ll);
+    const lt=apStop===cur&&turns.length?turns[turns.length-1].ll:null;
+    show=d<HOUSE_M||(d<700&&!!lt&&d<dist(lt,s.ll)-10&&dist(carPos,lt)>12);
+    if(show){ txt=String(s.addr).split(",")[0].trim();
+      pos=s.ll; if(apStop===cur&&apLine&&apLine.length>1){ // Punkt auf der restlichen Linie: etwa in der Mitte, mindestens 25 m vor dem Auto
+        const pts=[carPos,...apLine.slice(apK+1)]; let tot=0; for(let i=1;i<pts.length;i++) tot+=dist(pts[i-1],pts[i]);
+        near=tot<90; if(near) pos=s.ll; // nah dran: Schild über der Kundennummer, damit es das Auto nicht verdeckt
+        let want=near?tot+1:Math.max(Math.min(25,tot),tot*.5), acc=0;
+        for(let i=1;i<pts.length;i++){ const l=dist(pts[i-1],pts[i]); if(acc+l>=want){ const f=l?(want-acc)/l:0; pos=[pts[i-1][0]+(pts[i][0]-pts[i-1][0])*f,pts[i-1][1]+(pts[i][1]-pts[i-1][1])*f]; break; } acc+=l; } } } }
+  if(!show){ if(stPill){ stPill.remove(); stPill=null; } return; }
+  if(!stPill) stPill=L.marker(pos,{icon:L.divIcon({className:"",html:'<div class="st-wrap"><div class="st-pill"></div></div>',iconSize:[0,0]}),interactive:false,keyboard:false,zIndexOffset:3000}).addTo(map);
+  else stPill.setLatLng(pos);
+  const el=stPill.getElement()&&stPill.getElement().querySelector(".st-pill"); if(el){ if(el.textContent!==txt) el.textContent=txt; el.classList.toggle("above",near); } }
 function setSideBar(side){ let b=$("sideBar"); if(!b){ b=document.createElement("div"); b.id="sideBar"; b.innerHTML="<span></span>"; $("map").appendChild(b); }
   b.className=side==="links"||side==="rechts"?side:""; b.firstChild.textContent=side?`HAUS ${side.toUpperCase()}`:""; }
 // Simulationstempo: 5 Stufen, Stufe 5 = bisheriges Tempo (40 m pro Takt)

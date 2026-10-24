@@ -2875,8 +2875,11 @@ let depot=null; try{ depot=JSON.parse(localStorage.getItem(DEPOT_KEY)||"null"); 
 // Ein Link (#kom=…) überträgt die Stellen auf die Handys der Fahrer; der Teil nach # geht nicht an den Server.
 const KOM_KEY="navi-kom", ZONE_KEY="navi-tourzone";
 const DEPOT_TXT="Die passende Stelle erkennt die App an der „Kommissionierzone“ in der Ausfahrliste. Von dort zählen die Kilometer bis zum letzten Kunden. Die Adressen bleiben nur auf diesem Handy.";
+// v=124: die drei Kommissionierstellen von Morgengold sind vorab eingetragen (Draklin: darf im App-Code stehen); löschen/ändern/hinzufügen wie bisher
+const KOM_START=[{n:"01-Licht-ROTTWEIL",a:"Bösinger Straße 42, 78662 Bösingen",ll:null},{n:"02-Licht-TUTTLINGEN",a:"Tuttlinger Straße 20, 78582 Balgheim",ll:null},{n:"03-Hettich",a:"Kirnacher Straße 4, 78050 Villingen-Schwenningen",ll:null}];
 function komGet(){ let a=null; try{ a=JSON.parse(localStorage.getItem(KOM_KEY)||"null"); }catch(e){}
-  if(!Array.isArray(a)){ a=[]; let d=null; try{ d=JSON.parse(localStorage.getItem(DEPOT_KEY)||"null"); }catch(e){} if(d&&d.addr) a.push({n:d.n||"",a:d.addr,ll:d.ll||null}); }
+  if(!Array.isArray(a)){ a=KOM_START.map(e=>({...e})); let d=null; try{ d=JSON.parse(localStorage.getItem(DEPOT_KEY)||"null"); }catch(e){}
+    if(d&&d.addr&&!a.some(x=>x.a===d.addr)) a.push({n:d.n||"",a:d.addr,ll:d.ll||null}); }
   return a; }
 function komSet(a){ try{ localStorage.setItem(KOM_KEY,JSON.stringify(a)); }catch(e){} }
 const zoneN=x=>String(x||"").toLowerCase().replace(/[^a-z0-9äöüß]/g,"");
@@ -2922,6 +2925,8 @@ $("komShare").addEventListener("click",async()=>{ const l=komGet().filter(e=>e.a
   komSet(l); depotUi(); toast(inc.length+(inc.length===1?" Kommissionierstelle":" Kommissionierstellen")+" übernommen");
   for(const e of l) if(!e.ll&&e.a){ e.ll=await komGeo(e.a); komSet(l); } komAfter(); })();
 depotUi();
+(async function komFill(){ const l=komGet(); if(!l.some(e=>!e.ll&&e.a)) return; // fehlende Koordinaten einmal auf dem Handy suchen
+  for(const e of l) if(!e.ll&&e.a){ e.ll=await komGeo(e.a); } komSet(l); komAfter(); })();
 // v=122: eigene Adresse (nur auf dem Handy). Nach dem letzten Kunden führt die grüne Linie mit Abbiege-Ansagen nach Hause.
 // Der Heimweg zählt nicht zur Restzeit, zu den Kilometern oder zum Bericht (die enden beim letzten Kunden).
 const HOME_KEY="navi-heim", HOME_TXT="Nach dem letzten Kunden navigiert die App nach Hause. Die Heimfahrt zählt nicht zur Tourzeit. Die Adresse bleibt nur auf diesem Handy.";
@@ -2950,12 +2955,10 @@ function homeNav(){ // nach dem letzten Kunden: Weg nach Hause (zählt nicht zur
   navTo(home.ll,-2); }
 // v=123: vor dem 1. Kunden erst zur Kommissionierstelle (solange noch nichts abgehakt ist); dort angekommen geht es zum 1. Kunden.
 function needDepot(){ return !!(tour&&cur>=0&&!tour.depotDone&&depot&&depot.ll&&!tour.stops.some(q=>q.done)&&(document.body.classList.contains("drive")||simTimer)); }
-function depotBan(on){ let b=$("depBan"); if(!on){ if(b) b.remove(); return; }
-  if(!b){ b=document.createElement("div"); b.id="depBan"; b.className="dep-ban"; b.innerHTML='<span>📍 Zuerst zur Kommissionierstelle</span><button type="button">Überspringen</button>';
-    b.querySelector("button").addEventListener("click",()=>{ if(tour){ tour.depotDone=true; saveTour(); } depotBan(false); clearApproach(); updateApproach(); }); $("map").appendChild(b); } }
+function depotBan(){} // v=124: kein Banner mehr; die Kommissionierstelle wird über den Standort erkannt und abgehakt
 function depotNav(){ if(!needDepot()){ depotBan(false); return false; }
   if(!carPos) return true;
-  if(dist(carPos,depot.ll)<120){ tour.depotDone=true; saveTour(); depotBan(false); clearApproach(); toast("An der Kommissionierstelle. Danach geht es zu Stopp "+(cur+1)+"."); return false; }
+  if(dist(carPos,depot.ll)<120){ tour.depotDone=true; saveTour(); depotBan(false); clearApproach(); toast("Kommissionierstelle erreicht ✓"); return false; }
   depotBan(true); navTo(depot.ll,-3); return true; }
 async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
 let km=null, kmBusy=false;

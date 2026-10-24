@@ -690,8 +690,11 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 #file,#fileAll{position:absolute;width:1px;height:1px;opacity:0}
 /* Schmale hellgrüne Leiste am Kartenrand: auf dieser Seite liegt das Haus des nächsten Kunden */
 /* Große, verblasste Hausnummer oben auf der Karte, wenn man dem Kunden nahe kommt */
-body:not(.drive):not(.sim) .st-txt{display:none}
-.st-txt{font-weight:800;fill:#14532d;paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round;letter-spacing:.3px;pointer-events:none}
+body:not(.drive):not(.sim) .st-wrap{display:none}
+.st-wrap{position:absolute;width:0;height:0}
+.st-pill{position:absolute;background:#1f6f4a;color:#fff;font:800 20px/1.15 var(--font-body);padding:7px 15px;border-radius:999px;border:2px solid #fff;box-shadow:0 2px 10px rgb(0 0 0 / .35);white-space:nowrap;pointer-events:none;translate:-50% calc(-100% - 22px)}
+.st-pill.l{translate:calc(-100% - 22px) -50%}
+.st-pill.r{translate:22px -50%}
 #sideBar{position:absolute;top:0;bottom:0;width:48px;z-index:650;pointer-events:none;display:none;align-items:center}
 #sideBar span{writing-mode:vertical-rl;font-size:12px;font-weight:800;letter-spacing:.08em;color:#14532d;padding:0 4px}
 /* gleiches Hellgrün, am Rand kräftig, zur Bildschirmmitte hin verblassend */
@@ -2069,41 +2072,28 @@ function pick(i){ markJump(i); cur=i; render(); focusStop(i); }
 function toast(msg){const t=$("toast");t.classList.remove("up");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
 function stopSim(){const was=simTimer!==null;clearInterval(simTimer);simTimer=null;if(!document.body.classList.contains("drive")) try{ clearApproach(); }catch(e){}$("sim").textContent="▶ Fahrt simulieren";document.body.classList.remove("sim");if(was&&tour) render();}
 const HOUSE_M=150; // ab dieser Entfernung erscheint die Hausnummer
-// v=119: Straße und Hausnummer erscheinen, sobald man in die Straße des Kunden einbiegt (nach der letzten Abbiegung vor dem Haus oder ab 150 m).
-// v=120: als Schrift fest neben der grünen Linie vor dem Haus (Variante A); bewegt sich nicht mit und endet 25 m vor dem Pin.
-let stTxt=null;
-function stTxtOff(){ if(stTxt){ stTxt.tx.remove(); stTxt.poly.remove(); stTxt=null; } }
+// v=121: grünes Schild „Straße Nr.“ fest neben dem Kunden-Pin (bewegt sich nicht mit). Erscheint erst, wenn man in die Straße des Kunden
+// einbiegt (an der letzten Abbiegung vor dem Haus vorbei; ohne Abbiegung ab 150 m) und bleibt bis zum nächsten Kunden.
+// Seite: dort, wo das Haus liegt (links/rechts), weg von der Straße; reicht der Platz am Bildschirmrand nicht, über dem Pin.
+let stPill=null, stShown=-1;
 function updateHouseNo(){
   const s=tour&&cur>=0?tour.stops[cur]:null, drv=document.body.classList.contains("drive")||!!simTimer;
-  let show=false;
-  if(drv&&s&&s.ll&&carPos&&s.addr&&apStop===cur&&apLine&&apLine.length>1){ const d=dist(carPos,s.ll);
-    const lt=turns.length?turns[turns.length-1].ll:null;
-    show=d<HOUSE_M||(d<700&&!!lt&&d<dist(lt,s.ll)-10&&dist(carPos,lt)>12); }
-  if(!show){ stTxtOff(); return; }
-  if(!stTxt||stTxt.i!==cur||stTxt.line!==apLine){ stTxtOff();
-    // Stück der Linie vor dem Haus: von 25 m vor dem Pin bis höchstens 250 m davor
-    let k=apLine.length-1, bd=Infinity; apLine.forEach((q,j)=>{ const dd=dist(q,s.ll); if(dd<bd){bd=dd;k=j;} });
-    const seg=[]; let acc=0;
-    for(let j=k;j>0;j--){ const a=apLine[j], b=apLine[j-1], l=dist(a,b);
-      const lerp=t=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
-      if(acc+l>25&&!seg.length) seg.push(lerp(Math.max(0,(25-acc)/l)));
-      if(acc+l>=250){ if(seg.length) seg.push(lerp((250-acc)/l)); break; }
-      if(seg.length) seg.push(b.slice()); acc+=l; }
-    let len=0; for(let j=1;j<seg.length;j++) len+=dist(seg[j-1],seg[j]);
-    if(seg.length<2||len<30) return;
-    const poly=L.polyline(seg,{opacity:0,weight:1,interactive:false,pane:"apPane"}).addTo(map), path=poly._path; if(!path){ poly.remove(); return; }
-    path.id="stPath"; const NS="http://www.w3.org/2000/svg", tx=document.createElementNS(NS,"text"), tp=document.createElementNS(NS,"textPath");
-    tx.setAttribute("class","st-txt"); tp.setAttribute("href","#stPath"); tp.setAttributeNS("http://www.w3.org/1999/xlink","xlink:href","#stPath"); tp.setAttribute("startOffset","50%"); tp.setAttribute("text-anchor","middle");
-    tp.textContent=String(s.addr).split(",")[0].trim(); tx.appendChild(tp); path.parentNode.appendChild(tx);
-    stTxt={i:cur,line:apLine,poly,tx,seg,rev:false}; }
-  // Schrift immer von links nach rechts lesbar, auch wenn die Karte gedreht ist; Größe passend zur Länge des Straßenstücks
-  const a=map.latLngToLayerPoint(stTxt.seg[0]), b=map.latLngToLayerPoint(stTxt.seg[stTxt.seg.length-1]), r=rotDeg*Math.PI/180;
-  const rev=(Math.cos(r)*(b.x-a.x)-Math.sin(r)*(b.y-a.y))<0;
-  if(rev!==stTxt.rev){ stTxt.rev=rev; stTxt.poly.setLatLngs(rev?stTxt.seg.slice().reverse():stTxt.seg); }
-  const path=stTxt.poly._path, w=apWeight(); stTxt.tx.setAttribute("dy",String(-(w/2+7)));
-  let fs=22; stTxt.tx.style.fontSize=fs+"px";
-  try{ const pl=path.getTotalLength(), tl=stTxt.tx.getComputedTextLength(); if(tl>pl*.95) fs=Math.max(12,Math.floor(fs*pl*.95/tl)); }catch(e){}
-  stTxt.tx.style.fontSize=fs+"px"; }
+  if(!drv||!s||!s.ll||!s.addr){ if(stPill){ stPill.remove(); stPill=null; } stShown=-1; return; }
+  if(stShown!==cur){
+    if(stPill){ stPill.remove(); stPill=null; }
+    if(!carPos||apStop!==cur) return;
+    const d=dist(carPos,s.ll), lt=turns.length?turns[turns.length-1].ll:null;
+    if(!(lt?(d<700&&d<dist(lt,s.ll)-10&&dist(carPos,lt)>12):d<HOUSE_M)) return;
+    stShown=cur;
+    stPill=L.marker(s.ll,{icon:L.divIcon({className:"",html:'<div class="st-wrap"><div class="st-pill"></div></div>',iconSize:[0,0]}),interactive:false,keyboard:false,zIndexOffset:3000}).addTo(map); }
+  if(!stPill) return;
+  const root=stPill.getElement(); if(!root) return; const wrap=root.querySelector(".st-wrap"), el=root.querySelector(".st-pill");
+  const txt=String(s.addr).split(",")[0].trim(); if(el.textContent!==txt) el.textContent=txt;
+  const sd=effSide(cur); let pos=sd==="rechts"?"r":sd==="links"?"l":"u";
+  try{ const a=wrap.getBoundingClientRect(), bx=$("map").getBoundingClientRect(), w=el.offsetWidth+30;
+    if(pos==="l"&&a.left-w<bx.left+8) pos=a.right+w<bx.right-8?"r":"u";
+    else if(pos==="r"&&a.right+w>bx.right-8) pos=a.left-w>bx.left+8?"l":"u"; }catch(e){}
+  if(el.dataset.p!==pos){ el.dataset.p=pos; el.className="st-pill "+pos; } }
 function setSideBar(side){ let b=$("sideBar"); if(!b){ b=document.createElement("div"); b.id="sideBar"; b.innerHTML="<span></span>"; $("map").appendChild(b); }
   b.className=side==="links"||side==="rechts"?side:""; b.firstChild.textContent=side?`HAUS ${side.toUpperCase()}`:""; }
 // Simulationstempo: 5 Stufen, Stufe 5 = bisheriges Tempo (40 m pro Takt)

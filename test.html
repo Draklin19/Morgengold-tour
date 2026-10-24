@@ -824,7 +824,7 @@ body.drive.dock-right .side,body.drive.dock-bottom .side{order:1}
 body.drive .side>*{zoom:var(--dz)} /* Schriftgröße der Tourleiste, 5 Stufen */
 body.drive #map{height:100%;min-height:0;border-radius:0;border:0}
 #map{position:relative;overflow:hidden}
-#mapIn{position:absolute;left:0;top:0;width:100%;height:100%;z-index:0;transform-origin:50% 50%;transition:transform .8s ease-out;border-radius:inherit}
+#mapIn{position:absolute;left:0;top:0;width:100%;height:100%;z-index:0;transform-origin:50% 50%;transition:transform 1s linear;border-radius:inherit}
 #mapIn .leaflet-marker-icon>*{rotate:var(--cr,0deg);transition:rotate .8s ease-out} /* Markierungen bleiben aufrecht, wenn die Karte gedreht ist */
 #mapIn .leaflet-marker-icon>.me{transform-origin:50% 100%}
 .leaflet-ctl{position:absolute;inset:0;pointer-events:none;background:none!important;overflow:visible;z-index:1}
@@ -1025,7 +1025,7 @@ body.drive .drive-ban:not([hidden]){display:block;position:absolute;left:12px;ri
 body.drive .drive-ban small{display:block;font-size:.72em;font-weight:500;opacity:.85}
 body.drive .gps-ban{background:#c0392b;color:#fff;pointer-events:none}
 body.drive .note-ban{background:#f2b51c;color:#2a1e00;cursor:pointer}
-body.drive .gps-ban:not([hidden])~.note-ban{top:150px}
+body.drive .note-ban:not([hidden]){top:auto;bottom:var(--nb,120px);right:auto;max-width:calc(100% - 24px);font-size:1.1rem;padding:10px 14px} /* nur so breit wie der Text, verdeckt weniger Karte */ /* v=112: direkt über der unteren Leiste */
 .set-tabs{display:flex;background:var(--line);border-radius:12px;padding:3px;margin:8px 0 4px;gap:2px}
 .set-tabs button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;font:600 .78rem var(--font-body);border:0;background:transparent;color:var(--muted);padding:9px 2px;border-radius:9px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .set-tabs .ti{font-size:1.1rem;line-height:1.2}
@@ -1989,7 +1989,7 @@ function setHead(p,gh,speed,acc){ // Fahrtrichtung aus GPS (ab ca. 7 km/h) oder 
   applyRot(); }
 function followPt(z,p){ // Mittelpunkt beim Nachführen: mit Drehung etwas vor dem Auto, damit man mehr von der Straße voraus sieht
   p=p||disp||carPos; if(!p) return null; z=z??map.getZoom(); if(!rotOn()) return p;
-  const k=mapBox.clientHeight*.22, b=head*Math.PI/180;
+  const k=mapBox.clientHeight*.06, b=head*Math.PI/180; // v=112: Männchen fast mittig (vorher 22 % unter der Mitte)
   return map.unproject(map.project(p,z).add(L.point(Math.sin(b)*k,-Math.cos(b)*k)),z); }
 // Flüssige Bewegung: GPS meldet etwa einmal pro Sekunde eine Position. Das Auto (und die Karte) gleitet in dieser Zeit
 // gleichmäßig von der alten zur neuen Position, statt zu springen. Die grüne Anfahrt wird dabei laufend hinter dem Auto abgeschnitten.
@@ -1998,9 +1998,9 @@ let apLine=null, apPoly=null, apK=0, apRouted=false;
 function moveCar(p,dur,noPan){
   const now=performance.now(); animPan=!noPan;
   if(!disp||dist(disp,p)>300){ disp=p.slice(); animFrom=disp.slice(); } else animFrom=disp.slice(); // großer Sprung (GPS neu): direkt hin
-  animTo=p.slice(); animT0=now; animDur=Math.max(100,dur);
+  animTo=p.slice(); animT0=now; animDur=Math.max(100,dur*1.15); // v=112: etwas länger als der Abstand der GPS-Meldungen, so gleitet es ohne Halt bis zur nächsten
   if(!raf) raf=requestAnimationFrame(carFrame); }
-let lastDraw=0; // Akku: höchstens ca. 15 Bilder pro Sekunde zeichnen (halbe Rechenarbeit, sieht trotzdem flüssig aus)
+let lastDraw=0; // v=112: bis ca. 30 Bilder pro Sekunde (vorher 15, das ruckelte sichtbar)
 // v=78: Kommt das Männchen an eine Hausnummer, rückt die Nummer wie eine Sprechblase zur Seite; ein Strich zeigt auf die echte Stelle (die bleibt unverändert)
 let rotDeg=0;
 function declutter(){ // v=85: nur beim Fahren, nah dran (Zoom ab 16, unter 40 m) und nur der aktuelle Stopp; rückt EINMAL zur Seite und bleibt dort fest
@@ -2019,7 +2019,7 @@ function declutter(){ // v=85: nur beim Fahren, nah dran (Zoom ab 16, unter 40 m
       lead.style.width=L+"px"; lead.style.transform=`rotate(${Math.atan2(oy,ox)}rad)`; m.setZIndexOffset(2500); }
     else if(lead){ pin.style.translate=""; lead.remove(); m.setZIndexOffset(m.options.zIndexOffset0||0); } }); }
 map.on("zoomend viewreset",declutter);
-function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<66&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
+function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<33&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
   const f=Math.min(1,(now-animT0)/animDur); disp=[animFrom[0]+(animTo[0]-animFrom[0])*f, animFrom[1]+(animTo[1]-animFrom[1])*f];
   const sn=trimApproach(disp); if(car) car.setLatLng(sn||disp); // nahe der Route: Auto sitzt genau auf der Straße
   declutter();
@@ -2192,7 +2192,8 @@ function noteBan(dd){ const b=$("noteBan"); if(!b) return; const s=tour&&cur>=0?
   const tg=s?(s.tags||[]).map(t=>({pro:"🟡 Probe",rkl:"🔴 Reklamation",trk:"🟢 Trinkgeld"})[t]).filter(Boolean):[], nt=s?(s.notes||[]).filter(Boolean):[];
   const show=!!s&&(nt.length||tg.length)&&dd<=ANNOUNCE_M+50&&noteHid!==cur&&document.body.classList.contains("drive");
   if(!show){ b.hidden=true; noteFor=-1; return; }
-  if(noteFor!==cur){ noteFor=cur; b.textContent=`Stopp ${cur+1}: `+[...tg,...nt].join("\n"); } b.hidden=false; }
+  if(noteFor!==cur){ noteFor=cur; b.textContent=`Stopp ${cur+1}: `+[...tg,...nt].join("\n"); }
+  const mb=$("mapBar"); if(mb) b.style.setProperty("--nb",(mb.offsetHeight+18)+"px"); b.hidden=false; }
 $("noteBan").addEventListener("click",()=>{ noteHid=cur; $("noteBan").hidden=true; });
 function checkArrival(){
   kmEnd(); if(carPos) kmFix(carPos,gpsAcc);

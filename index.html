@@ -1533,7 +1533,8 @@ function planStand(stops){ // Standzeit je Stopp in ms: heute (ab 3 Stopps), son
   try{ const today=avgStand(stops); if(today!=null&&stops.filter(s=>standOf(s)!=null).length>=3) return today; }catch(e){}
   try{ const h=JSON.parse(localStorage.getItem("navi-standzeit")||"{}")||{}; if(h.n>=3) return h.sum/h.n; }catch(e){} return 45000; }
 function bcrVias(s,from){ if(!s||!s.via||!s.via.length||!s.ll) return [];
-  let v=s.via.filter(p=>dist(p,s.ll)>60); if(from){ const df=dist(from,s.ll); v=v.filter(p=>dist(p,s.ll)<df-30&&dist(p,from)>60); }
+  let v=s.via.filter(p=>dist(p,s.ll)>150); // v=114: die letzten 150 m vor dem Haus frei rechnen (darf wenden, kein Umweg um den Block)
+  if(from){ const df=dist(from,s.ll); v=v.filter(p=>dist(p,s.ll)<df-30&&dist(p,from)>60); }
   const out=[]; v.forEach(p=>{ if(!out.length||dist(out[out.length-1],p)>60) out.push(p); });
   if(out.length>23){ const st=out.length/23; return Array.from({length:23},(_,i)=>out[Math.floor(i*st)]); } return out; }
 const straightQ=pts=>pts.length>2?"&continue_straight=true":""; // an den Zwischenpunkten nicht wenden (v=110: in beiden Versionen)
@@ -2175,9 +2176,14 @@ function setLive(i,side,src){
 function trackSide(){
   if(!tour||cur<0||!carPos) return; const s=tour.stops[cur];
   if(!lastPos){ lastPos=carPos.slice(); return; }
+  // v=114: Ab 150 m vor dem Haus zählt die echte Fahrtrichtung (GPS-Richtung beim Fahren), auch bei GPS bis 35 m Genauigkeit
+  if(head!==null&&gpsSpeed>2&&gpsAcc<=35&&s.exact&&s.ll&&dist(carPos,s.ll)<=150){
+    const c0=Math.cos(s.ll[0]*Math.PI/180), hx=Math.sin(head*Math.PI/180), hy=Math.cos(head*Math.PI/180);
+    const px=(s.ll[1]-carPos[1])*111320*c0, py=(s.ll[0]-carPos[0])*110540, cr=hx*py-hy*px;
+    if(hx*px+hy*py>0&&Math.abs(cr)>=3&&Math.abs(cr)<=60) setLive(cur,cr>0?"links":"rechts","gps"); }
   // Erst ab 15 m echter Bewegung und genauem GPS werten, sonst dreht GPS-Schwanken im Stand die Seite hin und her.
   if(dist(lastPos,carPos)<15) return;
-  if(gpsAcc>20){ lastPos=carPos.slice(); return; }
+  if(gpsAcc>35){ lastPos=carPos.slice(); return; }
   const A=lastPos; lastPos=carPos.slice();
   if(!s.exact||!s.ll||dist(carPos,s.ll)>200) return;
   const c=Math.cos(s.ll[0]*Math.PI/180), m=p=>[p[1]*111320*c,p[0]*110540], a=m(A), b=m(carPos), P=m(s.ll);

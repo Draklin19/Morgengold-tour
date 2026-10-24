@@ -1686,7 +1686,7 @@ async function routeTour(){
   t.road=road; routeState(""); render();
 }
 function loadedInfo(){
-  const parts=[]; if(pdfTour) parts.push(`Ausfahrliste: ${pdfTour.stops.length} Stopps`); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
+  const parts=[]; if(pdfTour) parts.push(`Ausfahrliste: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
   let t=parts.length?"Geladen · "+parts.join(" · "):"";
   if(pdfTour&&bcrTour&&pdfTour.stops.length!==bcrTour.stops.length) t+=" · Achtung: unterschiedliche Anzahl, verbunden über die Stopp-Nummer.";
   $("loaded").textContent=t;

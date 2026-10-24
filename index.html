@@ -1169,6 +1169,24 @@ html.fahrer #rechBox,html.fahrer .pd-rech{display:none!important}
 .gtour .opts{margin-top:6px}
 .gtour .hint{margin-top:6px;font-size:.82rem}
 html.fahrer #cmpBox{display:none!important}
+.kom-it{border:1px solid var(--line,#ddd);border-radius:12px;padding:8px;margin:0 0 8px;display:grid;gap:6px}
+.kom-it input{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--line,#ccc);border-radius:10px;font:1rem var(--font-body);background:var(--card,#fff);color:inherit}
+.kom-it .kv{display:flex;gap:10px;align-items:center}
+.kom-it .kv .kt{flex:1;min-width:0}
+.kom-it .kv b{display:block}
+.kom-it .kv .kad{display:block;font-size:.9rem;opacity:.85;overflow-wrap:anywhere}
+.kom-it .ke{flex:0 0 auto;border:1px solid var(--line,#ccc);background:none;border-radius:10px;padding:6px 10px;font:700 .9rem var(--font-body);color:inherit;cursor:pointer}
+.kom-it:not(.edit) .kf{display:none}
+.kom-it.edit .kv{display:none}
+.kom-add{display:block;width:100%;margin:0 0 10px;padding:12px;border:2px dashed #15803d;border-radius:12px;background:none;color:#15803d;font:800 1rem var(--font-body);cursor:pointer}
+.kom-it .kom-st{font-size:.85rem;opacity:.8}
+.kom-it.on{border-color:#15803d;box-shadow:0 0 0 2px rgb(21 128 61 / .25)}
+.dep-ban{position:absolute;left:12px;right:12px;top:74px;z-index:650;display:flex;gap:10px;align-items:center;justify-content:space-between;background:#15803d;color:#fff;border-radius:12px;padding:10px 14px;font:700 1rem/1.25 var(--font-body);box-shadow:0 2px 10px rgb(0 0 0 / .3)}
+.dep-ban button{flex:0 0 auto;border:0;border-radius:10px;padding:8px 12px;background:#fff;color:#15803d;font:800 .95rem var(--font-body)}
+body:not(.drive):not(.sim) .dep-ban{display:none}
+.kompin{position:relative;width:44px;height:40px;filter:drop-shadow(0 0 2px #fff) drop-shadow(0 1px 3px rgb(0 0 0 / .45))}
+.kompin .km-fig{position:absolute;left:2px;top:0;font-size:30px;line-height:1}
+.kompin .km-bag{position:absolute;right:0;bottom:0;font-size:19px;line-height:1}
 .depotpin{display:inline-block;white-space:nowrap;padding:0 8px;height:22px;border-radius:11px;background:#15803d;color:#fff;font:700 12px/22px var(--font-body);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 body.no-tour .stops-head{display:none}
 </style></head><body>
@@ -1236,6 +1254,9 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <div class="set-card" data-grp="0">
       <details class="set-row"><summary><span class="me-prev" id="mePrev"></span><span class="t">Bild für meine Position<small>Auf der Karte an deiner Position</small></span></summary>
         <div class="set-body"><div class="opts"><label class="btn" for="meFile">Bild wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div></div></details>
+      <details class="set-row"><summary><span class="ic c-green">🏠</span><span class="t">Eigene Adresse (Zuhause)<small id="homeSub"></small></span></summary>
+        <div class="set-body"><div class="set-in"><input id="homeAddr" type="text" autocomplete="off" placeholder="Straße Nr, PLZ Ort"><button class="btn" id="homeSave" type="button">Speichern</button></div>
+        <p class="hint" id="homeHint"></p></div></details>
       <details class="set-row"><summary><span class="ic c-blue">✉️</span><span class="t">E-Mail-Empfänger<small id="mailSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de"><button class="btn" id="mailToSave" type="button">Speichern</button></div>
         <p class="hint">Für Tourberichte und Rechnungen. Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p></div></details>
@@ -1252,9 +1273,11 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     </div>
     <div class="set-gl" data-grp="1">Tour</div>
     <div class="set-card" data-grp="1">
-      <details class="set-row"><summary><span class="ic c-green">📍</span><span class="t">Kommissionierstelle (Start)<small id="depotSub"></small></span></summary>
-        <div class="set-body"><div class="set-in"><input id="depotAddr" type="text" autocomplete="off" placeholder="Straße Nr, PLZ Ort"><button class="btn" id="depotSave" type="button">Speichern</button></div>
-        <p class="hint" id="depotHint">Ab hier zählt die App beim Fahren die Kilometer bis zum letzten Kunden. Die Adresse bleibt nur auf diesem Handy.</p></div></details>
+      <details class="set-row"><summary><span class="ic c-green">📍</span><span class="t">Kommissionierstellen (Start)<small id="depotSub"></small></span></summary>
+        <div class="set-body"><div id="komList"></div>
+        <button class="kom-add" id="komAdd" type="button">＋ Kommissionierstelle hinzufügen</button>
+        <div class="opts"><button class="btn" id="komShare" type="button">🔗 Link für Fahrer</button></div>
+        <p class="hint" id="depotHint"></p></div></details>
       <details class="set-row"><summary><span class="ic c-green">🔗</span><span class="t">Link zur Tour-Seite<small id="tourUrlSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="tourUrl" type="url" inputmode="url" placeholder="https://…"><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
         <p class="hint">Von dort lädst du Ausfahrliste und Routendatei. Oben erscheint dann „⬇ Tour herunterladen“.</p></div></details>
@@ -1508,7 +1531,8 @@ function parseAusfahrliste(words){
     });
     return {no:head.w[0].s, addr:left(head), town, notes, tags:tagsOf(codes), articles:colsOf(art.map(l=>({w:l.w.filter(w=>w.x>=70)})),[165,255,345,1e9])};
   });
-  return {name:tm?tm[1]:"Tour", date:dm?dm[2]:"", km:km?km[1]:"", load, stops};
+  const zm=all.match(/Kommissionierzone:\s*(\S+)/); // v=123: z. B. „02-Licht-TUTTLINGEN“
+  return {name:tm?tm[1]:"Tour", date:dm?dm[2]:"", km:km?km[1]:"", zone:zm?zm[1]:"", load, stops};
 }
 
 // Spaltenzeilen zu Artikeln zusammenfassen. Mehrzeilige Artikel stehen um die Menge herum:
@@ -1556,8 +1580,9 @@ function mergeTours(){
        stops:P.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,tags:q.tags||[],articles:q.articles,ll:null,via:[],done:false}))};
   }
   if(t){ t.load=P?P.load:[]; t.km=P?P.km:"";
+    if(old&&old.length===t.stops.length&&tour) t.depotDone=!!tour.depotDone;
     if(old&&old.length===t.stops.length) t.stops.forEach((s,i)=>{ s.done=old[i].done; s.at=old[i].at||0; s.dep=old[i].dep||0; });
-    applyCorr(t); }
+    applyCorr(t); try{ pickDepot(t); }catch(e){} }
   return t;
 }
 function fillArts(ul,cols){ ul.textContent=""; cols.flatMap(artItems).forEach(it=>{ const li=document.createElement("li"); if(it.qty){const b=document.createElement("b");b.textContent=it.qty+"×";li.append(b);} li.append(it.name); ul.append(li); }); }
@@ -1850,7 +1875,8 @@ function render(){ setTimeout(()=>declutter(),0);
   let nearNext=cur<0?-1:tour.stops.findIndex((q,k)=>k>cur&&!q.done); if(cur>=0&&nearNext<0) nearNext=tour.stops.findIndex((q,k)=>k!==cur&&!q.done);
   let lastIdx=-1; tour.stops.forEach((q,k)=>{ if(q.ll) lastIdx=k; }); // letzter Kunde: Zielfahne
   { let d=null; try{ d=JSON.parse(localStorage.getItem("navi-depot")||"null"); }catch(e){} // Kommissionierstelle als Start-Symbol
-    if(d&&d.ll) L.marker(d.ll,{icon:L.divIcon({className:"",html:'<div class="depotpin">▶ Start</div>',iconSize:[58,22],iconAnchor:[29,11]}),interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer); }
+    if(d&&d.ll) L.marker(d.ll,{icon:L.divIcon({className:"",html:'<div class="kompin"><span class="km-fig">🧑‍🍳</span><span class="km-bag">🥐</span></div>',iconSize:[44,40],iconAnchor:[22,20]}),interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer); }
+  { let h=null; try{ h=JSON.parse(localStorage.getItem("navi-heim")||"null"); }catch(e){} if(h&&h.ll) L.marker(h.ll,{icon:L.divIcon({className:"",html:'<div class="depotpin">🏠</div>',iconSize:[34,22],iconAnchor:[17,11]}),interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer); } // v=122: Zuhause
   tour.stops.forEach((s,i)=>{
     const warn=IS_TEST&&s.warn&&!s.fixed&&s.osm;
     const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn||s.approx?" warn":"");
@@ -2225,6 +2251,8 @@ function checkArrival(){
   kmEnd(); if(carPos) kmFix(carPos,gpsAcc);
   updateHouseNo(); checkTurns(); updateEta();
   if(depW&&carPos&&depW.s.ll&&dist(carPos,depW.s.park||depW.s.ll)>depW.r+15){ depW.s.dep=Date.now(); learnStand(depW.s); saveTour(); depW=null; } // Abfahrt merken (Standzeit)
+  if(tour&&cur<0&&carPos){ homeNav(); return; } // v=122: Heimweg
+  if(depotNav()) return; // v=123: erst zur Kommissionierstelle
   if(!tour||cur<0||!carPos) return;
   trackSide();
   const s=tour.stops[cur], r=+$("radius").value;
@@ -2574,6 +2602,7 @@ function scrollCurrent(){ // nur die Liste scrollen, aktueller Stopp in die Mitt
 const approachLayer=L.layerGroup().addTo(map); let apFrom=null, apStop=-1, apBusy=false, apAt=0;
 function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; turns=[]; apLine=null; apPoly=null; }
 async function updateApproach(){
+  if(needDepot()) return; // v=123: Weg zur Kommissionierstelle hat Vorrang
   const T=apTarget();
   if(!carPos||!tour||T<0||!tour.stops[T].ll||apBusy) return;
   let reroute=false;
@@ -2628,7 +2657,7 @@ function apTarget(){ // Ziel der grünen Anfahrt: beim aktuellen Kunden angekomm
 function approachPt(s,from){ // letzter Streckenpunkt der Morgengold-Route vor dem Haus; nur solange man noch nicht daran vorbei ist
   if(!s||!s.exact||s.fixed||!s.ll||!s.via||!s.via.length) return null;
   const v=s.via[s.via.length-1], d=dist(v,s.ll); return d>40&&d<300&&(!from||dist(from,s.ll)>d+30)?v:null; }
-function startTour(){
+function startTour(){ try{ homeDone=false; }catch(e){}
   if(!tour||cur<0){ toast(tour?"Alle Stopps sind erledigt.":"Zuerst die Tour öffnen."); return; }
   stopSim();
   withGeo(enterDrive);
@@ -2778,13 +2807,14 @@ $("pinSave").addEventListener("click",()=>{ if(!pinEdit) return; const {i,m}=pin
 function setSubs(){
   const mt=$("mailTo").value.trim(); $("mailSub").textContent=mt||"Nicht eingetragen";
   let u=""; try{ u=new URL($("tourUrl").value.trim()).hostname; }catch(e){} $("tourUrlSub").textContent=u||"Nicht eingetragen";
-  $("depotSub").textContent=!depot?"Nicht eingetragen":depot.ll?"✓ Gefunden":"⚠ Adresse nicht gefunden";
+  $("homeSub").textContent=!home?"Nicht eingetragen":home.ll?"✓ Gefunden":"⚠ Adresse nicht gefunden";
+  { const n=komGet().length; $("depotSub").textContent=!n?"Nicht eingetragen":(n===1?"1 Stelle":n+" Stellen")+(depot&&depot.ll?" · aktiv: "+(depot.n||depot.addr):""); }
   const on=[$("voiceOn").checked&&"Stopps",$("turnOn").checked&&"Abbiegen"].filter(Boolean); $("voiceSub").textContent=on.length?"An: "+on.join(" und "):"Aus";
   $("viewSub").textContent="Schrift "+(+$("fontSel").value+1)+" · Tourleiste "+$("dockSel").options[$("dockSel").selectedIndex].text;
   [...$("fontSeg").children].forEach((b,i)=>b.classList.toggle("on",i===+$("fontSel").value)); }
 [0,1,2,3,4].forEach(i=>{ const b=document.createElement("button"); b.type="button"; b.textContent=i+1; b.setAttribute("aria-label","Schriftgröße "+(i+1));
   b.addEventListener("click",()=>{ $("fontSel").value=String(i); $("fontSel").dispatchEvent(new Event("change")); setSubs(); }); $("fontSeg").appendChild(b); });
-["mailToSave","tourUrlSave","depotSave"].forEach(id=>$(id).addEventListener("click",()=>setTimeout(setSubs,50)));
+["mailToSave","tourUrlSave","homeSave"].forEach(id=>$(id).addEventListener("click",()=>setTimeout(setSubs,50)));
 ["voiceOn","turnOn","dockSel"].forEach(id=>$(id).addEventListener("change",setSubs));
 let setTabIdx=0; try{ setTabIdx=+(localStorage.getItem("navi-set-tab")||0)||0; }catch(e){}
 function setTab(g){ setTabIdx=g; try{ localStorage.setItem("navi-set-tab",g); }catch(e){}
@@ -2843,13 +2873,96 @@ let etaAt=0;
 // Startet die App mitten in der Tour, wird der schon gefahrene Teil als Straßenstrecke nachgerechnet: Kommissionierstelle → erledigte Kunden → jetzige Position.
 const DEPOT_KEY="navi-depot", KM_KEY="navi-km";
 let depot=null; try{ depot=JSON.parse(localStorage.getItem(DEPOT_KEY)||"null"); }catch(e){}
-const DEPOT_TXT="Ab hier zählt die App beim Fahren die Kilometer bis zum letzten Kunden. Die Adresse bleibt nur auf diesem Handy.";
-function depotUi(){ $("depotAddr").value=depot?depot.addr:""; $("depotHint").textContent=!depot?DEPOT_TXT:depot.ll?"✓ Gefunden. "+DEPOT_TXT:"Adresse nicht gefunden. Bitte als „Straße Nr, PLZ Ort“ eingeben und Internet prüfen."; }
+// v=123: mehrere Kommissionierstellen (nur auf dem Handy, nie im App-Code). Die Ausfahrliste nennt die „Kommissionierzone“ (z. B. 02-Licht-TUTTLINGEN);
+// danach wählt die App die passende Stelle. Ohne Ausfahrliste: zuletzt zu dieser Tour gemerkte Zone, sonst die einzige bzw. die nächste Stelle zum 1. Kunden.
+// Ein Link (#kom=…) überträgt die Stellen auf die Handys der Fahrer; der Teil nach # geht nicht an den Server.
+const KOM_KEY="navi-kom", ZONE_KEY="navi-tourzone";
+const DEPOT_TXT="Die passende Stelle erkennt die App an der „Kommissionierzone“ in der Ausfahrliste. Von dort zählen die Kilometer bis zum letzten Kunden. Die Adressen bleiben nur auf diesem Handy.";
+// v=124: die drei Kommissionierstellen von Morgengold sind vorab eingetragen (Draklin: darf im App-Code stehen); löschen/ändern/hinzufügen wie bisher
+const KOM_START=[{n:"01-Licht-ROTTWEIL",a:"Bösinger Straße 42, 78662 Bösingen",ll:null},{n:"02-Licht-TUTTLINGEN",a:"Tuttlinger Straße 20, 78582 Balgheim",ll:null},{n:"03-Hettich",a:"Kirnacher Straße 4, 78050 Villingen-Schwenningen",ll:null}];
+function komGet(){ let a=null; try{ a=JSON.parse(localStorage.getItem(KOM_KEY)||"null"); }catch(e){}
+  if(!Array.isArray(a)){ a=KOM_START.map(e=>({...e})); let d=null; try{ d=JSON.parse(localStorage.getItem(DEPOT_KEY)||"null"); }catch(e){}
+    if(d&&d.addr&&!a.some(x=>x.a===d.addr)) a.push({n:d.n||"",a:d.addr,ll:d.ll||null}); }
+  return a; }
+function komSet(a){ try{ localStorage.setItem(KOM_KEY,JSON.stringify(a)); }catch(e){} }
+const zoneN=x=>String(x||"").toLowerCase().replace(/[^a-z0-9äöüß]/g,"");
+function setActiveDepot(e){ const v=e&&e.ll?{addr:e.a,ll:e.ll,n:e.n||""}:null; try{ if(v) localStorage.setItem(DEPOT_KEY,JSON.stringify(v)); else localStorage.removeItem(DEPOT_KEY); }catch(x){} try{ depot=v; }catch(x){} }
+function pickDepot(t){
+  const list=komGet().filter(e=>e.ll); if(!list.length) return;
+  const keys=[t&&t.name,bcrTour&&bcrTour.name,pdfTour&&pdfTour.name].filter(Boolean).map(x=>String(x).split(" · ")[0]);
+  let zones={}; try{ zones=JSON.parse(localStorage.getItem(ZONE_KEY)||"{}")||{}; }catch(e){}
+  let z=pdfTour&&pdfTour.zone||"";
+  if(z){ keys.forEach(k=>zones[k]=z); try{ localStorage.setItem(ZONE_KEY,JSON.stringify(zones)); }catch(e){} } else z=keys.map(k=>zones[k]).find(Boolean)||"";
+  let e=null;
+  if(z){ const zn=zoneN(z); e=list.find(x=>zoneN(x.n)===zn)||list.find(x=>x.n&&(zn.includes(zoneN(x.n))||zoneN(x.n).includes(zn))); }
+  if(!e&&list.length===1) e=list[0];
+  if(!e){ const f=t&&t.stops.find(q=>q.ll); if(f) e=list.reduce((a,b)=>dist(b.ll,f.ll)<dist(a.ll,f.ll)?b:a); }
+  if(e) setActiveDepot(e); }
+function depotUi(){ const box=$("komList"), list=komGet(); box.textContent="";
+  list.forEach((e,i)=>{ const d=document.createElement("div"); d.className="kom-it"+(depot&&depot.ll&&e.ll&&dist(depot.ll,e.ll)<5?" on":"");
+    // v=123: gespeicherte Stellen als Zeile mit „✏️ Ändern“; beim Ändern bzw. bei neuen Stellen erscheinen die Eingabefelder
+    d.innerHTML='<div class="kv"><span class="kt"><b></b><span class="kad"></span></span><button class="ke" type="button">✏️ Ändern</button></div><div class="kf"><input class="kn" type="text" autocomplete="off" placeholder="Kommissionierzone, z. B. 01-Licht-ROTTWEIL"><input class="ka" type="text" autocomplete="off" placeholder="Straße Nr, PLZ Ort"><div class="opts"><button class="btn ks" type="button">Speichern</button><button class="btn kx" type="button">✕ Löschen</button></div></div><span class="kom-st"></span>';
+    d.querySelector(".kn").value=e.n||""; d.querySelector(".ka").value=e.a||""; if(!e.a) d.classList.add("edit");
+    d.querySelector(".kv b").textContent=e.n||"Kommissionierstelle"; d.querySelector(".kad").textContent=e.a||"";
+    d.querySelector(".ke").addEventListener("click",()=>{ d.classList.add("edit"); d.querySelector(".ka").focus(); });
+    d.querySelector(".kom-st").textContent=!e.a?"":e.ll?"✓ Adresse gefunden"+(d.classList.contains("on")?" · für die geladene Tour aktiv":""):"⚠ Adresse nicht gefunden. Bitte als „Straße Nr, PLZ Ort“ eingeben.";
+    d.querySelector(".ks").addEventListener("click",async()=>{ const l=komGet(), n=d.querySelector(".kn").value.trim(), a=d.querySelector(".ka").value.trim(); if(!a) return;
+      d.querySelector(".kom-st").textContent="Suche Adresse …"; const ll=a===l[i].a&&l[i].ll?l[i].ll:await komGeo(a); l[i]={n,a,ll}; komSet(l); komAfter(); });
+    d.querySelector(".kx").addEventListener("click",()=>{ const l=komGet(); l.splice(i,1); komSet(l); if(!l.length) setActiveDepot(null); komAfter(); });
+    box.appendChild(d); });
+  $("depotHint").textContent=DEPOT_TXT; }
+async function komGeo(a){ try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); const ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); return ll&&ll[2]!==1?[ll[0],ll[1]]:null; }catch(e){ return null; } }
+function komAfter(){ if(tour) pickDepot(tour); depotUi(); try{ setSubs(); }catch(e){} if(tour){ render(); routeTour(); } }
+$("komAdd").addEventListener("click",()=>{ const l=komGet(); l.push({n:"",a:"",ll:null}); komSet(l); depotUi(); const it=$("komList").lastElementChild; if(it) it.querySelector(".kn").focus(); });
+$("komShare").addEventListener("click",async()=>{ const l=komGet().filter(e=>e.a).map(e=>({n:e.n,a:e.a,ll:e.ll})); if(!l.length){ toast("Bitte zuerst eine Kommissionierstelle eintragen."); return; }
+  const u=location.origin+location.pathname.replace(/test\.html$/i,"")+"#kom="+btoa(unescape(encodeURIComponent(JSON.stringify(l)))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+  try{ if(navigator.share){ await navigator.share({title:"Kommissionierstellen",text:"Öffne diesen Link, dann sind die Kommissionierstellen in deiner App eingetragen:",url:u}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+  try{ await navigator.clipboard.writeText(u); toast("Link kopiert. Schick ihn den Fahrern."); }catch(e){ prompt("Link für die Fahrer:",u); } });
+(async function komImport(){ const m=location.hash.match(/kom=([A-Za-z0-9_-]+)/); if(!m) return;
+  try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+  let inc=null; try{ let b=m[1].replace(/-/g,"+").replace(/_/g,"/"); while(b.length%4) b+="="; inc=JSON.parse(decodeURIComponent(escape(atob(b)))); }catch(e){}
+  if(!Array.isArray(inc)||!inc.length) return;
+  const l=komGet(); for(const e of inc){ if(!e||!e.a) continue; const ll=Array.isArray(e.ll)&&e.ll.length===2?e.ll.map(Number):null;
+    const k=l.findIndex(x=>(e.n&&zoneN(x.n)===zoneN(e.n))||x.a===e.a); const v={n:String(e.n||""),a:String(e.a),ll:ll||(k>=0&&l[k].a===e.a?l[k].ll:null)};
+    if(k>=0) l[k]=v; else l.push(v); }
+  komSet(l); depotUi(); toast(inc.length+(inc.length===1?" Kommissionierstelle":" Kommissionierstellen")+" übernommen");
+  for(const e of l) if(!e.ll&&e.a){ e.ll=await komGeo(e.a); komSet(l); } komAfter(); })();
 depotUi();
-$("depotSave").addEventListener("click",async()=>{ const a=$("depotAddr").value.trim(); if(!a){ depot=null; try{localStorage.removeItem(DEPOT_KEY);}catch(e){} depotUi(); return; }
-  $("depotHint").textContent="Suche Adresse …"; let ll=null;
+(async function komFill(){ const l=komGet(); if(!l.some(e=>!e.ll&&e.a)) return; // fehlende Koordinaten einmal auf dem Handy suchen
+  for(const e of l) if(!e.ll&&e.a){ e.ll=await komGeo(e.a); } komSet(l); komAfter(); })();
+// v=122: eigene Adresse (nur auf dem Handy). Nach dem letzten Kunden führt die grüne Linie mit Abbiege-Ansagen nach Hause.
+// Der Heimweg zählt nicht zur Restzeit, zu den Kilometern oder zum Bericht (die enden beim letzten Kunden).
+const HOME_KEY="navi-heim", HOME_TXT="Nach dem letzten Kunden navigiert die App nach Hause. Die Heimfahrt zählt nicht zur Tourzeit. Die Adresse bleibt nur auf diesem Handy.";
+let home=null; try{ home=JSON.parse(localStorage.getItem(HOME_KEY)||"null"); }catch(e){}
+function homeUi(){ $("homeAddr").value=home?home.addr:""; $("homeHint").textContent=!home?HOME_TXT:home.ll?"✓ Gefunden. "+HOME_TXT:"Adresse nicht gefunden. Bitte als „Straße Nr, PLZ Ort“ eingeben und Internet prüfen."; }
+homeUi();
+$("homeSave").addEventListener("click",async()=>{ const a=$("homeAddr").value.trim(); if(!a){ home=null; try{localStorage.removeItem(HOME_KEY);}catch(e){} homeUi(); try{ setSubs(); }catch(e){} return; }
+  $("homeHint").textContent="Suche Adresse …"; let ll=null;
   try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); if(ll&&ll[2]===1) ll=null; }catch(e){}
-  depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); try{ setSubs(); }catch(e){} if(tour){ render(); routeTour(); } });
+  home={addr:a,ll:ll?[ll[0],ll[1]]:null}; try{ localStorage.setItem(HOME_KEY,JSON.stringify(home)); }catch(e){} homeUi(); try{ setSubs(); }catch(e){} if(tour) render(); });
+let homeDone=false, navAt=0, navBusy=false;
+async function navTo(ll,key){ // grüne Linie mit Abbiege-Ansagen zu einem festen Ziel (Kommissionierstelle = -3, Zuhause = -2)
+  if(navBusy) return; if(apStop===key&&apLine&&!offRoute()) return; if(apStop===key&&Date.now()-navAt<8000) return;
+  navBusy=true; navAt=Date.now(); const from=carPos.slice(); let rr=null;
+  for(const base of ROUTERS){ try{ rr=await routeSteps(base,[from,ll],null); break; }catch(e){} }
+  navBusy=false; if(!rr) return;
+  if(key===-2&&(!tour||cur>=0)) return; if(key===-3&&!needDepot()) return;
+  approachLayer.clearLayers(); apFrom=from; apStop=key; turns=rr.steps; if(turnStop!==key){ turnSaid=new Set(); turnStop=key; }
+  const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
+  apLine=rr.line.map(q=>q.slice()); apRouted=apLine.length>1; apK=0; offN=0;
+  apPoly=L.polyline(apLine,{color:rc,weight:apWeight(),opacity:.75,lineCap:"round",lineJoin:"round",smoothFactor:.3,pane:"apPane"}).addTo(approachLayer);
+  trimApproach(disp||carPos); }
+function homeNav(){ // nach dem letzten Kunden: Weg nach Hause (zählt nicht zur Tourzeit)
+  if(!home||!home.ll||!carPos||homeDone||!(document.body.classList.contains("drive")||simTimer)) return;
+  if(dist(carPos,home.ll)<60){ homeDone=true; clearApproach(); toast("Zu Hause angekommen 🏠"); return; }
+  navTo(home.ll,-2); }
+// v=123: vor dem 1. Kunden erst zur Kommissionierstelle (solange noch nichts abgehakt ist); dort angekommen geht es zum 1. Kunden.
+function needDepot(){ return !!(tour&&cur>=0&&!tour.depotDone&&depot&&depot.ll&&!tour.stops.some(q=>q.done)&&(document.body.classList.contains("drive")||simTimer)); }
+function depotBan(){} // v=124: kein Banner mehr; die Kommissionierstelle wird über den Standort erkannt und abgehakt
+function depotNav(){ if(!needDepot()){ depotBan(false); return false; }
+  if(!carPos) return true;
+  if(dist(carPos,depot.ll)<120){ tour.depotDone=true; saveTour(); depotBan(false); clearApproach(); toast("Kommissionierstelle erreicht ✓ Ab hier zählen die Kilometer."); say("Kommissionierstelle erreicht. Ab hier zählen die Kilometer."); return false; }
+  depotBan(true); navTo(depot.ll,-3); return true; }
 async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
 let km=null, kmBusy=false;
 const kmKey=()=>tourTitle()+"|"+tourDay();
@@ -2857,6 +2970,7 @@ function kmLoad(){ km=jget(KM_KEY)[kmKey()]||null; }
 function kmSave(){ const all=jget(KM_KEY), k=kmKey(); all[k]=km; const ks=Object.keys(all); if(ks.length>20) delete all[ks[0]]; jset(KM_KEY,all); }
 async function kmFix(p,acc){
   if(!tour||!depot||!depot.ll||!p||kmBusy) return; if(!km||km.key!==kmKey()) kmLoad();
+  if(!km&&needDepot()) return; // v=123: Kilometer zählen erst ab der Kommissionierstelle
   if(km&&km.end) return;
   if(!km){ // erster Standort dieser Tour
     kmBusy=true; let base=0; const done=tour.stops.filter(s=>s.done&&s.ll);
@@ -2869,8 +2983,10 @@ async function kmFix(p,acc){
   if(gap>60000&&d>300){ kmBusy=true; const r=await roadDist(km.last,p); km.m+=r; km.est+=r; kmBusy=false; } // Lücke (App nicht vorne): Straßenstrecke einsetzen
   else km.m+=d;
   km.last=p; km.t=Date.now(); kmSave(); }
-function kmEnd(){ if(km&&!km.end&&tour&&!tour.stops.some(s=>!s.done)){ km.end=true; km.endAt=Date.now(); kmSave(); } } // letzter Kunde abgehakt: Zähler steht
-const kmText=()=>km&&depot&&depot.ll?`${(km.m/1000).toFixed(1).replace(".",",")} km gefahren${km.end?" ✓":""}`:"";
+function kmEnd(){ if(km&&!km.end&&tour&&!tour.stops.some(s=>!s.done)){ km.end=true; km.endAt=Date.now(); kmSave(); // letzter Kunde abgehakt: Zähler steht
+    const k=(km.m/1000).toFixed(1); toast(`Kilometerzähler gestoppt: ${k.replace(".",",")} km (Kommissionierstelle bis letzter Kunde)`); say(`Letzter Kunde erledigt. Gefahren: ${k.replace(".",",")} Kilometer.`); } }
+// v=127: sichtbar, ab wann gezählt wird: vor der Kommissionierstelle „km ab 🧑‍🍳“, danach „🧑‍🍳 X km“
+const kmText=()=>!(depot&&depot.ll)?"":km?`🧑‍🍳 ${(km.m/1000).toFixed(1).replace(".",",")} km gefahren${km.end?" ✓":""}`:"km zählen ab 🧑‍🍳";
 function updateEta(force){
   const el=$("eta"); if(!el) return;
   if(!tour||cur<0||!document.body.classList.contains("drive")){ el.hidden=true; return; }
@@ -2941,7 +3057,7 @@ $("reportBtn").addEventListener("click",async()=>{ if(!tour) return;
 // Tour neu starten: gleiche Dateien, alle Haken und Ansagen zurück, wieder ab Stopp 1
 $("restartBtn").addEventListener("click",async()=>{ if(!tour) return;
   if(!await ask("Tour neu starten?","Alle Haken werden entfernt und die Tour beginnt wieder bei Stopp 1. Die geladenen Dateien bleiben.","Neu starten","Abbrechen")) return;
-  stopSim(); tour.stops.forEach(s=>{ s.done=false; s.said=false; s.at=0; s.dep=0; }); tour.mailAsked=false; cur=0; backTo=-1; announced=-1; live={stop:-1,side:"",src:""}; turnSaid=new Set(); turnStop=-1;
+  stopSim(); tour.stops.forEach(s=>{ s.done=false; s.said=false; s.at=0; s.dep=0; }); tour.mailAsked=false; tour.depotDone=false; cur=0; backTo=-1; announced=-1; live={stop:-1,side:"",src:""}; turnSaid=new Set(); turnStop=-1;
   render(); fit(); toast("Tour beginnt wieder bei Stopp 1"); });
 
 $("restartTop").addEventListener("click",()=>$("restartBtn").click());
@@ -2988,7 +3104,7 @@ function saveTour(){ try{
   let a=loadTours(); const day=tourDay(), title=tourTitle(), key=title+"|"+day;
   let d=curId&&a.find(x=>x.id===curId) || a.find(x=>x.key===key);
   if(!d){ d={id:"t"+Date.now()}; a.unshift(d); }
-  curId=d.id; Object.assign(d,{key,day,title,t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),said:tour.stops.map(s=>!!s.said),at:tour.stops.map(s=>s.at||0),dep:tour.stops.map(s=>s.dep||0),drive:document.body.classList.contains("drive"),ll:tour.stops.map(s=>s.ll)});
+  curId=d.id; Object.assign(d,{key,day,title,t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),said:tour.stops.map(s=>!!s.said),at:tour.stops.map(s=>s.at||0),dep:tour.stops.map(s=>s.dep||0),drive:document.body.classList.contains("drive"),ll:tour.stops.map(s=>s.ll),depotDone:!!tour.depotDone});
   a=[d,...a.filter(x=>x!==d)].slice(0,MAX_TOURS); // zuletzt benutzte vorne, die 4. fällt weg
   storeTours(a);
 }catch(e){} }
@@ -2996,7 +3112,7 @@ function saveTour(){ try{
 // Sonst bleibt die Karte leer, und der Knopf „Letzte Tour laden“ bietet die Tour an (höchstens 18 Stunden alt).
 function restoreTour(d){
   bcrTour=d.bcr; pdfTour=d.pdf; const t=mergeTours(); if(!t) return false;
-  t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; s.at=(d.at||[])[i]||0; s.dep=(d.dep||[])[i]||0; if(!s.ll&&d.ll&&d.ll[i]) s.ll=d.ll[i]; }); tour=t; cur=typeof d.cur==="number"?d.cur:0; curId=d.id;
+  t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; s.at=(d.at||[])[i]||0; s.dep=(d.dep||[])[i]||0; if(!s.ll&&d.ll&&d.ll[i]) s.ll=d.ll[i]; }); t.depotDone=!!d.depotDone; tour=t; cur=typeof d.cur==="number"?d.cur:0; curId=d.id;
   $("lastTour").hidden=true; loadedInfo(); render(); fit(); routeTour(); checkTour(); return true; }
 const WD=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
 function dayLabel(day){ const m=String(day||"").match(/(\d{4})-(\d\d)-(\d\d)/); if(!m) return "";

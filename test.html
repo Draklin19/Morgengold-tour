@@ -1758,7 +1758,7 @@ document.getElementById("meFile").addEventListener("change",e=>{
 });
 document.getElementById("meClear").addEventListener("click",()=>meSet(""));
 const TOUR_KEY="navi-tour";
-let layer=L.layerGroup().addTo(map), tour=null, markers=[], cur=0, simTimer=null, car=null, carPos=null, simIdx=0, arrivedShown=-1, arr={i:-1,min:Infinity,at:0}, depW=null;
+let layer=L.layerGroup().addTo(map), tour=null, markers=[], cur=0, simTimer=null, car=null, carPos=null, simIdx=0, arrivedShown=-1, arr={i:-1,min:Infinity,at:0}, depW=null, tickP=null;
 meRefresh();
 const $=id=>document.getElementById(id);
 
@@ -2223,8 +2223,9 @@ function checkArrival(){
     if(!still){ arr.p=carPos.slice(); arr.t0=Date.now(); }
     else if(dd<=r){ clearTimeout(arr.tm); arr.tm=setTimeout(checkArrival,3100); } // auch ohne neue GPS-Meldung (Handy meldet im Stand selten)
     const left=dd>r+15||dd>arr.min+25;
-    if((still&&dd<=r&&Date.now()-arr.t0>=3000)||left){ clearTimeout(arr.tm); arr.i=-1;
-      if(!s.done){ s.done=true; if(!s.at) s.at=arr.at; if(left){ s.dep=Date.now(); learnStand(s); } else depW={s,r}; advanceAfterDone(); render(); if(cur<0) tourFinished(); } }
+    if(tickP&&dist(carPos,tickP)>=15) tickP=null; // v=117: nach einem Haken erst 15 m weiterfahren, dann darf Stehen den nächsten Kunden abhaken (Nachbarhäuser wie 20/22)
+    if((still&&!tickP&&dd<=r&&Date.now()-arr.t0>=3000)||left){ clearTimeout(arr.tm); arr.i=-1;
+      if(!s.done){ s.done=true; if(!s.at) s.at=arr.at; if(left){ s.dep=Date.now(); learnStand(s); } else { depW={s,r}; tickP=carPos.slice(); setTimeout(checkArrival,500); } /* Nachbarhaus gleich als angekommen merken: fährt man weg, wird es beim Wegfahren abgehakt */ advanceAfterDone(); render(); if(cur<0) tourFinished(); } }
     return; }
   if(dd>r){ if(arrivedShown===cur) arrivedShown=-1; return; }
   if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${cur+1}. Bitte manuell abhaken.`); updateApproach(); }

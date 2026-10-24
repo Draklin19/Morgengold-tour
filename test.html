@@ -1315,7 +1315,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
   <section class="stats" aria-label="Tourdaten">
     <div class="stat"><b id="sStops">0</b><span>Stopps</span></div>
     <div class="stat"><b id="sDone">0</b><span>Erledigt</span></div>
-    <div class="stat"><b id="sTime">–</b><span>Geplante Fahrzeit</span></div>
+    <div class="stat"><b id="sTime">–</b><span>Tourzeit mit Standzeit</span></div>
     <div class="stat"><b id="sKm">–</b><span>Strecke ca.</span></div>
   </section>
 
@@ -1529,11 +1529,15 @@ let bcrTour=null, pdfTour=null;
 const bcrOnly=()=>{ if(!IS_TEST) return false; try{ return localStorage.getItem("navi-nur-bcr")!=="aus"; }catch(e){ return true; } };
 // v=109: Fahrweg wie in der .bcr: deren Wegpunkte (Mitten der Streckenabschnitte) gehen als Zwischenpunkte an den Routenserver,
 // so folgt die Straßenroute dem von Morgengold geplanten Weg. Punkte näher als 60 m zueinander oder zum Haus fallen weg, höchstens 23 je Abschnitt.
+function planStand(stops){ // Standzeit je Stopp in ms: heute (ab 3 Stopps), sonst Durchschnitt dieses Handys, sonst 45 s
+  try{ const today=avgStand(stops); if(today!=null&&stops.filter(s=>standOf(s)!=null).length>=3) return today; }catch(e){}
+  try{ const h=JSON.parse(localStorage.getItem("navi-standzeit")||"{}")||{}; if(h.n>=3) return h.sum/h.n; }catch(e){} return 45000; }
 function bcrVias(s,from){ if(!s||!s.via||!s.via.length||!s.ll) return [];
   let v=s.via.filter(p=>dist(p,s.ll)>60); if(from){ const df=dist(from,s.ll); v=v.filter(p=>dist(p,s.ll)<df-30&&dist(p,from)>60); }
   const out=[]; v.forEach(p=>{ if(!out.length||dist(out[out.length-1],p)>60) out.push(p); });
   if(out.length>23){ const st=out.length/23; return Array.from({length:23},(_,i)=>out[Math.floor(i*st)]); } return out; }
-const straightQ=pts=>bcrOnly()&&pts.length>2?"&continue_straight=true":""; // an den Zwischenpunkten nicht wenden
+const straightQ=pts=>pts.length>2?"&continue_straight=true":""; // an den Zwischenpunkten nicht wenden (v=110: in beiden Versionen)
+const depotLL=()=>{ try{ const d=JSON.parse(localStorage.getItem("navi-depot")||"null"); return d&&d.ll||null; }catch(e){ return null; } };
 function mergeTours(){
   const old=tour&&tour.stops, P=bcrOnly()?null:pdfTour;
   let t=null;
@@ -1664,26 +1668,27 @@ const ROUTERS=["https://routing.openstreetmap.de/routed-car/route/v1/driving/","
 let routeSeq=0;
 function routeState(t){ $("routeState").textContent=t; $("routeState").hidden=!t; }
 async function routeWith(base,pts){
-  const line=[]; let m=0, sec=0;
+  const line=[]; let m=0, sec=0, firstSec=0;
   for(let k=0;k<pts.length-1;k+=24){ // höchstens 25 Punkte pro Anfrage, Abschnitte überlappen um einen Stopp
     const part=pts.slice(k,k+25);
     const r=await fetch(base+part.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=false"+straightQ(part));
     if(!r.ok) throw new Error("HTTP "+r.status);
     const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code||"keine Route");
     const g=j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
-    line.push(...(line.length?g.slice(1):g)); m+=j.routes[0].distance; sec+=j.routes[0].duration;
+    line.push(...(line.length?g.slice(1):g)); m+=j.routes[0].distance; sec+=j.routes[0].duration; if(k===0) firstSec=((j.routes[0].legs||[])[0]||{}).duration||0;
   }
-  return {line,km:m/1000,sec};
+  return {line,km:m/1000,sec,firstSec};
 }
 async function routeTour(){
   if(!tour) return; const seq=++routeSeq, t=tour;
-  const pts=bcrOnly()?t.stops.filter(s=>s.ll).flatMap((s,i)=>i?[...bcrVias(s),s.ll]:[s.ll]):t.stops.filter(s=>s.ll).map(s=>s.ll); if(pts.length<2) return;
+  // v=110: Straßenroute in beiden Versionen über die Wegpunkte der .bcr; mit Kommissionierstelle beginnt sie dort (Kilometer und Zeit ab Abfahrt)
+  const dp=depotLL(), pts=[...(dp?[dp]:[]),...t.stops.filter(s=>s.ll).flatMap((s,i)=>i?[...bcrVias(s),s.ll]:[s.ll])]; if(pts.length<2) return;
   routeState("Straßenroute wird berechnet …");
   let road=null, why=[];
   for(const base of ROUTERS){ try{ road=await routeWith(base,pts); break; }catch(x){ why.push(new URL(base).host+": "+(x.message||x)); } }
   if(seq!==routeSeq||tour!==t) return;
   if(!road){ routeState("Straßenroute nicht verfügbar ("+why.join("; ")+"). Gezeigt wird nur die grobe Verbindung."); return; }
-  t.road=road; routeState(""); render();
+  road.depot=!!dp; t.road=road; routeState(""); render();
 }
 function loadedInfo(){
   const parts=[]; if(pdfTour) parts.push(`Ausfahrliste: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
@@ -1870,7 +1875,9 @@ function render(){ setTimeout(()=>declutter(),0);
   $("sStops").textContent=tour.stops.length;
   $("sDone").textContent=tour.stops.filter(s=>s.done).length;
   { const nd=tour.stops.filter(s=>s.done).length, a=$("allChk"); a.checked=nd===tour.stops.length&&nd>0; a.indeterminate=nd>0&&nd<tour.stops.length; }
-  $("sTime").textContent=(!tour.time&&tour.road)?hm(tour.road.sec):tour.time?hm(tour.time):"–";
+  { // v=110: Tourzeit = Fahrzeit (aus der .bcr, sonst Routenserver) + Anfahrt ab Kommissionierstelle + Standzeit je Stopp
+    const drive=tour.time?tour.time+(tour.road&&tour.road.depot?tour.road.firstSec:0):tour.road?tour.road.sec:null;
+    $("sTime").textContent=drive!=null?hm(drive+tour.stops.length*planStand(tour.stops)/1000):"–"; }
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
@@ -2543,7 +2550,7 @@ async function updateApproach(){
   // Anfahrpunkt aus der Routendatei: Die Morgengold-Strecke endet auf der Straße, von der aus das Haus erreicht wird.
   // Liegt das Haus 40–300 m davon weg, fährt die App über diesen Punkt. Müsste das Auto danach erst um den Block,
   // um näher ans Haus zu kommen, endet die Fahrt dort und das letzte Stück wird zu Fuß gezeigt.
-  const sx=tour.stops[stopNo]; let ap=bcrOnly()?null:approachPt(sx,from), legs=[]; const hadAp=!!ap; const bv=bcrOnly()?bcrVias(sx,from):[];
+  const sx=tour.stops[stopNo]; const bv=bcrVias(sx,from); let ap=bv.length?null:approachPt(sx,from), legs=[]; const hadAp=!!ap;
   if(reroute) say("Route wird neu berechnet.");
   // Fahrtrichtung nur mitgeben, wenn man sich verfahren hat und wirklich fährt (über ca. 11 km/h): dann führt die neue Route
   // vorwärts weiter. Beim ersten Berechnen und im Stand (z. B. beim Kunden) darf die Route wenden, sonst gibt es Umwege um den Block.
@@ -2804,7 +2811,7 @@ depotUi();
 $("depotSave").addEventListener("click",async()=>{ const a=$("depotAddr").value.trim(); if(!a){ depot=null; try{localStorage.removeItem(DEPOT_KEY);}catch(e){} depotUi(); return; }
   $("depotHint").textContent="Suche Adresse …"; let ll=null;
   try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); if(ll&&ll[2]===1) ll=null; }catch(e){}
-  depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); try{ setSubs(); }catch(e){} if(tour) render(); });
+  depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); try{ setSubs(); }catch(e){} if(tour){ render(); routeTour(); } });
 async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
 let km=null, kmBusy=false;
 const kmKey=()=>tourTitle()+"|"+tourDay();

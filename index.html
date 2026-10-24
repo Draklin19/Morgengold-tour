@@ -998,6 +998,7 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
+html.fahrer #bcrOnlyRow{display:none!important}
 /* v=106: Ton-Knopf beim Fahren */
 .snd-btn{display:none}
 body.drive .snd-btn{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--surface);color:var(--fg);font-size:1.45rem;box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;margin-top:10px!important;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -1254,6 +1255,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       <details class="set-row"><summary><span class="ic c-green">🔗</span><span class="t">Link zur Tour-Seite<small id="tourUrlSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="tourUrl" type="url" inputmode="url" placeholder="https://…"><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
         <p class="hint">Von dort lädst du Ausfahrliste und Routendatei. Oben erscheint dann „⬇ Tour herunterladen“.</p></div></details>
+      <label class="set-row r" id="bcrOnlyRow" for="bcrOnly"><span class="ic c-green">🧭</span><span class="t">Tour nur aus der .bcr<small>Ausfahrliste wird ignoriert (nur Test-Version)</small></span><input type="checkbox" class="sw" id="bcrOnly"></label>
       <details class="set-row" id="rechBox"><summary><span class="ic c-amber">🧾</span><span class="t">Rechnung erstellen<small>Aus Screenshots der Auslieferungsliste</small></span></summary> <!-- v=94 (nur Admin) -->
         <div class="set-body">
           <p class="hint">Screenshots der Liste „Auslieferungen“ hinzufügen. Die App liest sie auf dem Handy aus, nichts wird hochgeladen. Unsichere Zahlen sind rot markiert, bitte mit dem Screenshot vergleichen.</p>
@@ -1313,7 +1315,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
   <section class="stats" aria-label="Tourdaten">
     <div class="stat"><b id="sStops">0</b><span>Stopps</span></div>
     <div class="stat"><b id="sDone">0</b><span>Erledigt</span></div>
-    <div class="stat"><b id="sTime">–</b><span>Geplante Fahrzeit</span></div>
+    <div class="stat"><b id="sTime">–</b><span>Tourzeit mit Standzeit</span></div>
     <div class="stat"><b id="sKm">–</b><span>Strecke ca.</span></div>
   </section>
 
@@ -1523,20 +1525,33 @@ function artItems(col){
 
 // Routendatei (Koordinaten, Strecke) und Ausfahrliste (Adressen, Hinweise, Artikel) zu einer Tour verbinden.
 let bcrTour=null, pdfTour=null;
+// v=108 (nur Test-Version): Schalter „Tour nur aus der .bcr“. Dann wird die Ausfahrliste ignoriert (keine Orte, Hinweise, Artikel).
+const bcrOnly=()=>{ if(!IS_TEST) return false; try{ return localStorage.getItem("navi-nur-bcr")!=="aus"; }catch(e){ return true; } };
+// v=109: Fahrweg wie in der .bcr: deren Wegpunkte (Mitten der Streckenabschnitte) gehen als Zwischenpunkte an den Routenserver,
+// so folgt die Straßenroute dem von Morgengold geplanten Weg. Punkte näher als 60 m zueinander oder zum Haus fallen weg, höchstens 23 je Abschnitt.
+function planStand(stops){ // Standzeit je Stopp in ms: heute (ab 3 Stopps), sonst Durchschnitt dieses Handys, sonst 45 s
+  try{ const today=avgStand(stops); if(today!=null&&stops.filter(s=>standOf(s)!=null).length>=3) return today; }catch(e){}
+  try{ const h=JSON.parse(localStorage.getItem("navi-standzeit")||"{}")||{}; if(h.n>=3) return h.sum/h.n; }catch(e){} return 45000; }
+function bcrVias(s,from){ if(!s||!s.via||!s.via.length||!s.ll) return [];
+  let v=s.via.filter(p=>dist(p,s.ll)>60); if(from){ const df=dist(from,s.ll); v=v.filter(p=>dist(p,s.ll)<df-30&&dist(p,from)>60); }
+  const out=[]; v.forEach(p=>{ if(!out.length||dist(out[out.length-1],p)>60) out.push(p); });
+  if(out.length>23){ const st=out.length/23; return Array.from({length:23},(_,i)=>out[Math.floor(i*st)]); } return out; }
+const straightQ=pts=>pts.length>2?"&continue_straight=true":""; // an den Zwischenpunkten nicht wenden (v=110: in beiden Versionen)
+const depotLL=()=>{ try{ const d=JSON.parse(localStorage.getItem("navi-depot")||"null"); return d&&d.ll||null; }catch(e){ return null; } };
 function mergeTours(){
-  const old=tour&&tour.stops;
+  const old=tour&&tour.stops, P=bcrOnly()?null:pdfTour;
   let t=null;
   if(bcrTour){
     t={name:bcrTour.name,time:bcrTour.time,stops:bcrTour.stops.map((s,i)=>({...s,name:"",notes:[],articles:[],town:s.town||"",exact:true}))};
-    if(pdfTour){
-      t.name=pdfTour.name+(pdfTour.date?" · "+pdfTour.date:"");
-      t.stops.forEach((s,i)=>{ const q=pdfTour.stops.find(q=>String(q.no)===String(i+1)); if(q){ s.addr=q.addr; s.town=q.town; s.notes=q.notes; s.articles=q.articles; s.tags=q.tags||[]; } });
+    if(P){
+      t.name=P.name+(P.date?" · "+P.date:"");
+      t.stops.forEach((s,i)=>{ const q=P.stops.find(q=>String(q.no)===String(i+1)); if(q){ s.addr=q.addr; s.town=q.town; s.notes=q.notes; s.articles=q.articles; s.tags=q.tags||[]; } });
     }
-  } else if(pdfTour){
-    t={name:pdfTour.name+(pdfTour.date?" · "+pdfTour.date:""),time:null,
-       stops:pdfTour.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,tags:q.tags||[],articles:q.articles,ll:null,via:[],done:false}))};
+  } else if(P){
+    t={name:P.name+(P.date?" · "+P.date:""),time:null,
+       stops:P.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,tags:q.tags||[],articles:q.articles,ll:null,via:[],done:false}))};
   }
-  if(t){ t.load=pdfTour?pdfTour.load:[]; t.km=pdfTour?pdfTour.km:"";
+  if(t){ t.load=P?P.load:[]; t.km=P?P.km:"";
     if(old&&old.length===t.stops.length) t.stops.forEach((s,i)=>{ s.done=old[i].done; s.at=old[i].at||0; s.dep=old[i].dep||0; });
     applyCorr(t); }
   return t;
@@ -1587,7 +1602,8 @@ const jset=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} 
 const addrKey=s=>s.addr?(s.addr+"|"+(((s.town||"").match(/\d{5}/)||[""])[0])).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/[^a-z0-9äöü|]/g,""):"";
 function applyCorr(t){ if(typeof cmpLayer!=="undefined"&&cmpLayer){ cmpLayer.clearLayers(); const l=document.getElementById("cmpList"); if(l){ l.hidden=true; document.getElementById("cmpState").textContent=""; } } const c=jget(CORR_KEY);
   const nm=jget(CORR_NAME_KEY), og=jget(CORR_ORIG_KEY); let nn=false;
-  t.stops.forEach(s=>{ const k=addrKey(s), p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; if(!nm[k]){ nm[k]=corrName(s); nn=true; } if(!og[k]&&s.orig){ og[k]=s.orig; nn=true; } } }); if(nn){ jset(CORR_NAME_KEY,nm); jset(CORR_ORIG_KEY,og); corrUi(); } }
+  const ck=Object.keys(c); // ohne PLZ (nur .bcr): Hauspunkt derselben Straße und Hausnummer nehmen
+  t.stops.forEach(s=>{ let k=addrKey(s); if(k&&!c[k]&&k.endsWith("|")) k=ck.find(x=>x.startsWith(k))||k; const p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; if(!nm[k]){ nm[k]=corrName(s); nn=true; } if(!og[k]&&s.orig){ og[k]=s.orig; nn=true; } } }); if(nn){ jset(CORR_NAME_KEY,nm); jset(CORR_ORIG_KEY,og); corrUi(); } }
 function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s.ll;
   s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.approx=false; s.said=false;
   if(k){ const c=jget(CORR_KEY); c[k]=s.ll; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); nm[k]=corrName(s); jset(CORR_NAME_KEY,nm); if(s.orig){ const og=jget(CORR_ORIG_KEY); og[k]=s.orig; jset(CORR_ORIG_KEY,og); } }
@@ -1631,6 +1647,7 @@ async function checkOne(s){
   return h&&h.address&&h.address.house_number?[+h.lat,+h.lon]:0; // 0: OpenStreetMap kennt das Haus nicht genau
 }
 async function checkTour(){
+  if(bcrOnly()) return; // nur .bcr: keine Prüfung über die Adressen der Ausfahrliste
   if(!IS_TEST) return; // v=91: Fahrer-Version ohne Hauspunkt-Prüfung (nur Ausfahrliste + .bcr), nur der Chef sieht sie in test.html
   if(!tour||!bcrTour||!pdfTour) return; const seq=++checkSeq, t=tour, cache=jget(OSM_KEY);
   for(const s of t.stops){
@@ -1651,29 +1668,30 @@ const ROUTERS=["https://routing.openstreetmap.de/routed-car/route/v1/driving/","
 let routeSeq=0;
 function routeState(t){ $("routeState").textContent=t; $("routeState").hidden=!t; }
 async function routeWith(base,pts){
-  const line=[]; let m=0, sec=0;
+  const line=[]; let m=0, sec=0, firstSec=0;
   for(let k=0;k<pts.length-1;k+=24){ // höchstens 25 Punkte pro Anfrage, Abschnitte überlappen um einen Stopp
     const part=pts.slice(k,k+25);
-    const r=await fetch(base+part.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=false");
+    const r=await fetch(base+part.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=false"+straightQ(part));
     if(!r.ok) throw new Error("HTTP "+r.status);
     const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code||"keine Route");
     const g=j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
-    line.push(...(line.length?g.slice(1):g)); m+=j.routes[0].distance; sec+=j.routes[0].duration;
+    line.push(...(line.length?g.slice(1):g)); m+=j.routes[0].distance; sec+=j.routes[0].duration; if(k===0) firstSec=((j.routes[0].legs||[])[0]||{}).duration||0;
   }
-  return {line,km:m/1000,sec};
+  return {line,km:m/1000,sec,firstSec};
 }
 async function routeTour(){
   if(!tour) return; const seq=++routeSeq, t=tour;
-  const pts=t.stops.filter(s=>s.ll).map(s=>s.ll); if(pts.length<2) return;
+  // v=110: Straßenroute in beiden Versionen über die Wegpunkte der .bcr; mit Kommissionierstelle beginnt sie dort (Kilometer und Zeit ab Abfahrt)
+  const dp=depotLL(), pts=[...(dp?[dp]:[]),...t.stops.filter(s=>s.ll).flatMap((s,i)=>i?[...bcrVias(s),s.ll]:[s.ll])]; if(pts.length<2) return;
   routeState("Straßenroute wird berechnet …");
   let road=null, why=[];
   for(const base of ROUTERS){ try{ road=await routeWith(base,pts); break; }catch(x){ why.push(new URL(base).host+": "+(x.message||x)); } }
   if(seq!==routeSeq||tour!==t) return;
   if(!road){ routeState("Straßenroute nicht verfügbar ("+why.join("; ")+"). Gezeigt wird nur die grobe Verbindung."); return; }
-  t.road=road; routeState(""); render();
+  road.depot=!!dp; t.road=road; routeState(""); render();
 }
 function loadedInfo(){
-  const parts=[]; if(pdfTour) parts.push(`Ausfahrliste: ${pdfTour.stops.length} Stopps`); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
+  const parts=[]; if(pdfTour) parts.push(`Ausfahrliste: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
   let t=parts.length?"Geladen · "+parts.join(" · "):"";
   if(pdfTour&&bcrTour&&pdfTour.stops.length!==bcrTour.stops.length) t+=" · Achtung: unterschiedliche Anzahl, verbunden über die Stopp-Nummer.";
   $("loaded").textContent=t;
@@ -1857,7 +1875,9 @@ function render(){ setTimeout(()=>declutter(),0);
   $("sStops").textContent=tour.stops.length;
   $("sDone").textContent=tour.stops.filter(s=>s.done).length;
   { const nd=tour.stops.filter(s=>s.done).length, a=$("allChk"); a.checked=nd===tour.stops.length&&nd>0; a.indeterminate=nd>0&&nd<tour.stops.length; }
-  $("sTime").textContent=(!tour.time&&tour.road)?hm(tour.road.sec):tour.time?hm(tour.time):"–";
+  { // v=110: Tourzeit = Fahrzeit (aus der .bcr, sonst Routenserver) + Anfahrt ab Kommissionierstelle + Standzeit je Stopp
+    const drive=tour.time?tour.time+(tour.road&&tour.road.depot?tour.road.firstSec:0):tour.road?tour.road.sec:null;
+    $("sTime").textContent=drive!=null?hm(drive+tour.stops.length*planStand(tour.stops)/1000):"–"; }
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
@@ -2076,7 +2096,7 @@ try{ turnOn=localStorage.getItem("navi-abbiegen")!=="aus"; }catch(e){}
 async function routeSteps(base,pts,brg){
   const bq=brg!=null?"&bearings="+Math.round(brg)+",60"+";".repeat(pts.length-1):"";
   // v=97: bei zwei Punkten bis zu 3 Varianten holen und die kürzeste nehmen (Draklin: immer der kürzeste Weg, keine Umwege über Nebenstraßen)
-  const r=await fetch(base+pts.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true"+(pts.length===2?"&alternatives=3":"")+bq);
+  const r=await fetch(base+pts.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true"+(pts.length===2?"&alternatives=3":"")+straightQ(pts)+bq);
   if(!r.ok) throw new Error("HTTP "+r.status);
   const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code||"keine Route");
   const rt=j.routes.reduce((a,b)=>b.distance<a.distance?b:a), line=rt.geometry.coordinates.map(c=>[c[1],c[0]]), steps=[];
@@ -2530,14 +2550,15 @@ async function updateApproach(){
   // Anfahrpunkt aus der Routendatei: Die Morgengold-Strecke endet auf der Straße, von der aus das Haus erreicht wird.
   // Liegt das Haus 40–300 m davon weg, fährt die App über diesen Punkt. Müsste das Auto danach erst um den Block,
   // um näher ans Haus zu kommen, endet die Fahrt dort und das letzte Stück wird zu Fuß gezeigt.
-  const sx=tour.stops[stopNo]; let ap=approachPt(sx,from), legs=[]; const hadAp=!!ap;
+  const sx=tour.stops[stopNo]; const bv=bcrVias(sx,from); let ap=bv.length?null:approachPt(sx,from), legs=[]; const hadAp=!!ap;
   if(reroute) say("Route wird neu berechnet.");
   // Fahrtrichtung nur mitgeben, wenn man sich verfahren hat und wirklich fährt (über ca. 11 km/h): dann führt die neue Route
   // vorwärts weiter. Beim ersten Berechnen und im Stand (z. B. beim Kunden) darf die Route wenden, sonst gibt es Umwege um den Block.
   const moving=gpsSpeed==null||gpsSpeed<0||gpsSpeed>3;
   const hb=reroute&&moving&&head!==null&&headFrom&&dist(headFrom,from)<60?head:null;
   const getRoute=async pts=>{ for(const b of hb!==null?[hb,null]:[null]) for(const base of ROUTERS){ try{ return await routeSteps(base,pts,b); }catch(e){} } return null; }; // ohne Richtung nochmal, falls keine Straße in Fahrtrichtung passt
-  let rr=await getRoute(ap?[from,ap,to]:[from,to]);
+  let rr=await getRoute(bv.length?[from,...bv,to]:ap?[from,ap,to]:[from,to]);
+  if(bv.length&&!rr) rr=await getRoute([from,to]);
   if(ap){ // Zwischenpunkt aus der Routendatei nur nehmen, wenn der Weg darüber kaum länger ist als der direkte Weg
     const rd=await getRoute([from,to]), len=r=>r.legs.reduce((a,b)=>a+b,0);
     if(rd&&(!rr||len(rr)>len(rd)*1.15+80)){ rr=rd; ap=null; } }
@@ -2619,7 +2640,8 @@ async function loadFiles(files){
   stopSim(); stopGps(); if(car)car.remove(); carPos=null;
   if(!(tour&&files.length===1&&((isPdfOnly(files)&&!hadPdf)||(!isPdfOnly(files)&&!hadBcr)))) curId=null; // neue Tour, außer es wurde nur die fehlende Datei ergänzt
   const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit();
-  if(pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
+  if(bcrOnly()&&pdfTour&&!bcrTour) toast("Test-Version: Die Tour läuft nur über die .bcr. Bitte auch die Routendatei öffnen.");
+  if(!bcrOnly()&&pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
   else{ routeTour(); checkTour(); }
 }
 // Service Worker nur, damit sich die App installieren lässt. Das frühere Teilen-Ziel ist entfernt, Dateien öffnet man über „Tour öffnen“.
@@ -2789,7 +2811,7 @@ depotUi();
 $("depotSave").addEventListener("click",async()=>{ const a=$("depotAddr").value.trim(); if(!a){ depot=null; try{localStorage.removeItem(DEPOT_KEY);}catch(e){} depotUi(); return; }
   $("depotHint").textContent="Suche Adresse …"; let ll=null;
   try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); if(ll&&ll[2]===1) ll=null; }catch(e){}
-  depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); try{ setSubs(); }catch(e){} if(tour) render(); });
+  depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); try{ setSubs(); }catch(e){} if(tour){ render(); routeTour(); } });
 async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
 let km=null, kmBusy=false;
 const kmKey=()=>tourTitle()+"|"+tourDay();
@@ -2885,6 +2907,10 @@ $("restartBtn").addEventListener("click",async()=>{ if(!tour) return;
   render(); fit(); toast("Tour beginnt wieder bei Stopp 1"); });
 
 $("restartTop").addEventListener("click",()=>$("restartBtn").click());
+$("bcrOnly").checked=bcrOnly();
+$("bcrOnly").addEventListener("change",e=>{ try{ localStorage.setItem("navi-nur-bcr",e.target.checked?"an":"aus"); }catch(x){}
+  const t=mergeTours(); if(t){ tour=t; if(cur<0||cur>=t.stops.length) cur=0; } loadedInfo(); render(); if(tour){ routeTour(); checkTour(); }
+  toast(e.target.checked?"Tour nur aus der .bcr":"Ausfahrliste wird wieder genutzt"); });
 function sndUi(){ const b=$("sndBtn"); b.textContent=soundOff?"🔇":"🔊"; b.classList.toggle("off",soundOff);
   b.setAttribute("aria-label",soundOff?"Ton an (lange drücken: Einstellungen)":"Ton aus (lange drücken: Einstellungen)"); }
 function sndOpen(){ $("sndVol").value=String(Math.round(voiceVol*100)); const r=$("sndBtn").getBoundingClientRect(), bx=$("sndBox");

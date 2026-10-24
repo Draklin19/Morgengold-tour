@@ -2574,6 +2574,9 @@ async function updateApproach(){
   const getRoute=async pts=>{ for(const b of hb!==null?[hb,null]:[null]) for(const base of ROUTERS){ try{ return await routeSteps(base,pts,b); }catch(e){} } return null; }; // ohne Richtung nochmal, falls keine Straße in Fahrtrichtung passt
   let rr=await getRoute(bv.length?[from,...bv,to]:ap?[from,ap,to]:[from,to]);
   if(bv.length&&!rr) rr=await getRoute([from,to]);
+  if(bv.length&&rr){ // v=118: führen die .bcr-Zwischenpunkte in einen Abstecher mit Wenden oder einen Umweg, lieber den direkten (schnellsten) Weg nehmen
+    const len=r=>r.legs.reduce((a,b)=>a+b,0), uturn=rr.steps.some(t=>t.t==="wenden");
+    const rd=await getRoute([from,to]); if(rd&&(uturn||len(rr)>len(rd)*1.15+80)) rr=rd; }
   if(ap){ // Zwischenpunkt aus der Routendatei nur nehmen, wenn der Weg darüber kaum länger ist als der direkte Weg
     const rd=await getRoute([from,to]), len=r=>r.legs.reduce((a,b)=>a+b,0);
     if(rd&&(!rr||len(rr)>len(rd)*1.15+80)){ rr=rd; ap=null; } }

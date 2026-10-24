@@ -998,6 +998,7 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
+html.fahrer #bcrOnlyRow{display:none!important}
 /* v=106: Ton-Knopf beim Fahren */
 .snd-btn{display:none}
 body.drive .snd-btn{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--surface);color:var(--fg);font-size:1.45rem;box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;margin-top:10px!important;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -1254,6 +1255,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       <details class="set-row"><summary><span class="ic c-green">🔗</span><span class="t">Link zur Tour-Seite<small id="tourUrlSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="tourUrl" type="url" inputmode="url" placeholder="https://…"><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
         <p class="hint">Von dort lädst du Ausfahrliste und Routendatei. Oben erscheint dann „⬇ Tour herunterladen“.</p></div></details>
+      <label class="set-row r" id="bcrOnlyRow" for="bcrOnly"><span class="ic c-green">🧭</span><span class="t">Tour nur aus der .bcr<small>Ausfahrliste wird ignoriert (nur Test-Version)</small></span><input type="checkbox" class="sw" id="bcrOnly"></label>
       <details class="set-row" id="rechBox"><summary><span class="ic c-amber">🧾</span><span class="t">Rechnung erstellen<small>Aus Screenshots der Auslieferungsliste</small></span></summary> <!-- v=94 (nur Admin) -->
         <div class="set-body">
           <p class="hint">Screenshots der Liste „Auslieferungen“ hinzufügen. Die App liest sie auf dem Handy aus, nichts wird hochgeladen. Unsichere Zahlen sind rot markiert, bitte mit dem Screenshot vergleichen.</p>
@@ -1523,20 +1525,22 @@ function artItems(col){
 
 // Routendatei (Koordinaten, Strecke) und Ausfahrliste (Adressen, Hinweise, Artikel) zu einer Tour verbinden.
 let bcrTour=null, pdfTour=null;
+// v=108 (nur Test-Version): Schalter „Tour nur aus der .bcr“. Dann wird die Ausfahrliste ignoriert (keine Orte, Hinweise, Artikel).
+const bcrOnly=()=>{ if(!IS_TEST) return false; try{ return localStorage.getItem("navi-nur-bcr")!=="aus"; }catch(e){ return true; } };
 function mergeTours(){
-  const old=tour&&tour.stops;
+  const old=tour&&tour.stops, P=bcrOnly()?null:pdfTour;
   let t=null;
   if(bcrTour){
     t={name:bcrTour.name,time:bcrTour.time,stops:bcrTour.stops.map((s,i)=>({...s,name:"",notes:[],articles:[],town:s.town||"",exact:true}))};
-    if(pdfTour){
-      t.name=pdfTour.name+(pdfTour.date?" · "+pdfTour.date:"");
-      t.stops.forEach((s,i)=>{ const q=pdfTour.stops.find(q=>String(q.no)===String(i+1)); if(q){ s.addr=q.addr; s.town=q.town; s.notes=q.notes; s.articles=q.articles; s.tags=q.tags||[]; } });
+    if(P){
+      t.name=P.name+(P.date?" · "+P.date:"");
+      t.stops.forEach((s,i)=>{ const q=P.stops.find(q=>String(q.no)===String(i+1)); if(q){ s.addr=q.addr; s.town=q.town; s.notes=q.notes; s.articles=q.articles; s.tags=q.tags||[]; } });
     }
-  } else if(pdfTour){
-    t={name:pdfTour.name+(pdfTour.date?" · "+pdfTour.date:""),time:null,
-       stops:pdfTour.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,tags:q.tags||[],articles:q.articles,ll:null,via:[],done:false}))};
+  } else if(P){
+    t={name:P.name+(P.date?" · "+P.date:""),time:null,
+       stops:P.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,tags:q.tags||[],articles:q.articles,ll:null,via:[],done:false}))};
   }
-  if(t){ t.load=pdfTour?pdfTour.load:[]; t.km=pdfTour?pdfTour.km:"";
+  if(t){ t.load=P?P.load:[]; t.km=P?P.km:"";
     if(old&&old.length===t.stops.length) t.stops.forEach((s,i)=>{ s.done=old[i].done; s.at=old[i].at||0; s.dep=old[i].dep||0; });
     applyCorr(t); }
   return t;
@@ -1587,7 +1591,8 @@ const jset=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} 
 const addrKey=s=>s.addr?(s.addr+"|"+(((s.town||"").match(/\d{5}/)||[""])[0])).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/[^a-z0-9äöü|]/g,""):"";
 function applyCorr(t){ if(typeof cmpLayer!=="undefined"&&cmpLayer){ cmpLayer.clearLayers(); const l=document.getElementById("cmpList"); if(l){ l.hidden=true; document.getElementById("cmpState").textContent=""; } } const c=jget(CORR_KEY);
   const nm=jget(CORR_NAME_KEY), og=jget(CORR_ORIG_KEY); let nn=false;
-  t.stops.forEach(s=>{ const k=addrKey(s), p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; if(!nm[k]){ nm[k]=corrName(s); nn=true; } if(!og[k]&&s.orig){ og[k]=s.orig; nn=true; } } }); if(nn){ jset(CORR_NAME_KEY,nm); jset(CORR_ORIG_KEY,og); corrUi(); } }
+  const ck=Object.keys(c); // ohne PLZ (nur .bcr): Hauspunkt derselben Straße und Hausnummer nehmen
+  t.stops.forEach(s=>{ let k=addrKey(s); if(k&&!c[k]&&k.endsWith("|")) k=ck.find(x=>x.startsWith(k))||k; const p=k&&c[k]; if(p){ s.orig=s.ll; s.ll=p.slice(); s.fixed=true; s.exact=true; if(!nm[k]){ nm[k]=corrName(s); nn=true; } if(!og[k]&&s.orig){ og[k]=s.orig; nn=true; } } }); if(nn){ jset(CORR_NAME_KEY,nm); jset(CORR_ORIG_KEY,og); corrUi(); } }
 function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s.ll;
   s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.approx=false; s.said=false;
   if(k){ const c=jget(CORR_KEY); c[k]=s.ll; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); nm[k]=corrName(s); jset(CORR_NAME_KEY,nm); if(s.orig){ const og=jget(CORR_ORIG_KEY); og[k]=s.orig; jset(CORR_ORIG_KEY,og); } }
@@ -1631,6 +1636,7 @@ async function checkOne(s){
   return h&&h.address&&h.address.house_number?[+h.lat,+h.lon]:0; // 0: OpenStreetMap kennt das Haus nicht genau
 }
 async function checkTour(){
+  if(bcrOnly()) return; // nur .bcr: keine Prüfung über die Adressen der Ausfahrliste
   if(!IS_TEST) return; // v=91: Fahrer-Version ohne Hauspunkt-Prüfung (nur Ausfahrliste + .bcr), nur der Chef sieht sie in test.html
   if(!tour||!bcrTour||!pdfTour) return; const seq=++checkSeq, t=tour, cache=jget(OSM_KEY);
   for(const s of t.stops){
@@ -2619,7 +2625,8 @@ async function loadFiles(files){
   stopSim(); stopGps(); if(car)car.remove(); carPos=null;
   if(!(tour&&files.length===1&&((isPdfOnly(files)&&!hadPdf)||(!isPdfOnly(files)&&!hadBcr)))) curId=null; // neue Tour, außer es wurde nur die fehlende Datei ergänzt
   const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit();
-  if(pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
+  if(bcrOnly()&&pdfTour&&!bcrTour) toast("Test-Version: Die Tour läuft nur über die .bcr. Bitte auch die Routendatei öffnen.");
+  if(!bcrOnly()&&pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
   else{ routeTour(); checkTour(); }
 }
 // Service Worker nur, damit sich die App installieren lässt. Das frühere Teilen-Ziel ist entfernt, Dateien öffnet man über „Tour öffnen“.
@@ -2885,6 +2892,10 @@ $("restartBtn").addEventListener("click",async()=>{ if(!tour) return;
   render(); fit(); toast("Tour beginnt wieder bei Stopp 1"); });
 
 $("restartTop").addEventListener("click",()=>$("restartBtn").click());
+$("bcrOnly").checked=bcrOnly();
+$("bcrOnly").addEventListener("change",e=>{ try{ localStorage.setItem("navi-nur-bcr",e.target.checked?"an":"aus"); }catch(x){}
+  const t=mergeTours(); if(t){ tour=t; if(cur<0||cur>=t.stops.length) cur=0; } loadedInfo(); render(); if(tour){ routeTour(); checkTour(); }
+  toast(e.target.checked?"Tour nur aus der .bcr":"Ausfahrliste wird wieder genutzt"); });
 function sndUi(){ const b=$("sndBtn"); b.textContent=soundOff?"🔇":"🔊"; b.classList.toggle("off",soundOff);
   b.setAttribute("aria-label",soundOff?"Ton an (lange drücken: Einstellungen)":"Ton aus (lange drücken: Einstellungen)"); }
 function sndOpen(){ $("sndVol").value=String(Math.round(voiceVol*100)); const r=$("sndBtn").getBoundingClientRect(), bx=$("sndBox");

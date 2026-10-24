@@ -1236,6 +1236,9 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <div class="set-card" data-grp="0">
       <details class="set-row"><summary><span class="me-prev" id="mePrev"></span><span class="t">Bild für meine Position<small>Auf der Karte an deiner Position</small></span></summary>
         <div class="set-body"><div class="opts"><label class="btn" for="meFile">Bild wählen</label><input type="file" id="meFile" accept="image/*"><button class="btn" id="meClear" type="button" hidden>Bild entfernen</button></div></div></details>
+      <details class="set-row"><summary><span class="ic c-green">🏠</span><span class="t">Eigene Adresse (Zuhause)<small id="homeSub"></small></span></summary>
+        <div class="set-body"><div class="set-in"><input id="homeAddr" type="text" autocomplete="off" placeholder="Straße Nr, PLZ Ort"><button class="btn" id="homeSave" type="button">Speichern</button></div>
+        <p class="hint" id="homeHint"></p></div></details>
       <details class="set-row"><summary><span class="ic c-blue">✉️</span><span class="t">E-Mail-Empfänger<small id="mailSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de"><button class="btn" id="mailToSave" type="button">Speichern</button></div>
         <p class="hint">Für Tourberichte und Rechnungen. Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p></div></details>
@@ -1851,6 +1854,7 @@ function render(){ setTimeout(()=>declutter(),0);
   let lastIdx=-1; tour.stops.forEach((q,k)=>{ if(q.ll) lastIdx=k; }); // letzter Kunde: Zielfahne
   { let d=null; try{ d=JSON.parse(localStorage.getItem("navi-depot")||"null"); }catch(e){} // Kommissionierstelle als Start-Symbol
     if(d&&d.ll) L.marker(d.ll,{icon:L.divIcon({className:"",html:'<div class="depotpin">▶ Start</div>',iconSize:[58,22],iconAnchor:[29,11]}),interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer); }
+  { let h=null; try{ h=JSON.parse(localStorage.getItem("navi-heim")||"null"); }catch(e){} if(h&&h.ll) L.marker(h.ll,{icon:L.divIcon({className:"",html:'<div class="depotpin">🏠</div>',iconSize:[34,22],iconAnchor:[17,11]}),interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer); } // v=122: Zuhause
   tour.stops.forEach((s,i)=>{
     const warn=IS_TEST&&s.warn&&!s.fixed&&s.osm;
     const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn||s.approx?" warn":"");
@@ -2225,6 +2229,7 @@ function checkArrival(){
   kmEnd(); if(carPos) kmFix(carPos,gpsAcc);
   updateHouseNo(); checkTurns(); updateEta();
   if(depW&&carPos&&depW.s.ll&&dist(carPos,depW.s.park||depW.s.ll)>depW.r+15){ depW.s.dep=Date.now(); learnStand(depW.s); saveTour(); depW=null; } // Abfahrt merken (Standzeit)
+  if(tour&&cur<0&&carPos){ homeNav(); return; } // v=122: Heimweg
   if(!tour||cur<0||!carPos) return;
   trackSide();
   const s=tour.stops[cur], r=+$("radius").value;
@@ -2628,7 +2633,7 @@ function apTarget(){ // Ziel der grünen Anfahrt: beim aktuellen Kunden angekomm
 function approachPt(s,from){ // letzter Streckenpunkt der Morgengold-Route vor dem Haus; nur solange man noch nicht daran vorbei ist
   if(!s||!s.exact||s.fixed||!s.ll||!s.via||!s.via.length) return null;
   const v=s.via[s.via.length-1], d=dist(v,s.ll); return d>40&&d<300&&(!from||dist(from,s.ll)>d+30)?v:null; }
-function startTour(){
+function startTour(){ try{ homeDone=false; }catch(e){}
   if(!tour||cur<0){ toast(tour?"Alle Stopps sind erledigt.":"Zuerst die Tour öffnen."); return; }
   stopSim();
   withGeo(enterDrive);
@@ -2778,13 +2783,14 @@ $("pinSave").addEventListener("click",()=>{ if(!pinEdit) return; const {i,m}=pin
 function setSubs(){
   const mt=$("mailTo").value.trim(); $("mailSub").textContent=mt||"Nicht eingetragen";
   let u=""; try{ u=new URL($("tourUrl").value.trim()).hostname; }catch(e){} $("tourUrlSub").textContent=u||"Nicht eingetragen";
+  $("homeSub").textContent=!home?"Nicht eingetragen":home.ll?"✓ Gefunden":"⚠ Adresse nicht gefunden";
   $("depotSub").textContent=!depot?"Nicht eingetragen":depot.ll?"✓ Gefunden":"⚠ Adresse nicht gefunden";
   const on=[$("voiceOn").checked&&"Stopps",$("turnOn").checked&&"Abbiegen"].filter(Boolean); $("voiceSub").textContent=on.length?"An: "+on.join(" und "):"Aus";
   $("viewSub").textContent="Schrift "+(+$("fontSel").value+1)+" · Tourleiste "+$("dockSel").options[$("dockSel").selectedIndex].text;
   [...$("fontSeg").children].forEach((b,i)=>b.classList.toggle("on",i===+$("fontSel").value)); }
 [0,1,2,3,4].forEach(i=>{ const b=document.createElement("button"); b.type="button"; b.textContent=i+1; b.setAttribute("aria-label","Schriftgröße "+(i+1));
   b.addEventListener("click",()=>{ $("fontSel").value=String(i); $("fontSel").dispatchEvent(new Event("change")); setSubs(); }); $("fontSeg").appendChild(b); });
-["mailToSave","tourUrlSave","depotSave"].forEach(id=>$(id).addEventListener("click",()=>setTimeout(setSubs,50)));
+["mailToSave","tourUrlSave","depotSave","homeSave"].forEach(id=>$(id).addEventListener("click",()=>setTimeout(setSubs,50)));
 ["voiceOn","turnOn","dockSel"].forEach(id=>$(id).addEventListener("change",setSubs));
 let setTabIdx=0; try{ setTabIdx=+(localStorage.getItem("navi-set-tab")||0)||0; }catch(e){}
 function setTab(g){ setTabIdx=g; try{ localStorage.setItem("navi-set-tab",g); }catch(e){}
@@ -2850,6 +2856,30 @@ $("depotSave").addEventListener("click",async()=>{ const a=$("depotAddr").value.
   $("depotHint").textContent="Suche Adresse …"; let ll=null;
   try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); if(ll&&ll[2]===1) ll=null; }catch(e){}
   depot={addr:a,ll}; try{ localStorage.setItem(DEPOT_KEY,JSON.stringify(depot)); }catch(e){} depotUi(); try{ setSubs(); }catch(e){} if(tour){ render(); routeTour(); } });
+// v=122: eigene Adresse (nur auf dem Handy). Nach dem letzten Kunden führt die grüne Linie mit Abbiege-Ansagen nach Hause.
+// Der Heimweg zählt nicht zur Restzeit, zu den Kilometern oder zum Bericht (die enden beim letzten Kunden).
+const HOME_KEY="navi-heim", HOME_TXT="Nach dem letzten Kunden navigiert die App nach Hause. Die Heimfahrt zählt nicht zur Tourzeit. Die Adresse bleibt nur auf diesem Handy.";
+let home=null; try{ home=JSON.parse(localStorage.getItem(HOME_KEY)||"null"); }catch(e){}
+function homeUi(){ $("homeAddr").value=home?home.addr:""; $("homeHint").textContent=!home?HOME_TXT:home.ll?"✓ Gefunden. "+HOME_TXT:"Adresse nicht gefunden. Bitte als „Straße Nr, PLZ Ort“ eingeben und Internet prüfen."; }
+homeUi();
+$("homeSave").addEventListener("click",async()=>{ const a=$("homeAddr").value.trim(); if(!a){ home=null; try{localStorage.removeItem(HOME_KEY);}catch(e){} homeUi(); try{ setSubs(); }catch(e){} return; }
+  $("homeHint").textContent="Suche Adresse …"; let ll=null;
+  try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); if(ll&&ll[2]===1) ll=null; }catch(e){}
+  home={addr:a,ll:ll?[ll[0],ll[1]]:null}; try{ localStorage.setItem(HOME_KEY,JSON.stringify(home)); }catch(e){} homeUi(); try{ setSubs(); }catch(e){} if(tour) render(); });
+let homeAt=0, homeBusy=false, homeDone=false;
+async function homeNav(){ // nach dem letzten Kunden: Weg nach Hause
+  if(!home||!home.ll||!carPos||homeDone||homeBusy||!(document.body.classList.contains("drive")||simTimer)) return;
+  if(dist(carPos,home.ll)<60){ homeDone=true; clearApproach(); toast("Zu Hause angekommen 🏠"); return; }
+  if(apStop===-2&&apLine&&!offRoute()) return;
+  if(Date.now()-homeAt<8000) return;
+  homeBusy=true; homeAt=Date.now(); const from=carPos.slice(); let rr=null;
+  for(const base of ROUTERS){ try{ rr=await routeSteps(base,[from,home.ll],null); break; }catch(e){} }
+  homeBusy=false; if(!rr||!tour||cur>=0) return;
+  approachLayer.clearLayers(); apFrom=from; apStop=-2; turns=rr.steps; turnSaid=new Set(); turnStop=-2;
+  const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
+  apLine=rr.line.map(q=>q.slice()); apRouted=apLine.length>1; apK=0; offN=0;
+  apPoly=L.polyline(apLine,{color:rc,weight:apWeight(),opacity:.75,lineCap:"round",lineJoin:"round",smoothFactor:.3,pane:"apPane"}).addTo(approachLayer);
+  trimApproach(disp||carPos); }
 async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
 let km=null, kmBusy=false;
 const kmKey=()=>tourTitle()+"|"+tourDay();

@@ -2097,9 +2097,8 @@ function pick(i){ markJump(i); cur=i; render(); focusStop(i); }
 
 function toast(msg){const t=$("toast");t.classList.remove("up");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
 function stopSim(){const was=simTimer!==null;clearInterval(simTimer);simTimer=null;if(!document.body.classList.contains("drive")) try{ clearApproach(); }catch(e){}$("sim").textContent="▶ Fahrt simulieren";document.body.classList.remove("sim");if(was&&tour) render();}
-const HOUSE_M=150; // ab dieser Entfernung erscheint die Hausnummer
-// v=121: grünes Schild „Straße Nr.“ fest neben dem Kunden-Pin (bewegt sich nicht mit). Erscheint erst, wenn man in die Straße des Kunden
-// einbiegt (an der letzten Abbiegung vor dem Haus vorbei; ohne Abbiegung ab 150 m) und bleibt bis zum nächsten Kunden.
+// v=121: grünes Schild „Straße Nr.“ fest neben dem Kunden-Pin (bewegt sich nicht mit). v=128: erscheint sofort, sobald dieser Kunde
+// das Ziel ist (nach dem Abhaken des vorigen), und bleibt bis zum nächsten Kunden.
 // Seite: dort, wo das Haus liegt (links/rechts), weg von der Straße; reicht der Platz am Bildschirmrand nicht, über dem Pin.
 let stPill=null, stShown=-1;
 function updateHouseNo(){
@@ -2108,8 +2107,6 @@ function updateHouseNo(){
   if(stShown!==cur){
     if(stPill){ stPill.remove(); stPill=null; }
     if(!carPos||apStop!==cur) return;
-    const d=dist(carPos,s.ll), lt=turns.length?turns[turns.length-1].ll:null;
-    if(!(lt?(d<700&&d<dist(lt,s.ll)-10&&dist(carPos,lt)>12):d<HOUSE_M)) return;
     stShown=cur;
     stPill=L.marker(s.ll,{icon:L.divIcon({className:"",html:'<div class="st-wrap"><div class="st-pill"></div></div>',iconSize:[0,0]}),interactive:false,keyboard:false,zIndexOffset:3000}).addTo(map); }
   if(!stPill) return;

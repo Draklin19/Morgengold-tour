@@ -1027,6 +1027,8 @@ body.no-tour #restartTop{display:none}
 body.drive .drive-ban:not([hidden]){display:block;position:absolute;left:12px;right:12px;top:78px;z-index:1001;border-radius:14px;padding:12px 16px;font:700 1.25rem/1.25 var(--font-body);text-align:left;box-shadow:0 4px 16px rgb(0 0 0 / .35);border:0;white-space:pre-line}
 body.drive .drive-ban small{display:block;font-size:.72em;font-weight:500;opacity:.85}
 body.drive .gps-ban{background:#c0392b;color:#fff;pointer-events:none}
+body.drive .net-ban{background:#37474f;color:#fff;pointer-events:none}
+body.drive .net-ban:not([hidden]){right:auto;font-size:1.05rem;padding:9px 14px} /* v=129: nur so breit wie der Text */
 body.drive .note-ban{background:#f2b51c;color:#2a1e00;cursor:pointer}
 body.drive .note-ban:not([hidden]){top:auto;bottom:var(--nb,120px);right:auto;max-width:calc(100% - 24px);font-size:1.1rem;padding:10px 14px} /* nur so breit wie der Text, verdeckt weniger Karte */ /* v=112: direkt über der unteren Leiste */
 .set-tabs{display:flex;background:var(--line);border-radius:12px;padding:3px;margin:8px 0 4px;gap:2px}
@@ -1346,7 +1348,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
   </section>
 
   <div class="main">
-    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="sim-speed" id="simSpeed"><span aria-hidden="true">🐇</span><div class="sim-track"><input type="range" id="simRange" min="2" max="60" step="1" aria-label="Tempo der Simulation"></div><span aria-hidden="true">🐢</span></div><div class="drive-ban gps-ban" id="gpsBan" role="alert" hidden>⚠ Kein GPS-Signal<small>Deine Position wird gerade nicht aktualisiert</small></div><button type="button" class="drive-ban note-ban" id="noteBan" hidden></button><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
+    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="sim-speed" id="simSpeed"><span aria-hidden="true">🐇</span><div class="sim-track"><input type="range" id="simRange" min="2" max="60" step="1" aria-label="Tempo der Simulation"></div><span aria-hidden="true">🐢</span></div><div class="drive-ban gps-ban" id="gpsBan" role="alert" hidden>⚠ Kein GPS-Signal<small>Deine Position wird gerade nicht aktualisiert</small></div><div class="drive-ban net-ban" id="netBan" role="status" hidden>📶 Kein Internet<small>Linie folgt der Tour, ohne Ansagen</small></div><button type="button" class="drive-ban note-ban" id="noteBan" hidden></button><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
       <section class="mode gtour" id="gTour"> <!-- v=92: Google-Abschnitte direkt unter der Karte, immer offen -->
@@ -2140,7 +2142,8 @@ try{ turnOn=localStorage.getItem("navi-abbiegen")!=="aus"; }catch(e){}
 async function routeSteps(base,pts,brg){
   const bq=brg!=null?"&bearings="+Math.round(brg)+",60"+";".repeat(pts.length-1):"";
   // v=115: schnellste Variante statt kürzester (Draklin: lieber Hauptstraße als Abkürzung durch Seitenstraßen)
-  const r=await fetch(base+pts.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true"+straightQ(pts)+bq);
+  const r=await fetch(base+pts.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true"+straightQ(pts)+bq,
+    typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(8000)}:{}); // v=129: im Funkloch nicht ewig warten
   if(!r.ok) throw new Error("HTTP "+r.status);
   const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code||"keine Route");
   const rt=j.routes[0], line=rt.geometry.coordinates.map(c=>[c[1],c[0]]), steps=[];
@@ -2300,7 +2303,7 @@ let gpsWatch=null, wakeLock=null, gpsWallFix=0;
 // v=103: Warnung nur, wenn beim Fahren wirklich kein (brauchbarer) Standort kommt: 20 s ohne Meldung oder Genauigkeit schlechter als 100 m
 setInterval(()=>{ const b=$("gpsBan"); if(!b) return;
   const on=gpsWatch!==null&&document.body.classList.contains("drive")&&!simTimer&&document.visibilityState==="visible"&&Date.now()-gpsStartedAt>20000&&(Date.now()-gpsWallFix>20000||gpsAcc>100);
-  b.hidden=!on; },3000);
+  b.hidden=!on; const nb=$("netBan"); if(nb) nb.hidden=on||!apOff||!document.body.classList.contains("drive"); },3000);
 function stopGps(){ if(gpsWatch!==null) navigator.geolocation.clearWatch(gpsWatch); gpsWatch=null; $("gps").textContent="📍 GPS starten"; try{wakeLock&&wakeLock.release();}catch(e){} wakeLock=null; }
 $("gps").addEventListener("click",()=>{
   if(gpsWatch!==null){stopGps();$("gpsState").hidden=true;return;}
@@ -2597,13 +2600,22 @@ function scrollCurrent(){ // nur die Liste scrollen, aktueller Stopp in die Mitt
   if(el) l.scrollTop+=el.getBoundingClientRect().top-l.getBoundingClientRect().top-l.clientHeight/2+el.offsetHeight/2; }
 // Anfahrt: Straßenroute vom eigenen Standort zum aktuellen Stopp, neu berechnet bei neuem Stopp oder nach 150 m Abweichung
 const approachLayer=L.layerGroup().addTo(map); let apFrom=null, apStop=-1, apBusy=false, apAt=0;
-function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; turns=[]; apLine=null; apPoly=null; }
+function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; turns=[]; apLine=null; apPoly=null; apOff=false; }
+// v=129: ohne Internet (kein Routenserver erreichbar) den passenden Teil der schon geladenen Tourlinie als grüne Linie zeigen,
+// ohne Abbiege-Ansagen; alle 10 s neu versuchen, bis wieder eine echte Route kommt.
+let apOff=false;
+function tourPart(from,to){
+  const L0=tour&&tour.road&&tour.road.line; if(!L0||L0.length<2) return null;
+  let ti=-1, td=Infinity; L0.forEach((q,j)=>{ const d=dist(q,to); if(d<td){td=d;ti=j;} }); if(td>150) return null;
+  let fi=-1, fd=Infinity; for(let j=0;j<=ti;j++){ const d=dist(L0[j],from); if(d<fd){fd=d;fi=j;} } if(fd>500) return null;
+  const part=L0.slice(fi,ti+1); return part.length>1?[from.slice(),...part,to.slice()]:null; }
 async function updateApproach(){
   if(needDepot()) return; // v=123: Weg zur Kommissionierstelle hat Vorrang
   const T=apTarget();
   if(!carPos||!tour||T<0||!tour.stops[T].ll||apBusy) return;
   let reroute=false;
-  if(apStop===T&&apLine){ if(apRouted){ if(!offRoute()) return; reroute=true; } else if(apFrom&&dist(apFrom,carPos)<150) return; } // nur bei Abweichung von der Strecke neu berechnen
+  if(apStop===T&&apLine&&apOff){ if(Date.now()-apAt<10000) return; } // v=129: ohne Internet alle 10 s neu versuchen
+  else if(apStop===T&&apLine){ if(apRouted){ if(!offRoute()) return; reroute=true; } else if(apFrom&&dist(apFrom,carPos)<150) return; } // nur bei Abweichung von der Strecke neu berechnen
   { const q=tour.stops[T]; if(apStop===T&&q.park&&dist(carPos,q.park)<80) return; } // am Parkpunkt: nicht neu berechnen
   if(Date.now()-apAt<8000&&apStop===T) return;
   apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[T].ll, stopNo=T; let line=null;
@@ -2617,7 +2629,10 @@ async function updateApproach(){
   // vorwärts weiter. Beim ersten Berechnen und im Stand (z. B. beim Kunden) darf die Route wenden, sonst gibt es Umwege um den Block.
   const moving=gpsSpeed==null||gpsSpeed<0||gpsSpeed>3;
   const hb=reroute&&moving&&head!==null&&headFrom&&dist(headFrom,from)<60?head:null;
-  const getRoute=async pts=>{ for(const b of hb!==null?[hb,null]:[null]) for(const base of ROUTERS){ try{ return await routeSteps(base,pts,b); }catch(e){} } return null; }; // ohne Richtung nochmal, falls keine Straße in Fahrtrichtung passt
+  let noNet=false; // v=129: kein Server erreichbar (kein Internet): weitere Versuche in diesem Durchgang sparen
+  const getRoute=async pts=>{ if(noNet) return null; let n=0, f=0;
+    for(const b of hb!==null?[hb,null]:[null]) for(const base of ROUTERS){ try{ return await routeSteps(base,pts,b); }catch(e){ n++; if(e instanceof TypeError||e.name==="AbortError"||e.name==="TimeoutError") f++; } }
+    if(n&&f===n) noNet=true; return null; }; // ohne Richtung nochmal, falls keine Straße in Fahrtrichtung passt
   let rr=await getRoute(bv.length?[from,...bv,to]:ap?[from,ap,to]:[from,to]);
   if(bv.length&&!rr) rr=await getRoute([from,to]);
   if(bv.length&&rr){ // v=118: führen die .bcr-Zwischenpunkte in einen Abstecher mit Wenden oder einen Umweg, lieber den direkten (schnellsten) Weg nehmen
@@ -2627,6 +2642,7 @@ async function updateApproach(){
     const rd=await getRoute([from,to]), len=r=>r.legs.reduce((a,b)=>a+b,0);
     if(rd&&(!rr||len(rr)>len(rd)*1.15+80)){ rr=rd; ap=null; } }
   if(rr){ line=rr.line; steps=rr.steps; legs=rr.legs; }
+  const off=!rr&&noNet; if(off){ ap=null; line=tourPart(from,to); }
   if(hadAp) sx.park=null;
   if(ap&&line&&legs.length===2){
     if(legs[1]>dist(ap,to)*1.6+60){ // Umweg nötig: am Anfahrpunkt parken
@@ -2640,8 +2656,8 @@ async function updateApproach(){
     let k=line.length-1, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,to); if(d<bd){bd=d;k=j;} });
     setLive(stopNo, sideOnLine(to,line,k), "anfahrt"); }
   const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim(); // gleiche Farbe wie die Route
-  apLine=(line&&line.length>1?line:[from,to]).map(q=>q.slice()); apRouted=!!(line&&line.length>1); apK=0; offN=0;
-  apPoly=L.polyline(apLine,apRouted?{color:rc,weight:apWeight(),opacity:.75,lineCap:"round",lineJoin:"round",smoothFactor:.3,pane:"apPane"}:{color:rc,weight:4,opacity:.6,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer);
+  apOff=off; apLine=(line&&line.length>1?line:[from,to]).map(q=>q.slice()); apRouted=!off&&!!(line&&line.length>1); apK=0; offN=0;
+  apPoly=L.polyline(apLine,apRouted||(off&&line)?{color:rc,weight:apWeight(),opacity:.75,lineCap:"round",lineJoin:"round",smoothFactor:.3,pane:"apPane"}:{color:rc,weight:4,opacity:.6,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer);
   trimApproach(disp||carPos);
   if(sx.park){ L.polyline([sx.park,to],{color:rc,weight:4,opacity:.9,dashArray:"2 8",lineCap:"round",pane:"apPane"}).addTo(approachLayer);
     const m=[(sx.park[0]+to[0])/2,(sx.park[1]+to[1])/2];
@@ -2946,7 +2962,7 @@ async function navTo(ll,key){ // grüne Linie mit Abbiege-Ansagen zu einem feste
   if(key===-2&&(!tour||cur>=0)) return; if(key===-3&&!needDepot()) return;
   approachLayer.clearLayers(); apFrom=from; apStop=key; turns=rr.steps; if(turnStop!==key){ turnSaid=new Set(); turnStop=key; }
   const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
-  apLine=rr.line.map(q=>q.slice()); apRouted=apLine.length>1; apK=0; offN=0;
+  apOff=false; apLine=rr.line.map(q=>q.slice()); apRouted=apLine.length>1; apK=0; offN=0;
   apPoly=L.polyline(apLine,{color:rc,weight:apWeight(),opacity:.75,lineCap:"round",lineJoin:"round",smoothFactor:.3,pane:"apPane"}).addTo(approachLayer);
   trimApproach(disp||carPos); }
 function homeNav(){ // nach dem letzten Kunden: Weg nach Hause (zählt nicht zur Tourzeit)

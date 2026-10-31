@@ -2313,6 +2313,11 @@ function checkArrival(){
   if(dd>r){ if(arrivedShown===cur) arrivedShown=-1; return; }
   if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${cur+1}. Bitte manuell abhaken.`); updateApproach(); }
 }
+let simAp=null, simEnd=null, simK=0;
+function simArrive(){ // nur Simulation: am Ende der grünen Linie den Kunden im Hintergrund abhaken und zum nächsten weiter
+  if(!tour||cur<0||apStop<0||!tour.stops[apStop]) return; // Kommissionierstelle (-3) hakt checkArrival selbst ab
+  [cur,apStop].forEach(i=>{ const q=tour.stops[i]; if(q&&!q.done&&i<=apStop){ q.done=true; if(!q.at) q.at=Date.now(); } });
+  arr.i=-1; tickP=null; advanceAfterDone(); render(); }
 $("sim").addEventListener("click",()=>{
   if(simTimer){stopSim();return;}
   stopGps(); speakPrime(); announced=-1; follow=true;
@@ -2321,15 +2326,20 @@ $("sim").addEventListener("click",()=>{
   const line=tour.line; simIdx=cur>0?Math.max(0,tour.stops[cur-1].li):0; carPos=line[simIdx].slice(); disp=null;
   if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[34,42],iconAnchor:[17,42]}),zIndexOffset:2000});
   car.setLatLng(carPos).addTo(map); $("sim").textContent="■ Simulation stoppen"; document.body.classList.add("sim"); gpsAcc=0; head=null; headFrom=null;
+  simAp=null; simEnd=null; // v=134: Simulation fährt die grüne Linie wie ein echter Fahrer und hakt jeden Kunden am Ende der Linie selbst ab
   simTimer=setInterval(()=>{
+    const P=apLine&&apLine.length>1?apLine:null;
+    if(!P){ checkArrival(); return; } // Route wird noch berechnet: kurz warten
+    if(P!==simAp){ simAp=P; simK=0; let bd=Infinity; for(let j=0;j<P.length-1;j++){ const r=segProj(carPos,P[j],P[j+1]); if(r.d<bd){ bd=r.d; simK=j; } } }
     let left=simM; // Meter pro Takt, mit dem Schieberegler änderbar
-    while(left>0&&simIdx<line.length-1){
-      const nxt=line[simIdx+1], d=dist(carPos,nxt);
-      if(d<=left){carPos=nxt.slice();simIdx++;left-=d;}
+    while(left>0&&simK<P.length-1){
+      const nxt=P[simK+1], d=dist(carPos,nxt);
+      if(d<=left){carPos=nxt.slice();simK++;left-=d;}
       else{const f=left/d;carPos=[carPos[0]+(nxt[0]-carPos[0])*f,carPos[1]+(nxt[1]-carPos[1])*f];left=0;}
     }
     setHead(carPos); moveCar(carPos,130); checkArrival();
-    if(simIdx>=line.length-1||cur<0){stopSim(); if(cur<0) toast("Tour abgeschlossen");}
+    if(simK>=P.length-1&&simEnd!==P){ simEnd=P; simArrive(); }
+    if(cur<0){ stopSim(); toast("Tour abgeschlossen"); }
   },120);
   render();
   map.setView(carPos,16);

@@ -1964,12 +1964,21 @@ const hnKey=t=>(t||"").toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./
 const hnIcon=(txt,k)=>L.divIcon({className:"",html:`<div class="hn${k?" k":""}">${txt.replace(/[&<>"]/g,c=>"&#"+c.charCodeAt(0)+";")}</div>`,iconSize:[0,0]});
 function addHn(e){ const t=e.tags||{}, n=t["addr:housenumber"], at=e.type==="node"?[e.lat,e.lon]:e.center?[e.center.lat,e.center.lon]:null;
   if(!n||!at||hnSeen.has(e.type+e.id)) return; hnSeen.add(e.type+e.id);
-  const m=L.marker(at,{icon:hnIcon(n,false),interactive:false,keyboard:false,zIndexOffset:-500}).addTo(hnLayer);
-  hnList.push({m,at,num:hnKey(n),street:hnKey(t["addr:street"]),txt:n,k:false}); }
-function hnMark(){ const s=tour&&cur>=0?tour.stops[cur]:null, mm=s&&s.addr&&s.ll?s.addr.match(/^(.*?)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/):null;
+  const m=L.marker(at,{icon:hnIcon(n,false),interactive:false,keyboard:false,zIndexOffset:-500});
+  hnList.push({m,at,num:hnKey(n),street:hnKey(t["addr:street"]),txt:n,k:false,on:false}); }
+// v=133: nur rund um den Kunden, zu dem die grüne Linie führt, und erst ab 300 m Weg entlang der grünen Linie (kein Umkreis);
+// ohne berechnete Route ab 250 m Luftlinie
+const HN_AHEAD=300;
+function apRest(){ if(!apLine||apLine.length<2||!carPos) return null; const b=nearOnAp(carPos); if(!b||b.d>60) return null;
+  let m=dist(b.pt,apLine[b.k+1]); for(let k=b.k+1;k<apLine.length-1;k++) m+=dist(apLine[k],apLine[k+1]); return m; }
+function hnMark(){ const drv=document.body.classList.contains("drive")||!!simTimer;
+  const T=tour&&cur>=0?(apStop>=0&&tour.stops[apStop]?apStop:cur):-1, s=T>=0?tour.stops[T]:null;
+  let near=false; if(s&&s.ll){ if(!drv) near=true; else if(carPos){ const r=apStop===T&&apRouted?apRest():null; near=r!=null?r<=HN_AHEAD:dist(carPos,s.ll)<=250; } }
+  const mm=s&&s.addr&&s.ll?s.addr.match(/^(.*?)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/):null;
   const kn=mm?hnKey(mm[2]):"", ks=mm?hnKey(mm[1]):"";
-  hnList.forEach(h=>{ const on=!!kn&&h.num===kn&&(!h.street||!ks||h.street===ks)&&dist(h.at,s.ll)<150;
-    if(on!==h.k){ h.k=on; h.m.setIcon(hnIcon(h.txt,on)); h.m.setZIndexOffset(on?-100:-500); } }); }
+  hnList.forEach(h=>{ const vis=near&&dist(h.at,s.ll)<=150, on=vis&&!!kn&&h.num===kn&&(!h.street||!ks||h.street===ks);
+    if(on!==h.k){ h.k=on; h.m.setIcon(hnIcon(h.txt,on)); h.m.setZIndexOffset(on?-100:-500); }
+    if(vis!==h.on){ h.on=vis; if(vis) h.m.addTo(hnLayer); else hnLayer.removeLayer(h.m); } }); }
 map.on("zoomend",footShow);
 function drawFoot(w){
   const g=w.geometry.map(q=>[q.lat,q.lon]); if(g.length<2) return;
@@ -2275,7 +2284,7 @@ function noteBan(dd){ const b=$("noteBan"); if(!b) return; const s=tour&&cur>=0?
 $("noteBan").addEventListener("click",()=>{ noteHid=cur; $("noteBan").hidden=true; });
 function checkArrival(){
   kmEnd(); if(carPos) kmFix(carPos,gpsAcc);
-  updateHouseNo(); checkTurns(); updateEta();
+  updateHouseNo(); hnMark(); checkTurns(); updateEta();
   if(depW&&carPos&&depW.s.ll&&dist(carPos,depW.s.park||depW.s.ll)>depW.r+15){ depW.s.dep=Date.now(); learnStand(depW.s); saveTour(); depW=null; } // Abfahrt merken (Standzeit)
   if(tour&&cur<0&&carPos){ homeNav(); return; } // v=122: Heimweg
   if(depotNav()) return; // v=123: erst zur Kommissionierstelle

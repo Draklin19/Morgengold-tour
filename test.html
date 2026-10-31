@@ -2440,7 +2440,7 @@ const monName=ym=>ym?MONATE[+ym.slice(5,7)-1]+" "+ym.slice(0,4):"";
 const monEnd=ym=>ym+"-"+String(new Date(+ym.slice(0,4),+ym.slice(5,7),0).getDate()).padStart(2,"0");
 function rechMonths(){ const c={}; rechRows.forEach(r=>{ const m=r.d.slice(0,7); c[m]=(c[m]||0)+1; }); return c; }
 function rechPickMonth(auto){ const c=rechMonths(), ms=Object.keys(c).sort().reverse(), sel=$("rechMon");
-  if(auto||!c[rechMon]){ const now=isoDay(new Date()).slice(0,7); rechMon=ms.find(m=>m<now)||ms[0]||""; } // zuletzt abgeschlossener Monat, sonst der neueste
+  if(auto||!c[rechMon]) rechMon=ms.reduce((best,m)=>c[m]>(c[best]||0)?m:best,""); // v=131: Monat mit den meisten Tagen auf den Bildern, bei Gleichstand der neueste
   sel.textContent=""; ms.forEach(m=>{ const o=document.createElement("option"); o.value=m; o.textContent=`${monName(m)} (${c[m]} Tage)`; sel.append(o); }); sel.value=rechMon; sel.disabled=!ms.length; }
 function rechInPeriod(r){ return !!rechMon&&r.d.slice(0,7)===rechMon; }
 function rechCalc(){ const c=rcCfg(), rows=rechRows.filter(rechInPeriod), tage=rows.length;

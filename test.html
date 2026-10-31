@@ -791,6 +791,8 @@ body.drive .foot-halo{display:none}
 body.drive .foot-line{stroke:#8a9099;stroke-width:1.5px;stroke-opacity:.55}
 body.drive .footman{transform:scale(.7);opacity:.55;filter:grayscale(1)}
 .walkman{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;background:#fff;border:2px solid var(--route);box-shadow:0 1px 3px rgb(0 0 0 / .35)}
+.hn{position:absolute;translate:-50% -50%;background:#fff;color:#3c4640;font:700 12px/1 var(--font-body);padding:3px 6px;border-radius:9px;border:1px solid #b9c2b9;white-space:nowrap;pointer-events:none;box-shadow:0 1px 2px rgb(0 0 0 / .2)} /* v=130: Hausnummern aus OpenStreetMap */
+.hn.k{background:#1f6f4a;color:#fff;border-color:#fff;font-size:13px;translate:-50% 16px} /* unter den Kunden-Pin, nicht dahinter */
 .footman{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;line-height:1;background:#fff;border:1.5px solid #3d5a80;box-shadow:0 1px 2px rgb(0 0 0 / .3)}
 .osmpin{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:700 12px var(--font-body);background:#f59e0b;color:#1f1300;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0 / .4)}
 .stop .pwarn{display:block;font-size:.82rem;color:#7a4b00;background:color-mix(in srgb,#f59e0b 22%,transparent);border-radius:4px;padding:1px 5px;margin-top:2px}
@@ -1914,7 +1916,7 @@ function render(){ setTimeout(()=>declutter(),0);
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
   renderGoogle(); scrollCurrent(); if(driveView) updateApproach(); updateEta(true); updateChip(); saveTour();
-  if(nextIdx>=0) loadFoot(nextIdx);
+  if(nextIdx>=0) loadFoot(nextIdx); hnMark();
   $("prev").disabled=nextIdx===0;
   if(nextIdx<0){nc.hidden=false;$("nextLbl").textContent="Fertig";$("nextWho").textContent="Tour abgeschlossen";$("nextTags").textContent="";$("nextTown").textContent="";$("nextAddr").textContent="Alle Stopps erledigt.";$("nextSide").hidden=true;setSideBar("");$("nextDone").hidden=true;$("nextOsm").hidden=true;$("nextNote").hidden=true;$("nextArts").textContent="";$("nextGmaps").hidden=true;$("prev").disabled=false;}
   else{const s=tour.stops[nextIdx];nc.hidden=false;$("nextDone").hidden=false;$("nextOsm").hidden=false;$("nextGmaps").hidden=false;
@@ -1951,7 +1953,21 @@ function sideOnLine(ll,line,li){
 const OVERPASS=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
 const footLayer=L.layerGroup(), footWays=new Set(), footDone=[]; let footBusy=false;
 const FOOT_ZOOM=16;
-function footShow(){ const on=map.getZoom()>=FOOT_ZOOM; if(on&&!map.hasLayer(footLayer)) footLayer.addTo(map); else if(!on&&map.hasLayer(footLayer)) map.removeLayer(footLayer); }
+function footShow(){ const on=map.getZoom()>=FOOT_ZOOM; if(on&&!map.hasLayer(footLayer)) footLayer.addTo(map); else if(!on&&map.hasLayer(footLayer)) map.removeLayer(footLayer);
+  const hon=map.getZoom()>=HN_ZOOM; if(hon&&!map.hasLayer(hnLayer)) hnLayer.addTo(map); else if(!hon&&map.hasLayer(hnLayer)) map.removeLayer(hnLayer); }
+// v=130: Hausnummern rund um den aktuellen und nächsten Kunden (aus OpenStreetMap, gleiche Abfrage wie die Fußwege), ab Zoomstufe 17;
+// die Nummer des aktuellen Kunden ist grün
+const hnLayer=L.layerGroup(), hnSeen=new Set(), hnList=[]; const HN_ZOOM=17;
+const hnKey=t=>(t||"").toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/[^a-z0-9äöü]/g,"");
+const hnIcon=(txt,k)=>L.divIcon({className:"",html:`<div class="hn${k?" k":""}">${txt.replace(/[&<>"]/g,c=>"&#"+c.charCodeAt(0)+";")}</div>`,iconSize:[0,0]});
+function addHn(e){ const t=e.tags||{}, n=t["addr:housenumber"], at=e.type==="node"?[e.lat,e.lon]:e.center?[e.center.lat,e.center.lon]:null;
+  if(!n||!at||hnSeen.has(e.type+e.id)) return; hnSeen.add(e.type+e.id);
+  const m=L.marker(at,{icon:hnIcon(n,false),interactive:false,keyboard:false,zIndexOffset:-500}).addTo(hnLayer);
+  hnList.push({m,at,num:hnKey(n),street:hnKey(t["addr:street"]),txt:n,k:false}); }
+function hnMark(){ const s=tour&&cur>=0?tour.stops[cur]:null, mm=s&&s.addr&&s.ll?s.addr.match(/^(.*?)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/):null;
+  const kn=mm?hnKey(mm[2]):"", ks=mm?hnKey(mm[1]):"";
+  hnList.forEach(h=>{ const on=!!kn&&h.num===kn&&(!h.street||!ks||h.street===ks)&&dist(h.at,s.ll)<150;
+    if(on!==h.k){ h.k=on; h.m.setIcon(hnIcon(h.txt,on)); h.m.setZIndexOffset(on?-100:-500); } }); }
 map.on("zoomend",footShow);
 function drawFoot(w){
   const g=w.geometry.map(q=>[q.lat,q.lon]); if(g.length<2) return;
@@ -1967,15 +1983,15 @@ async function loadFoot(i){
   if(footBusy||!tour) return; const s=tour.stops[i]; if(!s||!s.ll) return;
   if(footDone.some(c=>dist(c,s.ll)<120)) return;
   footBusy=true; const at=s.ll.slice();
-  const q=`[out:json][timeout:20];way["highway"~"^(footway|path|steps|pedestrian)$"]["access"!~"^(private|no)$"](around:250,${at[0].toFixed(5)},${at[1].toFixed(5)});out geom;`;
+  const q=`[out:json][timeout:20];way["highway"~"^(footway|path|steps|pedestrian)$"]["access"!~"^(private|no)$"](around:250,${at[0].toFixed(5)},${at[1].toFixed(5)});out geom;nwr["addr:housenumber"](around:200,${at[0].toFixed(5)},${at[1].toFixed(5)});out center;`;
   try{
     for(const u of OVERPASS){ try{
       const r=await fetch(u,{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
       if(!r.ok) continue; const j=await r.json();
-      (j.elements||[]).forEach(w=>{ if(w.type==="way"&&w.geometry&&!footWays.has(w.id)){ footWays.add(w.id); drawFoot(w); } });
+      (j.elements||[]).forEach(w=>{ if(w.tags&&w.tags["addr:housenumber"]) addHn(w); else if(w.type==="way"&&w.geometry&&!footWays.has(w.id)){ footWays.add(w.id); drawFoot(w); } });
       footDone.push(at); break; }catch(e){} }
   } finally{ footBusy=false; }
-  footShow();
+  footShow(); hnMark();
   if(tour&&cur>=0){ const n=[cur,cur+1].find(k=>tour.stops[k]&&tour.stops[k].ll&&!footDone.some(c=>dist(c,tour.stops[k].ll)<120)); if(n!==undefined&&n!==i) loadFoot(n); }
 }
 function fit(){ const p=tour?tour.stops.filter(s=>s.ll).map(s=>s.ll):[]; if(p.length) fitVis(L.latLngBounds(p).pad(0.12)); else map.setView([48.166,8.627],12); }
@@ -2219,11 +2235,19 @@ function setLive(i,side,src){
   $("nextSide").hidden=false; $("nextSide").textContent=`Haus ${now}`; setSideBar(now);
   // Keine Korrektur-Ansage: jedes Haus wird nur einmal angesagt (Feedback aus der Praxis).
 }
+// v=130: Die GPS-Richtung darf die Seite erst ändern, wenn man schon in der Straße des Kunden fährt
+// (an der letzten Abbiegung vorbei und in Richtung der grünen Route). Davor und mitten im Abbiegen gilt die Seite aus der Route.
+function onFinalStreet(){
+  if(!apLine||!apRouted||apStop!==cur) return true; const s=tour.stops[cur], lt=turns.length?turns[turns.length-1].ll:null;
+  if(lt&&!(dist(carPos,lt)>25&&dist(carPos,s.ll)<dist(lt,s.ll)-10)) return false;
+  const b=nearOnAp(carPos); if(!b||b.d>25||b.k>=apLine.length-1) return false;
+  if(head!==null){ const rb=bearingDeg(apLine[b.k],apLine[b.k+1]); if(Math.abs(((head-rb)%360+540)%360-180)>30) return false; }
+  return true; }
 function trackSide(){
-  if(!tour||cur<0||!carPos) return; const s=tour.stops[cur];
+  if(!tour||cur<0||!carPos) return; const s=tour.stops[cur], fin=onFinalStreet();
   if(!lastPos){ lastPos=carPos.slice(); return; }
   // v=114: Ab 150 m vor dem Haus zählt die echte Fahrtrichtung (GPS-Richtung beim Fahren), auch bei GPS bis 35 m Genauigkeit
-  if(head!==null&&gpsSpeed>2&&gpsAcc<=35&&s.exact&&s.ll&&dist(carPos,s.ll)<=150){
+  if(fin&&head!==null&&gpsSpeed>2&&gpsAcc<=35&&s.exact&&s.ll&&dist(carPos,s.ll)<=150){
     const c0=Math.cos(s.ll[0]*Math.PI/180), hx=Math.sin(head*Math.PI/180), hy=Math.cos(head*Math.PI/180);
     const px=(s.ll[1]-carPos[1])*111320*c0, py=(s.ll[0]-carPos[0])*110540, cr=hx*py-hy*px;
     if(hx*px+hy*py>0&&Math.abs(cr)>=3&&Math.abs(cr)<=60) setLive(cur,cr>0?"links":"rechts","gps"); }
@@ -2231,7 +2255,7 @@ function trackSide(){
   if(dist(lastPos,carPos)<15) return;
   if(gpsAcc>35){ lastPos=carPos.slice(); return; }
   const A=lastPos; lastPos=carPos.slice();
-  if(!s.exact||!s.ll||dist(carPos,s.ll)>200) return;
+  if(!fin||!s.exact||!s.ll||dist(carPos,s.ll)>200) return;
   const c=Math.cos(s.ll[0]*Math.PI/180), m=p=>[p[1]*111320*c,p[0]*110540], a=m(A), b=m(carPos), P=m(s.ll);
   const dx=b[0]-a[0], dy=b[1]-a[1], L2=dx*dx+dy*dy, t=((P[0]-a[0])*dx+(P[1]-a[1])*dy)/L2;
   if(t<0) return; // Haus liegt schon hinter uns

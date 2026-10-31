@@ -2342,7 +2342,7 @@ $("sim").addEventListener("click",()=>{
     if(cur<0){ stopSim(); toast("Tour abgeschlossen"); }
   },120);
   render();
-  map.setView(carPos,16);
+  map.setView(carPos,17); // v=135: gleiche Zoomstufe wie beim echten Fahren, damit Hausnummern sichtbar sind
 });
 let gpsWatch=null, wakeLock=null, gpsWallFix=0;
 // v=103: Warnung nur, wenn beim Fahren wirklich kein (brauchbarer) Standort kommt: 20 s ohne Meldung oder Genauigkeit schlechter als 100 m

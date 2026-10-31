@@ -1167,6 +1167,8 @@ html.fahrer #rechBox,html.fahrer .pd-rech{display:none!important}
 .rech-tbl input.bad{background:#fde2e1;border-color:#d63b2f;color:#7a1610}
 .rech-tbl tr.out td{opacity:.4}
 .rech-tbl td.why{font-size:.75rem;color:#b4232a;padding:0 4px 4px}
+.rech-tbl input.auto{background:#fff4c2;border-color:#d9a800;color:#4a3800} /* v=132: selbst gewählt */
+.rech-tbl td.why.auto{color:#7a5a00}
 .rech-tbl .okb{padding:2px 6px;font-size:.75rem}
 .rech-sum{font-size:.9rem;display:grid;gap:2px}.rech-sum b{font-size:1.05rem}.rech-sum .warn{color:#b4232a;font-weight:600}
 .gtour .gt-h{font-weight:700}
@@ -2414,13 +2416,28 @@ function rechMerge(a,b){ // zwei Lesungen zusammenführen und prüfen
       const vx=x&&ok(x[f])?x[f]:null, vy=y&&ok(y[f])?y[f]:null, v=vx??vy;
       row[f]=v!=null?v.replace(".",","):((x||y)[f]||"");
       if(v==null){ bad[f]=1; why.push(`${lbl} nicht lesbar („${row[f]}“)`); }
-      else if(vx!=null&&vy!=null&&pNum(vx)!==pNum(vy)){ bad[f]=1; why.push(`${lbl} unsicher: ${vx} oder ${vy}?`); }
+      else if(vx!=null&&vy!=null&&pNum(vx)!==pNum(vy)){ bad[f]=1; why.push(`${lbl} unsicher: ${vx} oder ${vy}?`); if(f!=="km") (row.alt=row.alt||{})[f]=[vx,vy]; }
       else if((vx!=null?x:y)[c]<70){ bad[f]=1; why.push(`${lbl} unsicher erkannt`); } }
     const n=pNum(row.n), g=pNum(row.g), km=pNum(row.km);
     if(!bad.n&&!bad.g&&(g<n||g>n*10)){ bad.n=bad.g=1; why.push("Lieferungen und Gebäckstücke passen nicht zusammen"); }
     if(!bad.km&&(km<3||km>300)){ bad.km=1; why.push("km unplausibel"); }
     row.bad=bad; row.why=why; res.push(row); }
   return res; }
+// v=132: zwei verschiedene Lesungen bei Lieferungen/Gebäck selbst auflösen. Jede Lieferung hat mindestens ein Gebäckstück
+// (Lieferungen ≤ Gebäck ≤ 10 × Lieferungen). Passt nur eine Kombination, wird sie genommen; passen mehrere, die mit dem
+// Verhältnis Gebäck pro Lieferung, das am nächsten an den sicheren Tagen liegt. Selbst gewählte Zahlen sind gelb markiert.
+function rechResolve(rows){
+  const sure=rows.filter(r=>!(r.bad&&(r.bad.n||r.bad.g))&&!r.alt).map(r=>pNum(r.g)/pNum(r.n)).filter(x=>x>0&&isFinite(x)).sort((a,b)=>a-b);
+  const med=sure.length?sure[Math.floor(sure.length/2)]:null;
+  rows.forEach(r=>{ if(!r.alt) return; const ns=r.alt.n||[r.n], gs=r.alt.g||[r.g], ok=[];
+    ns.forEach(n=>gs.forEach(g=>{ const a=pNum(n), b=pNum(g); if(a>0&&b>=a&&b<=a*10) ok.push({n,g,q:b/a}); }));
+    let pick=null, how="";
+    if(ok.length===1){ pick=ok[0]; how="die andere Lesung passt nicht zu Lieferungen ≤ Gebäck"; }
+    else if(ok.length>1&&med){ ok.sort((x,y)=>Math.abs(Math.log(x.q/med))-Math.abs(Math.log(y.q/med))); pick=ok[0]; how=`passt am besten zu ca. ${String(Math.round(med*10)/10).replace(".",",")} Gebäck pro Lieferung an den anderen Tagen`; }
+    if(!pick) return;
+    const was=Object.keys(r.alt).map(f=>`${f==="n"?"Lieferungen":"Gebäckstücke"} ${f==="n"?pick.n:pick.g} statt ${r.alt[f].find(v=>v!==(f==="n"?pick.n:pick.g))}`).join(", ");
+    r.n=pick.n; r.g=pick.g; r.auto=r.auto||{}; Object.keys(r.alt).forEach(f=>{ r.auto[f]=1; if(r.bad) delete r.bad[f]; });
+    r.why=(r.why||[]).filter(t=>!/^(Lieferungen|Gebäckstücke) unsicher:/.test(t)); r.note=`Selbst gewählt: ${was} (${how}). Bitte kurz prüfen.`; delete r.alt; }); }
 async function rechAdd(files){
   const st=$("rechState"); let added=0, flagged=0;
   try{ st.textContent="Texterkennung wird geladen …"; const w=await ocrWorker();
@@ -2429,7 +2446,7 @@ async function rechAdd(files){
       const a=rechParse((await w.recognize(await imgPrep(f))).data), b=rechParse((await w.recognize(f)).data);
       for(const r of rechMerge(a,b)){ const k=rechRows.findIndex(q=>q.d===r.d&&q.tour===r.tour);
         if(k<0){ rechRows.push(r); added++; } else if(Object.keys(rechRows[k].bad||{}).length&&!Object.keys(r.bad).length) rechRows[k]=r; } }
-    rechRows.sort((p,q)=>p.d<q.d?-1:1); rechSave(); rechPickMonth(true); flagged=rechRows.filter(r=>Object.keys(r.bad||{}).length).length;
+    rechResolve(rechRows); rechRows.sort((p,q)=>p.d<q.d?-1:1); rechSave(); rechPickMonth(true); flagged=rechRows.filter(r=>Object.keys(r.bad||{}).length).length;
     st.textContent=`${added} Liefertage übernommen.`+(flagged?` ⚠ ${flagged} Position${flagged>1?"en":""} nicht sicher erkannt (rot), bitte mit dem Screenshot vergleichen.`:" Alles sicher erkannt, bitte trotzdem kurz prüfen.");
   }catch(x){ st.textContent=(x&&x.message)||"Bild konnte nicht gelesen werden."; }
   rechDraw(); }
@@ -2449,8 +2466,8 @@ function rechCalc(){ const c=rcCfg(), rows=rechRows.filter(rechInPeriod), tage=r
   return {c,rows,tage,pos,sum:r2(pos.reduce((s,p)=>s+p[4],0)),bad:rows.filter(r=>Object.keys(r.bad||{}).length).length}; }
 function rechDraw(){ const tb=$("rechRows"); tb.textContent=""; rechPickMonth(false);
   let hid=0; rechRows.forEach((r,i)=>{ if(!rechInPeriod(r)){ hid++; return; } const tr=document.createElement("tr");
-    const cell=(f,cls,type)=>{ const td=document.createElement("td"), inp=document.createElement("input"); inp.type=type||"text"; inp.className=cls+(r.bad&&r.bad[f]?" bad":""); inp.value=f==="d"?r.d:r[f]; if(f!=="d"&&f!=="tour") inp.inputMode="decimal";
-      inp.addEventListener("change",()=>{ r[f]=inp.value.trim(); if(r.bad) delete r.bad[f]; if(r.bad&&!Object.keys(r.bad).length) r.why=[]; if(f==="d") rechRows.sort((p,q)=>p.d<q.d?-1:1); rechSave(); rechDraw(); });
+    const cell=(f,cls,type)=>{ const td=document.createElement("td"), inp=document.createElement("input"); inp.type=type||"text"; inp.className=cls+(r.bad&&r.bad[f]?" bad":r.auto&&r.auto[f]?" auto":""); inp.value=f==="d"?r.d:r[f]; if(f!=="d"&&f!=="tour") inp.inputMode="decimal";
+      inp.addEventListener("change",()=>{ r[f]=inp.value.trim(); if(r.bad) delete r.bad[f]; if(r.auto){ delete r.auto[f]; if(!Object.keys(r.auto).length) r.note=""; } if(r.bad&&!Object.keys(r.bad).length) r.why=[]; if(f==="d") rechRows.sort((p,q)=>p.d<q.d?-1:1); rechSave(); rechDraw(); });
       td.append(inp); return td; };
     const td0=document.createElement("td"); td0.className="day"; td0.textContent=deDay(r.d).slice(0,6); td0.title=r.tour; tr.append(td0,cell("n",""),cell("g",""),cell("km",""));
     const td=document.createElement("td"), del=document.createElement("button"); del.type="button"; del.className="btn okb"; del.textContent="✕"; del.title="Zeile löschen";
@@ -2458,7 +2475,10 @@ function rechDraw(){ const tb=$("rechRows"); tb.textContent=""; rechPickMonth(fa
     if(r.why&&r.why.length){ const t2=document.createElement("tr"), w=document.createElement("td"); w.colSpan=5; w.className="why";
       w.textContent="⚠ Position nicht korrekt erkannt: "+r.why.join(" · ")+" ";
       const ok=document.createElement("button"); ok.type="button"; ok.className="btn okb"; ok.textContent="✓ stimmt";
-      ok.addEventListener("click",()=>{ r.bad={}; r.why=[]; rechSave(); rechDraw(); }); w.append(ok); t2.append(w); tb.append(t2); } });
+      ok.addEventListener("click",()=>{ r.bad={}; r.why=[]; rechSave(); rechDraw(); }); w.append(ok); t2.append(w); tb.append(t2); }
+    if(r.note&&!(r.why&&r.why.length)){ const t3=document.createElement("tr"), w=document.createElement("td"); w.colSpan=5; w.className="why auto"; w.textContent="ℹ "+r.note+" ";
+      const ok=document.createElement("button"); ok.type="button"; ok.className="btn okb"; ok.textContent="✓ stimmt";
+      ok.addEventListener("click",()=>{ r.auto={}; r.note=""; rechSave(); rechDraw(); }); w.append(ok); t3.append(w); tb.append(t3); } });
   $("rechTbl").hidden=!rechRows.length;
   const k=rechCalc(), s=$("rechSum"); s.textContent="";
   if(!rechRows.length){ s.textContent="Noch keine Liefertage. Tippe auf „＋ Bild hinzufügen“."; return; }

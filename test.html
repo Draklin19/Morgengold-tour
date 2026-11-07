@@ -1197,7 +1197,7 @@ body:not(.drive):not(.sim) .dep-ban{display:none}
 body.no-tour .stops-head{display:none}
 /* v=136: Hauptseite mit drei Knöpfen; data-pg am body: home | nav | me | rech */
 .home,.pg-back,.nav-set{display:none}
-#setBtn{display:none!important}
+body:not([data-pg="nav"]) #setBtn,body[data-pg="nav"] #clear{display:none!important}
 #settings{scroll-margin-top:96px}
 body[data-pg="home"] .home{display:flex;flex-direction:column;justify-content:center;gap:16px;min-height:calc(100vh - 150px);min-height:calc(100dvh - 150px);max-width:520px;width:100%;margin:0 auto;padding:4px 4px 12px}
 .hb{flex:1 1 0;min-height:110px;max-height:170px;border:0;border-radius:28px;padding:18px 20px;color:#fff;display:flex;align-items:center;gap:16px;text-align:left;font:inherit;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.14);transition:transform .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent}
@@ -1211,7 +1211,7 @@ body[data-pg="home"] .home{display:flex;flex-direction:column;justify-content:ce
 .hb-rech{background:linear-gradient(145deg,#c98a00,#e6aa1c)}
 .home-foot{margin:0;text-align:center;color:var(--muted);font-size:.85rem}
 body:not([data-pg="home"]) .pg-back{display:flex;align-self:flex-start;margin-bottom:-6px;background:none;border:0;padding:4px 0;font:inherit;font-weight:600;color:var(--route);cursor:pointer}
-body[data-pg="nav"] .nav-set{display:flex;flex-direction:column}
+body[data-pg="nav"]:not(.no-tour) .nav-set{display:flex;flex-direction:column}
 body:not([data-pg="nav"]):not(.drive) :is(.cta,.privacy,#loaded,#routeState,#err,#mapErr,.wrap>footer,#geoBox,#tileSel,.stats,.main,#confirmBox,#restartTop,#clear){display:none!important}
 body:is([data-pg="me"],[data-pg="rech"]) #setTabs{display:none}
 body:is([data-pg="me"],[data-pg="rech"]) #settings .set-hd{position:static}
@@ -1272,7 +1272,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <div class="top-icons">
       <button class="icon-btn" id="restartTop" type="button" title="Tour neu starten" aria-label="Tour neu starten">↺</button> <!-- v=104: Tour neu starten schnell erreichbar -->
       <button class="icon-btn" id="clear" type="button" title="Tour löschen" aria-label="Tour löschen">🗑</button>
-      <button class="icon-btn" id="setBtn" type="button" aria-expanded="false" aria-controls="settings" title="Einstellungen" aria-label="Einstellungen">⚙</button>
+      <button class="icon-btn" id="setBtn" type="button" aria-expanded="false" aria-controls="settings" title="Einstellungen Navigation" aria-label="Einstellungen Navigation">⚙</button>
     </div>
   </header>
   <section class="home" id="home" aria-label="Hauptseite">
@@ -1432,7 +1432,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         </div>
         <div class="opts"><button class="btn primary" id="gps" type="button">📍 GPS starten</button></div>
         <p class="hint" id="gpsState" hidden></p>
-        <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt einen Kunden ab, sobald du nach der Ankunft wieder wegfährst. Der Standort wird nicht gespeichert und nicht übertragen. Zum Ausprobieren ohne GPS gibt es „Fahrt simulieren“ unter ⚙ Einstellungen Navigation.</p>
+        <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt einen Kunden ab, sobald du nach der Ankunft wieder wegfährst. Der Standort wird nicht gespeichert und nicht übertragen. Zum Ausprobieren ohne GPS gibt es „Fahrt simulieren“ unter ⚙ oben rechts.</p>
       </details>
       <details class="mode" id="loadBox" hidden><summary>Ladeliste für die ganze Tour</summary><ul class="arts" id="loadList"></ul></details>
       <details class="mode more" id="cmpBox">
@@ -1449,7 +1449,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       </details>
     </div>
   </div>
-  <button class="btn big nav-set" id="navSet" type="button">⚙ Einstellungen Navigation <small>Kommissionierstellen, Ansagen, Simulation, Hauspunkte</small></button>
+  <button class="btn big nav-set" id="navClear" type="button">🗑 Tour löschen <small>Entfernt die Touren mit allen Adressen von diesem Handy</small></button> <!-- v=139: Mülleimer unten, ⚙ oben -->
   <div class="ask" id="geoAsk" hidden role="dialog" aria-modal="true" aria-labelledby="geoAskT">
     <div class="ask-box">
       <h2 id="geoAskT">Standort verwenden?</h2>
@@ -2957,7 +2957,8 @@ try{ history.replaceState({pg:"home"},""); }catch(e){}
 window.addEventListener("popstate",e=>showPg((e.state&&e.state.pg)||"home"));
 document.querySelectorAll("#home [data-pg]").forEach(b=>b.addEventListener("click",()=>showPg(b.dataset.pg,true)));
 $("pgBack").addEventListener("click",goHome);
-$("navSet").addEventListener("click",()=>{ setTab(setTabIdx); setOpen(true); $("settings").scrollIntoView({behavior:"smooth",block:"start"}); });
+$("navClear").addEventListener("click",()=>$("clear").click());
+$("setBtn").addEventListener("click",()=>{ if(!$("settings").hidden) $("settings").scrollIntoView({behavior:"smooth",block:"start"}); });
 showPg("home");
 $("sim").addEventListener("click",()=>{ if(simTimer){ setOpen(false); $("map").scrollIntoView({behavior:"smooth",block:"center"}); } });
 $("clear").addEventListener("click",async()=>{

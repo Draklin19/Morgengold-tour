@@ -1215,6 +1215,13 @@ body[data-pg="nav"]:not(.no-tour) .nav-set{display:flex;flex-direction:column}
 body:not([data-pg="nav"]):not(.drive) :is(.cta,.privacy,#loaded,#routeState,#err,#mapErr,.wrap>footer,#geoBox,#tileSel,.stats,.main,#confirmBox,#restartTop,#clear){display:none!important}
 body:is([data-pg="me"],[data-pg="rech"]) #setTabs{display:none}
 body:is([data-pg="me"],[data-pg="rech"]) #settings .set-hd{position:static}
+/* v=140: Daten für Rechnungen nach dem Speichern grau und gesperrt, „✏ Ändern“ an der Seite */
+.pd-lock{display:none;justify-content:space-between;align-items:center;gap:8px;color:var(--muted);font-size:.9rem}
+.pd-rech.locked .pd-lock{display:flex}
+.pd-rech.locked #pdSave{display:none}
+.btn.pd-edit{padding:4px 12px;font-size:.88rem;min-height:0}
+.pd-rech.locked textarea,.pd-rech.locked input{background:var(--grid)!important;color:var(--muted)!important;border-color:var(--line)!important;pointer-events:none}
+.pd-rech.locked label{color:var(--muted)}
 /* v=138: jede Seite leicht in der Farbe ihres Knopfes (nicht im Fahrmodus) */
 :root{--bg0:var(--bg)}
 body[data-pg="nav"]:not(.drive){--bg:color-mix(in srgb,#2f8f76 11%,var(--bg0))}
@@ -1342,7 +1349,8 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <div class="set-gl" data-grp="4">Rechnung</div>
     <div class="set-card" data-grp="4">
       <details class="set-row" id="pdBox"><summary><span class="ic c-amber">🧾</span><span class="t">Daten für Rechnungen<small>Absender, Empfänger, Bank, Preise</small></span></summary>
-        <div class="set-body pd-rech">
+        <div class="set-body pd-rech" id="pdRech">
+          <div class="pd-lock"><span id="pdLockTxt">🔒 Gespeichert</span><button class="btn pd-edit" id="pdEdit" type="button">✏ Ändern</button></div> <!-- v=140: nach dem Speichern grau gesperrt -->
           <label for="rcFrom">Absender (Name, Straße, PLZ Ort, E-Mail – je Zeile)</label><textarea id="rcFrom" rows="4"></textarea>
           <label for="rcTo">Empfänger (je Zeile)</label><textarea id="rcTo" rows="4"></textarea>
           <label for="rcBank">Bankverbindung (Inhaber, Bank, IBAN, BIC – je Zeile)</label><textarea id="rcBank" rows="4"></textarea>
@@ -1350,6 +1358,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
           <div class="opts"><label for="rcPkm">€ pro km <input id="rcPkm" type="text" inputmode="decimal"></label><label for="rcAnf">Anfahrt km/Tag <input id="rcAnf" type="text" inputmode="decimal"></label><label for="rcPk">€ pro Kunde <input id="rcPk" type="text" inputmode="decimal"></label></div>
           <label for="rcNote">Hinweis unter der Rechnung</label><textarea id="rcNote" rows="3"></textarea>
           <p class="hint">Die Rechnungsnummer bildet die App aus Ort und Monat (z. B. Rottweil-2026-10).</p>
+          <div class="opts"><button class="btn primary" id="pdSave" type="button">💾 Speichern</button></div>
         </div></details>
       <details class="set-row" id="rechBox" open><summary><span class="ic c-amber">🧾</span><span class="t">Liefertage einlesen<small>Aus Screenshots der Auslieferungsliste</small></span></summary> <!-- v=94 (nur Admin) -->
         <div class="set-body">
@@ -2587,7 +2596,12 @@ async function rechPdf(){
   if(mailAdr){ try{ await navigator.clipboard.writeText(mailAdr); toast("E-Mail-Adresse kopiert: "+mailAdr+" (im Mail-Programm einfügen)"); }catch(e){} }
   try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name,text:"Rechnung "+monName(rechMon)}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
   const u=URL.createObjectURL(blob), l=document.createElement("a"); l.href=u; l.download=name; document.body.append(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),30000); toast("Rechnung gespeichert: "+name); }
+// v=140: gespeicherte Rechnungsdaten sind gesperrt, bis man „✏ Ändern“ tippt
+function pdLock(on){ $("pdRech").classList.toggle("locked",on); Object.values(RC_IDS).forEach(id=>{ $(id).readOnly=on; }); }
+$("pdEdit").addEventListener("click",()=>{ pdLock(false); $("rcFrom").focus(); });
+$("pdSave").addEventListener("click",()=>{ const v=jget(RECH_CFG); for(const [k,id] of Object.entries(RC_IDS)) v[k]=$(id).value; jset(RECH_CFG,v); rechDraw(); pdLock(true); toast("Rechnungsdaten gespeichert"); });
 { const c=rcCfg(); for(const [k,id] of Object.entries(RC_IDS)){ const el=$(id); el.value=c[k]; el.addEventListener("change",()=>{ const v=jget(RECH_CFG); v[k]=el.value; jset(RECH_CFG,v); rechDraw(); }); }
+  pdLock(!!(c.from.trim()||c.to.trim())); // v=140
   $("rechMon").addEventListener("change",()=>{ rechMon=$("rechMon").value; rechDraw(); });
   $("rechFile").addEventListener("change",e=>{ const f=e.target.files; if(f&&f.length) rechAdd(f).finally(()=>{ e.target.value=""; }); });
   $("rechClear").addEventListener("click",async()=>{ if(!rechRows.length||await ask("Liste leeren?","Alle eingelesenen Liefertage werden aus der Liste entfernt.","Leeren","Abbrechen")){ rechRows=[]; rechSave(); $("rechState").textContent=""; rechDraw(); } });

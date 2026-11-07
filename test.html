@@ -1215,6 +1215,17 @@ body[data-pg="nav"]:not(.no-tour) .nav-set{display:flex;flex-direction:column}
 body:not([data-pg="nav"]):not(.drive) :is(.cta,.privacy,#loaded,#routeState,#err,#mapErr,.wrap>footer,#geoBox,#tileSel,.stats,.main,#confirmBox,#restartTop,#clear){display:none!important}
 body:is([data-pg="me"],[data-pg="rech"]) #setTabs{display:none}
 body:is([data-pg="me"],[data-pg="rech"]) #settings .set-hd{position:static}
+/* v=142: vierter Knopf Schichtplan, Seite noch leer */
+.hb-plan{background:linear-gradient(145deg,#6a4c9c,#8a6bbf)}
+body[data-pg="home"] .home{gap:12px}
+body[data-pg="home"] .hb{min-height:92px;max-height:150px}
+.pg-plan{display:none}
+body[data-pg="plan"]:not(.drive) .pg-plan{display:flex;flex-direction:column;gap:14px}
+.pg-plan h2{font-family:var(--font-display);font-size:1.6rem;margin:4px 4px 0}
+.plan-empty{background:var(--surface);border:1px dashed var(--line);border-radius:20px;padding:48px 20px;text-align:center;color:var(--muted)}
+.plan-empty span{font-size:2.6rem;display:block;margin-bottom:8px}
+.plan-empty p{margin:0}
+body[data-pg="plan"]:not(.drive){--bg:color-mix(in srgb,#8a6bbf 12%,var(--bg0))}
 /* v=141: größere Auf-/Zuklapp-Pfeile und größeres „← Hauptseite“ */
 .set-row>summary::after,.set-row .chev{font-size:2rem;font-weight:600;color:var(--fg);opacity:.7;width:1.2em;text-align:center}
 details.more>summary::after{font-size:1.6rem;color:var(--fg);opacity:.7;line-height:1}
@@ -1291,8 +1302,10 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <button class="hb hb-nav" type="button" data-pg="nav"><span class="hb-ic" aria-hidden="true">🧭</span><span><b>Navigation</b><small>Tour öffnen, Karte, Fahren</small></span></button>
     <button class="hb hb-me" type="button" data-pg="me"><span class="hb-ic" aria-hidden="true">👤</span><span><b>Persönliche Einstellungen</b><small>Foto, Adresse, E-Mail</small></span></button>
     <button class="hb hb-rech" type="button" data-pg="rech"><span class="hb-ic" aria-hidden="true">🧾</span><span><b>Rechnung erstellen</b><small>Daten, Tabelle, PDF</small></span></button>
+    <button class="hb hb-plan" type="button" data-pg="plan"><span class="hb-ic" aria-hidden="true">📅</span><span><b>Schichtplan</b><small>Wer fährt wann</small></span></button> <!-- v=142: neuer Knopf, Seite noch leer -->
     <p class="home-foot">🔒 Alles bleibt auf deinem Handy.</p>
   </section>
+  <section class="pg-plan" id="pgPlan"><h2>Schichtplan</h2><div class="plan-empty"><span aria-hidden="true">📅</span><p>Hier kommt bald der Schichtplan hin.</p></div></section>
   <div class="actions cta">
     <label class="btn primary big" for="file">📂 Tour öffnen <small>Ausfahrliste PDF / .bcr</small></label>
     <input type="file" id="file" multiple><!-- kein accept: Android kennt .bcr nicht und graut die Datei sonst aus; Typ wird am Inhalt erkannt -->

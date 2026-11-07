@@ -1216,7 +1216,8 @@ body:not([data-pg="nav"]):not(.drive) :is(.cta,.privacy,#loaded,#routeState,#err
 body:is([data-pg="me"],[data-pg="rech"]) #setTabs{display:none}
 body:is([data-pg="me"],[data-pg="rech"]) #settings .set-hd{position:static}
 /* v=142: vierter Knopf Schichtplan, Seite noch leer */
-html.fahrer .hb-plan,html.fahrer .hb-rech{display:none!important} /* v=144: Fahrer-Version ohne Schichtplan (bleibt Test) und ohne Rechnung (war schon nur Admin) */
+html.fahrer .hb-plan{display:none!important} /* v=144: Schichtplan bleibt nur in der Testversion */
+html.fahrer .hb-rech{filter:grayscale(1);opacity:.5;pointer-events:none;box-shadow:none} html.fahrer .hb-rech b::after{content:" (deaktiviert)";font-size:.8em;font-weight:500} /* v=145: Rechnung für Fahrer sichtbar, aber noch nicht wählbar */
 .hb-plan{background:linear-gradient(145deg,#6a4c9c,#8a6bbf)}
 body[data-pg="home"] .home{gap:12px}
 body[data-pg="home"] .hb{min-height:92px;max-height:150px}
@@ -3016,6 +3017,7 @@ function goHome(){ if(history.state&&history.state.pg&&history.state.pg!=="home"
 try{ history.replaceState({pg:"home"},""); }catch(e){}
 window.addEventListener("popstate",e=>showPg((e.state&&e.state.pg)||"home"));
 document.querySelectorAll("#home [data-pg]").forEach(b=>b.addEventListener("click",()=>showPg(b.dataset.pg,true)));
+if(!IS_TEST) document.querySelector("#home .hb-rech").disabled=true; // v=145
 $("pgBack").addEventListener("click",goHome);
 $("navClear").addEventListener("click",()=>$("clear").click());
 $("setBtn").addEventListener("click",()=>{ if(!$("settings").hidden) $("settings").scrollIntoView({behavior:"smooth",block:"start"}); });

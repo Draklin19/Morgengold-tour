@@ -1219,6 +1219,7 @@ body:is([data-pg="me"],[data-pg="rech"]) #settings .set-hd{position:static}
 <!-- v=81: Zugangscode beim ersten Öffnen (hält Fremde fern, die zufällig auf den Link stoßen; im Code steht nur der Prüfwert, nicht der Code) -->
 <div id="gate" style="position:fixed;inset:0;z-index:99999;background:#f4f1ea;display:flex;align-items:center;justify-content:center;padding:24px;font-family:var(--font-body,system-ui)">
  <form id="gateForm" style="width:100%;max-width:340px;text-align:center">
+  <button type="button" id="gateBack" style="display:none;position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:calc(env(safe-area-inset-left,0px) + 18px);background:none;border:0;padding:6px 0;font:600 1.05rem system-ui;color:#1a7f64;cursor:pointer">← Zurück</button> <!-- v=137: Zurück aus „Anderen Zugangscode eingeben“ -->
   <img src="icon-192.png" alt="" width="84" height="84" style="border-radius:20px">
   <h1 style="font-size:1.4rem;margin:14px 0 6px">Morgengold Tour</h1>
   <p style="margin:0 0 18px;color:#555">Bitte den Zugangscode eingeben, den du von deinem Chef bekommen hast.</p>
@@ -1234,17 +1235,20 @@ const IS_TEST=/test\.html$/i.test(location.pathname);
 if(!IS_TEST) document.documentElement.classList.add("fahrer"); // v=90: Fahrer-Version ohne Vergleichs-Werkzeug
 (function(){ const DRV="402b32d5ab3a2f8953579210cdb2e40892cb6cc9c04528388a02709d273b2c69", ADM="d949b46466968f12b7b7746323f02e1de5460491e13989f39d9f9b5c661515f2", K="navi-zugang", g=document.getElementById("gate");
   const toTest=()=>location.replace("test.html"+location.search+location.hash), toMain=()=>location.replace("./"+location.search+location.hash);
-  let have=null; try{ have=localStorage.getItem(K); }catch(e){}
-  if(IS_TEST){ if(have===ADM){ g.remove(); return; } } // mit Fahrercode gespeichert: Abfrage zeigen, damit der Chef seinen Admin-Code eingeben kann
-  else{ if(have===ADM){ toTest(); return; } if(have===DRV){ g.remove(); return; } }
+  const hide=()=>{ g.style.display="none"; }; // v=137: Abfrage nur ausblenden, damit „Anderen Zugangscode eingeben“ sie wieder zeigen kann
+  const back=document.getElementById("gateBack"); back.addEventListener("click",hide);
+  window.gateShow=()=>{ document.getElementById("gateCode").value=""; document.getElementById("gateErr").textContent=""; back.style.display="inline-block"; g.style.display="flex"; };
   document.getElementById("gateForm").addEventListener("submit",async e=>{ e.preventDefault();
     const c=document.getElementById("gateCode").value.trim(), err=document.getElementById("gateErr");
     try{ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("morgengold:"+c));
       const h=[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
-      if(h===ADM){ try{ localStorage.setItem(K,ADM); }catch(e){} if(IS_TEST) g.remove(); else toTest(); }
-      else if(h===DRV){ try{ localStorage.setItem(K,DRV); }catch(e){} if(IS_TEST) toMain(); else g.remove(); }
+      if(h===ADM){ try{ localStorage.setItem(K,ADM); }catch(e){} if(IS_TEST) hide(); else toTest(); }
+      else if(h===DRV){ try{ localStorage.setItem(K,DRV); }catch(e){} if(IS_TEST) toMain(); else hide(); }
       else err.textContent="Der Code stimmt nicht. Groß- und Kleinschreibung beachten."; }
     catch(x){ err.textContent="Dieser Browser kann den Code nicht prüfen. Bitte Safari oder Chrome nehmen."; } });
+  let have=null; try{ have=localStorage.getItem(K); }catch(e){}
+  if(IS_TEST){ if(have===ADM) hide(); } // mit Fahrercode gespeichert: Abfrage zeigen, damit der Chef seinen Admin-Code eingeben kann
+  else{ if(have===ADM){ toTest(); return; } if(have===DRV) hide(); }
 })();
 if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.createElement("button"); t.type="button"; t.id="testBadge"; t.textContent="TEST";
   t.title="Test-Version. Antippen: zur Fahrer-Version wechseln";
@@ -2884,7 +2888,7 @@ function drawCompare(done){
     $("cmpState").textContent=(done?"Fertig. ":"")+`Grün bis 25 m: ${ok} · Gelb 25–80 m: ${mid} · Rot über 80 m: ${bad}`+(none?` · nicht gefunden: ${none}`:"")+(ds.length?` · typischer Abstand ${med} m`:""); } }
 $("cmpBtn").addEventListener("click",()=>{ runCompare(); fit(); });
 $("cmpOff").addEventListener("click",()=>{ cmpLayer.clearLayers(); $("cmpList").hidden=true; $("cmpOff").hidden=true; $("cmpState").textContent=""; if(tour) tour.stops.forEach(s=>delete s.cmp); });
-$("codeSwitch").addEventListener("click",()=>{ try{ localStorage.removeItem("navi-zugang"); }catch(e){} location.replace("./"); }); // v=84: Code wechseln in der App (Startbildschirm-App hat eigenen Speicher, getrennt vom Browser)
+$("codeSwitch").addEventListener("click",()=>{ if(window.gateShow) gateShow(); else{ try{ localStorage.removeItem("navi-zugang"); }catch(e){} location.replace("./"); } }); // v=137: Code-Abfrage mit „← Zurück“, alter Code bleibt bis ein neuer stimmt // v=84: Code wechseln in der App (Startbildschirm-App hat eigenen Speicher, getrennt vom Browser)
 $("pinSave").addEventListener("click",()=>{ if(!pinEdit) return; const {i,m}=pinEdit, q=m.getLatLng(); endPin(); setPos(i,[q.lat,q.lng]); });
 // Haken per Wischen in der Stoppliste:
 // - auf einem Kästchen anfangen und über weitere Kästchen ziehen: alle bekommen denselben Zustand (viele auf einmal an oder aus)

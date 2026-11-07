@@ -1215,6 +1215,11 @@ body[data-pg="nav"] .nav-set{display:flex;flex-direction:column}
 body:not([data-pg="nav"]):not(.drive) :is(.cta,.privacy,#loaded,#routeState,#err,#mapErr,.wrap>footer,#geoBox,#tileSel,.stats,.main,#confirmBox,#restartTop,#clear){display:none!important}
 body:is([data-pg="me"],[data-pg="rech"]) #setTabs{display:none}
 body:is([data-pg="me"],[data-pg="rech"]) #settings .set-hd{position:static}
+/* v=138: jede Seite leicht in der Farbe ihres Knopfes (nicht im Fahrmodus) */
+:root{--bg0:var(--bg)}
+body[data-pg="nav"]:not(.drive){--bg:color-mix(in srgb,#2f8f76 11%,var(--bg0))}
+body[data-pg="me"]:not(.drive){--bg:color-mix(in srgb,#5878a3 12%,var(--bg0))}
+body[data-pg="rech"]:not(.drive){--bg:color-mix(in srgb,#e6aa1c 14%,var(--bg0))}
 </style></head><body>
 <!-- v=81: Zugangscode beim ersten Öffnen (hält Fremde fern, die zufällig auf den Link stoßen; im Code steht nur der Prüfwert, nicht der Code) -->
 <div id="gate" style="position:fixed;inset:0;z-index:99999;background:#f4f1ea;display:flex;align-items:center;justify-content:center;padding:24px;font-family:var(--font-body,system-ui)">

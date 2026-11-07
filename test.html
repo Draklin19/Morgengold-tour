@@ -1215,6 +1215,11 @@ body[data-pg="nav"]:not(.no-tour) .nav-set{display:flex;flex-direction:column}
 body:not([data-pg="nav"]):not(.drive) :is(.cta,.privacy,#loaded,#routeState,#err,#mapErr,.wrap>footer,#geoBox,#tileSel,.stats,.main,#confirmBox,#restartTop,#clear){display:none!important}
 body:is([data-pg="me"],[data-pg="rech"]) #setTabs{display:none}
 body:is([data-pg="me"],[data-pg="rech"]) #settings .set-hd{position:static}
+/* v=141: größere Auf-/Zuklapp-Pfeile und größeres „← Hauptseite“ */
+.set-row>summary::after,.set-row .chev{font-size:2rem;font-weight:600;color:var(--fg);opacity:.7;width:1.2em;text-align:center}
+details.more>summary::after{font-size:1.6rem;color:var(--fg);opacity:.7;line-height:1}
+body:not([data-pg="home"]) .pg-back{font-size:1.2rem!important;padding:8px 14px 8px 0!important;gap:6px;align-items:center}
+.pg-back .arr{font-size:1.6rem;line-height:1}
 /* v=140: Daten für Rechnungen nach dem Speichern grau und gesperrt, „✏ Ändern“ an der Seite */
 .pd-lock{display:none;justify-content:space-between;align-items:center;gap:8px;color:var(--muted);font-size:.9rem}
 .pd-rech.locked .pd-lock{display:flex}
@@ -1270,7 +1275,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
 </script>
 
 <div class="wrap">
-  <button class="pg-back" id="pgBack" type="button">← Hauptseite</button> <!-- v=136: Hauptseite mit drei Knöpfen (Testversion) -->
+  <button class="pg-back" id="pgBack" type="button"><span class="arr" aria-hidden="true">←</span>Hauptseite</button> <!-- v=136: Hauptseite mit drei Knöpfen (Testversion) -->
   <header>
     <div class="brand">
       <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg></span>

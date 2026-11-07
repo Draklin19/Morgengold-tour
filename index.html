@@ -3335,7 +3335,7 @@ function lastTourUi(){ const box=$("lastTour"), a=tour?[]:loadTours(); box.inner
   render(); fit(); lastTourUi(); // Karte bleibt leer, bis eine Tour geöffnet oder eine gespeicherte Tour geladen wird
 })();
 setTimeout(()=>{map.invalidateSize();fit();},200);
-if(tour&&cur>=0) showPg("nav",true); // v=136: läuft eine Tour, öffnet die App gleich die Navigation
+showPg("home"); // v=146: nach dem Öffnen immer die Hauptseite (Draklin), auch wenn eine Tour läuft
 })();
 </script>
 </body></html>

@@ -1195,6 +1195,26 @@ body:not(.drive):not(.sim) .dep-ban{display:none}
 .kompin .km-bag{position:absolute;right:0;bottom:0;font-size:19px;line-height:1}
 .depotpin{display:inline-block;white-space:nowrap;padding:0 8px;height:22px;border-radius:11px;background:#15803d;color:#fff;font:700 12px/22px var(--font-body);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 body.no-tour .stops-head{display:none}
+/* v=136: Hauptseite mit drei Knöpfen; data-pg am body: home | nav | me | rech */
+.home,.pg-back,.nav-set{display:none}
+#setBtn{display:none!important}
+#settings{scroll-margin-top:96px}
+body[data-pg="home"] .home{display:flex;flex-direction:column;justify-content:center;gap:16px;min-height:calc(100vh - 150px);min-height:calc(100dvh - 150px);max-width:520px;width:100%;margin:0 auto;padding:4px 4px 12px}
+.hb{flex:1 1 0;min-height:110px;max-height:170px;border:0;border-radius:28px;padding:18px 20px;color:#fff;display:flex;align-items:center;gap:16px;text-align:left;font:inherit;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.14);transition:transform .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent}
+.hb:active{transform:scale(.98);box-shadow:0 4px 12px rgba(0,0,0,.14)}
+.hb:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.hb-ic{width:62px;height:62px;border-radius:20px;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:1.9rem;flex:none}
+.hb b{font-family:var(--font-display);font-size:1.45rem;display:block;line-height:1.1}
+.hb small{font-size:.92rem;opacity:.92}
+.hb-nav{background:linear-gradient(145deg,#1f6f5c,#2f8f76)}
+.hb-me{background:linear-gradient(145deg,#3d5a80,#5878a3)}
+.hb-rech{background:linear-gradient(145deg,#c98a00,#e6aa1c)}
+.home-foot{margin:0;text-align:center;color:var(--muted);font-size:.85rem}
+body:not([data-pg="home"]) .pg-back{display:flex;align-self:flex-start;margin-bottom:-6px;background:none;border:0;padding:4px 0;font:inherit;font-weight:600;color:var(--route);cursor:pointer}
+body[data-pg="nav"] .nav-set{display:flex;flex-direction:column}
+body:not([data-pg="nav"]):not(.drive) :is(.cta,.privacy,#loaded,#routeState,#err,#mapErr,.wrap>footer,#geoBox,#tileSel,.stats,.main,#confirmBox,#restartTop,#clear){display:none!important}
+body:is([data-pg="me"],[data-pg="rech"]) #setTabs{display:none}
+body:is([data-pg="me"],[data-pg="rech"]) #settings .set-hd{position:static}
 </style></head><body>
 <!-- v=81: Zugangscode beim ersten Öffnen (hält Fremde fern, die zufällig auf den Link stoßen; im Code steht nur der Prüfwert, nicht der Code) -->
 <div id="gate" style="position:fixed;inset:0;z-index:99999;background:#f4f1ea;display:flex;align-items:center;justify-content:center;padding:24px;font-family:var(--font-body,system-ui)">
@@ -1234,6 +1254,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
 </script>
 
 <div class="wrap">
+  <button class="pg-back" id="pgBack" type="button">← Hauptseite</button> <!-- v=136: Hauptseite mit drei Knöpfen (Testversion) -->
   <header>
     <div class="brand">
       <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg></span>
@@ -1245,6 +1266,12 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       <button class="icon-btn" id="setBtn" type="button" aria-expanded="false" aria-controls="settings" title="Einstellungen" aria-label="Einstellungen">⚙</button>
     </div>
   </header>
+  <section class="home" id="home" aria-label="Hauptseite">
+    <button class="hb hb-nav" type="button" data-pg="nav"><span class="hb-ic" aria-hidden="true">🧭</span><span><b>Navigation</b><small>Tour öffnen, Karte, Fahren</small></span></button>
+    <button class="hb hb-me" type="button" data-pg="me"><span class="hb-ic" aria-hidden="true">👤</span><span><b>Persönliche Einstellungen</b><small>Foto, Adresse, E-Mail</small></span></button>
+    <button class="hb hb-rech" type="button" data-pg="rech"><span class="hb-ic" aria-hidden="true">🧾</span><span><b>Rechnung erstellen</b><small>Daten, Tabelle, PDF</small></span></button>
+    <p class="home-foot">🔒 Alles bleibt auf deinem Handy.</p>
+  </section>
   <div class="actions cta">
     <label class="btn primary big" for="file">📂 Tour öffnen <small>Ausfahrliste PDF / .bcr</small></label>
     <input type="file" id="file" multiple><!-- kein accept: Android kennt .bcr nicht und graut die Datei sonst aus; Typ wird am Inhalt erkannt -->
@@ -1254,8 +1281,8 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
   </div>
 
   <section class="mode set" id="settings" hidden> <!-- v=99: Einstellungen neu: Gruppen auf Karten, Schalter, kurze Hinweise -->
-    <div class="set-hd"><b>Einstellungen</b><button class="btn primary" id="setClose" type="button">Fertig</button></div>
-    <div class="set-tabs" id="setTabs" role="tablist" aria-label="Einstellungen-Gruppen"><button type="button" role="tab" data-g="0"><span class="ti">👤</span>Persönlich</button><button type="button" role="tab" data-g="1"><span class="ti">🗺</span>Tour</button><button type="button" role="tab" data-g="2"><span class="ti">🚗</span>Fahren</button><button type="button" role="tab" data-g="3"><span class="ti">🛠</span>Werkzeuge</button></div> <!-- v=101: Gruppen als Leiste auswählbar -->
+    <div class="set-hd"><b id="setTitle">Einstellungen</b><button class="btn primary" id="setClose" type="button">Fertig</button></div>
+    <div class="set-tabs" id="setTabs" role="tablist" aria-label="Einstellungen-Gruppen"><button type="button" role="tab" data-g="1"><span class="ti">🗺</span>Tour</button><button type="button" role="tab" data-g="2"><span class="ti">🚗</span>Fahren</button><button type="button" role="tab" data-g="3"><span class="ti">🛠</span>Werkzeuge</button></div> <!-- v=101: Gruppen als Leiste auswählbar -->
     <div class="set-gl" data-grp="0">Persönlich</div>
     <div class="set-card" data-grp="0">
       <details class="set-row"><summary><span class="me-prev" id="mePrev"></span><span class="t">Bild für meine Position<small>Auf der Karte an deiner Position</small></span></summary>
@@ -1266,16 +1293,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       <details class="set-row"><summary><span class="ic c-blue">✉️</span><span class="t">E-Mail-Empfänger<small id="mailSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de"><button class="btn" id="mailToSave" type="button">Speichern</button></div>
         <p class="hint">Für Tourberichte und Rechnungen. Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p></div></details>
-      <details class="set-row" id="pdBox"><summary><span class="ic c-amber">🧾</span><span class="t">Daten für Rechnungen<small>Absender, Empfänger, Bank, Preise</small></span></summary>
-        <div class="set-body pd-rech">
-          <label for="rcFrom">Absender (Name, Straße, PLZ Ort, E-Mail – je Zeile)</label><textarea id="rcFrom" rows="4"></textarea>
-          <label for="rcTo">Empfänger (je Zeile)</label><textarea id="rcTo" rows="4"></textarea>
-          <label for="rcBank">Bankverbindung (Inhaber, Bank, IBAN, BIC – je Zeile)</label><textarea id="rcBank" rows="4"></textarea>
-          <div class="opts"><label for="rcKd">Kundennr. <input id="rcKd" type="text"></label></div>
-          <div class="opts"><label for="rcPkm">€ pro km <input id="rcPkm" type="text" inputmode="decimal"></label><label for="rcAnf">Anfahrt km/Tag <input id="rcAnf" type="text" inputmode="decimal"></label><label for="rcPk">€ pro Kunde <input id="rcPk" type="text" inputmode="decimal"></label></div>
-          <label for="rcNote">Hinweis unter der Rechnung</label><textarea id="rcNote" rows="3"></textarea>
-          <p class="hint">Die Rechnungsnummer bildet die App aus Ort und Monat (z. B. Rottweil-2026-10).</p>
-        </div></details>
+      <button class="set-row r set-link" id="codeSwitch" type="button"><span class="ic c-gray">🔑</span><span class="t">Anderen Zugangscode eingeben</span><span class="chev">›</span></button>
     </div>
     <div class="set-gl" data-grp="1">Tour</div>
     <div class="set-card" data-grp="1">
@@ -1288,17 +1306,6 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <div class="set-body"><div class="set-in"><input id="tourUrl" type="url" inputmode="url" placeholder="https://…"><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
         <p class="hint">Von dort lädst du Ausfahrliste und Routendatei. Oben erscheint dann „⬇ Tour herunterladen“.</p></div></details>
       <label class="set-row r" id="bcrOnlyRow" for="bcrOnly"><span class="ic c-green">🧭</span><span class="t">Tour nur aus der .bcr<small>Ausfahrliste wird ignoriert (nur Test-Version)</small></span><input type="checkbox" class="sw" id="bcrOnly"></label>
-      <details class="set-row" id="rechBox"><summary><span class="ic c-amber">🧾</span><span class="t">Rechnung erstellen<small>Aus Screenshots der Auslieferungsliste</small></span></summary> <!-- v=94 (nur Admin) -->
-        <div class="set-body">
-          <p class="hint">Screenshots der Liste „Auslieferungen“ hinzufügen. Die App liest sie auf dem Handy aus, nichts wird hochgeladen. Unsichere Zahlen sind rot markiert, bitte mit dem Screenshot vergleichen.</p>
-          <div class="opts"><label class="btn primary" for="rechFile">＋ Bild hinzufügen</label><input id="rechFile" type="file" accept="image/*" multiple hidden><button class="btn" id="rechClear" type="button">Liste leeren</button></div>
-          <p class="hint" id="rechState"></p>
-          <div class="opts"><label for="rechMon">Abrechnungsmonat <select id="rechMon"></select></label></div>
-          <div class="rech-wrap"><table class="rech-tbl" id="rechTbl"><thead><tr><th>Tag</th><th>Lief.</th><th>Gebäck</th><th>km</th><th></th></tr></thead><tbody id="rechRows"></tbody></table></div>
-          <div class="rech-sum" id="rechSum"></div>
-          <label for="rechAnl"><input type="checkbox" id="rechAnl"> Kontroll-Liste als Anlage anhängen</label>
-          <div class="opts"><button class="btn primary" id="rechPdf" type="button">🧾 Rechnung als PDF</button></div>
-        </div></details>
     </div>
     <div class="set-gl" data-grp="2">Beim Fahren</div>
     <div class="set-card" data-grp="2">
@@ -1322,7 +1329,30 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <div class="set-body"><p class="hint">Haus falsch auf der Karte? Lange auf die Adresse in der Liste drücken und den Pin aufs richtige Haus ziehen. Der Punkt gilt auf diesem Handy für jede weitere Tour.</p>
         <ul class="corr-list" id="corrList"></ul>
         <div class="opts"><button class="btn" id="corrClear" type="button">Alle eigenen Hauspunkte löschen</button></div></div></details>
-      <button class="set-row r set-link" id="codeSwitch" type="button"><span class="ic c-gray">🔑</span><span class="t">Anderen Zugangscode eingeben</span><span class="chev">›</span></button>
+    </div>
+    <div class="set-gl" data-grp="4">Rechnung</div>
+    <div class="set-card" data-grp="4">
+      <details class="set-row" id="pdBox"><summary><span class="ic c-amber">🧾</span><span class="t">Daten für Rechnungen<small>Absender, Empfänger, Bank, Preise</small></span></summary>
+        <div class="set-body pd-rech">
+          <label for="rcFrom">Absender (Name, Straße, PLZ Ort, E-Mail – je Zeile)</label><textarea id="rcFrom" rows="4"></textarea>
+          <label for="rcTo">Empfänger (je Zeile)</label><textarea id="rcTo" rows="4"></textarea>
+          <label for="rcBank">Bankverbindung (Inhaber, Bank, IBAN, BIC – je Zeile)</label><textarea id="rcBank" rows="4"></textarea>
+          <div class="opts"><label for="rcKd">Kundennr. <input id="rcKd" type="text"></label></div>
+          <div class="opts"><label for="rcPkm">€ pro km <input id="rcPkm" type="text" inputmode="decimal"></label><label for="rcAnf">Anfahrt km/Tag <input id="rcAnf" type="text" inputmode="decimal"></label><label for="rcPk">€ pro Kunde <input id="rcPk" type="text" inputmode="decimal"></label></div>
+          <label for="rcNote">Hinweis unter der Rechnung</label><textarea id="rcNote" rows="3"></textarea>
+          <p class="hint">Die Rechnungsnummer bildet die App aus Ort und Monat (z. B. Rottweil-2026-10).</p>
+        </div></details>
+      <details class="set-row" id="rechBox" open><summary><span class="ic c-amber">🧾</span><span class="t">Liefertage einlesen<small>Aus Screenshots der Auslieferungsliste</small></span></summary> <!-- v=94 (nur Admin) -->
+        <div class="set-body">
+          <p class="hint">Screenshots der Liste „Auslieferungen“ hinzufügen. Die App liest sie auf dem Handy aus, nichts wird hochgeladen. Unsichere Zahlen sind rot markiert, bitte mit dem Screenshot vergleichen.</p>
+          <div class="opts"><label class="btn primary" for="rechFile">＋ Bild hinzufügen</label><input id="rechFile" type="file" accept="image/*" multiple hidden><button class="btn" id="rechClear" type="button">Liste leeren</button></div>
+          <p class="hint" id="rechState"></p>
+          <div class="opts"><label for="rechMon">Abrechnungsmonat <select id="rechMon"></select></label></div>
+          <div class="rech-wrap"><table class="rech-tbl" id="rechTbl"><thead><tr><th>Tag</th><th>Lief.</th><th>Gebäck</th><th>km</th><th></th></tr></thead><tbody id="rechRows"></tbody></table></div>
+          <div class="rech-sum" id="rechSum"></div>
+          <label for="rechAnl"><input type="checkbox" id="rechAnl"> Kontroll-Liste als Anlage anhängen</label>
+          <div class="opts"><button class="btn primary" id="rechPdf" type="button">🧾 Rechnung als PDF</button></div>
+        </div></details>
     </div>
     <p class="set-foot">🔒 Alles bleibt nur auf diesem Handy.</p>
   </section>
@@ -1393,7 +1423,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         </div>
         <div class="opts"><button class="btn primary" id="gps" type="button">📍 GPS starten</button></div>
         <p class="hint" id="gpsState" hidden></p>
-        <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt einen Kunden ab, sobald du nach der Ankunft wieder wegfährst. Der Standort wird nicht gespeichert und nicht übertragen. Zum Ausprobieren ohne GPS gibt es „Fahrt simulieren“ unter ⚙ Einstellungen.</p>
+        <p class="hint">Mit „GPS starten“ verfolgt die Seite deinen Standort, solange sie offen ist, und hakt einen Kunden ab, sobald du nach der Ankunft wieder wegfährst. Der Standort wird nicht gespeichert und nicht übertragen. Zum Ausprobieren ohne GPS gibt es „Fahrt simulieren“ unter ⚙ Einstellungen Navigation.</p>
       </details>
       <details class="mode" id="loadBox" hidden><summary>Ladeliste für die ganze Tour</summary><ul class="arts" id="loadList"></ul></details>
       <details class="mode more" id="cmpBox">
@@ -1410,6 +1440,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       </details>
     </div>
   </div>
+  <button class="btn big nav-set" id="navSet" type="button">⚙ Einstellungen Navigation <small>Kommissionierstellen, Ansagen, Simulation, Hauspunkte</small></button>
   <div class="ask" id="geoAsk" hidden role="dialog" aria-modal="true" aria-labelledby="geoAskT">
     <div class="ask-box">
       <h2 id="geoAskT">Standort verwenden?</h2>
@@ -2512,7 +2543,7 @@ function rechDraw(){ const tb=$("rechRows"); tb.textContent=""; rechPickMonth(fa
 async function rechPdf(){
   const k=rechCalc(), c=k.c;
   if(!k.tage){ toast("Keine Liefertage im gewählten Monat."); return; }
-  if(!c.from.trim()||!c.to.trim()){ toast("Bitte zuerst unter „👤 Persönliche Daten“ Absender und Empfänger eintragen."); setTab(0); $("pdBox").open=true; $("pdBox").scrollIntoView({block:"start"}); return; }
+  if(!c.from.trim()||!c.to.trim()){ toast("Bitte zuerst unter „Daten für Rechnungen“ Absender und Empfänger eintragen."); $("pdBox").open=true; $("pdBox").scrollIntoView({block:"start"}); return; }
   if(k.bad&&!await ask("Nicht alles sicher erkannt",`${k.bad} Position${k.bad>1?"en sind":" ist"} noch rot markiert. Trotzdem eine Rechnung erstellen?`,"Trotzdem erstellen","Abbrechen")) return;
   try{ await loadJs(JSPDF_JS); }catch(x){ toast(x.message); return; }
   const {jsPDF}=window.jspdf, doc=new jsPDF({unit:"mm",format:"a4"}), G=[31,111,92], L=20, R=190;
@@ -2766,6 +2797,7 @@ $("jumpForm").addEventListener("submit",e=>{ e.preventDefault(); if(!tour) retur
 ["file","fileAll"].forEach(id=>$(id).addEventListener("change",e=>{ const files=[...e.target.files]; e.target.value=""; loadFiles(files); }));
 async function loadFiles(files){
   if(!files.length) return;
+  if(pg!=="nav") showPg("nav",true); // v=136: neue Tour zeigt gleich die Navigation
   const hadPdf=!!pdfTour, hadBcr=!!bcrTour;
   $("err").hidden=true;
   for(const f of files){
@@ -2892,15 +2924,32 @@ function setSubs(){
   b.addEventListener("click",()=>{ $("fontSel").value=String(i); $("fontSel").dispatchEvent(new Event("change")); setSubs(); }); $("fontSeg").appendChild(b); });
 ["mailToSave","tourUrlSave","homeSave"].forEach(id=>$(id).addEventListener("click",()=>setTimeout(setSubs,50)));
 ["voiceOn","turnOn","dockSel"].forEach(id=>$(id).addEventListener("change",setSubs));
-let setTabIdx=0; try{ setTabIdx=+(localStorage.getItem("navi-set-tab")||0)||0; }catch(e){}
-function setTab(g){ setTabIdx=g; try{ localStorage.setItem("navi-set-tab",g); }catch(e){}
+let setTabIdx=1; try{ setTabIdx=+(localStorage.getItem("navi-set-tab")||1)||1; }catch(e){} if(!(setTabIdx>=1&&setTabIdx<=3)) setTabIdx=1; // v=136: 0 = Persönlich und 4 = Rechnung sind eigene Seiten
+function setTab(g,page){ if(!page){ setTabIdx=g; try{ localStorage.setItem("navi-set-tab",g); }catch(e){} }
   $("settings").classList.add("tabbed"); document.querySelectorAll("#settings [data-grp]").forEach(el=>el.classList.toggle("off",+el.dataset.grp!==g));
   document.querySelectorAll("#setTabs button").forEach(b=>{ const on=+b.dataset.g===g; b.classList.toggle("on",on); b.setAttribute("aria-selected",String(on)); }); }
 document.querySelectorAll("#setTabs button").forEach(b=>b.addEventListener("click",()=>setTab(+b.dataset.g)));
 setTab(setTabIdx);
 const setOpen=o=>{$("settings").hidden=!o;$("setBtn").setAttribute("aria-expanded",String(o)); if(o) setSubs();};
 $("setBtn").addEventListener("click",()=>setOpen($("settings").hidden));
-$("setClose").addEventListener("click",()=>setOpen(false));
+$("setClose").addEventListener("click",()=>{ if(pg==="me"||pg==="rech") goHome(); else setOpen(false); });
+// v=136: Hauptseite mit drei Knöpfen (Navigation, Persönliche Einstellungen, Rechnung erstellen)
+const PG_T={nav:"Einstellungen Navigation",me:"Persönliche Einstellungen",rech:"Rechnung erstellen"};
+let pg="home";
+function showPg(p,push){ pg=p; document.body.dataset.pg=p;
+  if(p==="me"||p==="rech"){ setTab(p==="me"?0:4,true); $("settings").hidden=false; setSubs(); }
+  else { setTab(setTabIdx); $("settings").hidden=true; }
+  $("setTitle").textContent=PG_T[p]||"Einstellungen";
+  if(push) try{ history.pushState({pg:p},""); }catch(e){}
+  window.scrollTo(0,0);
+  if(p==="nav") setTimeout(()=>{ map.invalidateSize(); if(!showPg.seen&&!carPos) fit(); showPg.seen=1; },60); }
+function goHome(){ if(history.state&&history.state.pg&&history.state.pg!=="home") history.back(); else showPg("home"); }
+try{ history.replaceState({pg:"home"},""); }catch(e){}
+window.addEventListener("popstate",e=>showPg((e.state&&e.state.pg)||"home"));
+document.querySelectorAll("#home [data-pg]").forEach(b=>b.addEventListener("click",()=>showPg(b.dataset.pg,true)));
+$("pgBack").addEventListener("click",goHome);
+$("navSet").addEventListener("click",()=>{ setTab(setTabIdx); setOpen(true); $("settings").scrollIntoView({behavior:"smooth",block:"start"}); });
+showPg("home");
 $("sim").addEventListener("click",()=>{ if(simTimer){ setOpen(false); $("map").scrollIntoView({behavior:"smooth",block:"center"}); } });
 $("clear").addEventListener("click",async()=>{
   if(!await ask("Tour löschen?","Die aktuelle und alle gespeicherten Touren (bis zu 3) werden mit allen Adressen und Haken von diesem Handy entfernt. Eigene Hauspunkte bleiben, die lassen sich in den Einstellungen löschen.","Ja, löschen","Abbrechen")) return;
@@ -2940,7 +2989,7 @@ function mailReport(){ // Mail-Programm mit fertigem Bericht öffnen: nur Stopp-
 async function tourFinished(){ // letzter Stopp erledigt: einmal fragen, ob der Bericht an den Chef geht
   let to=""; try{ to=localStorage.getItem(MAIL_KEY)||""; }catch(e){} if(!to||!tour||tour.mailAsked) return; tour.mailAsked=true;
   if(await ask("Tour fertig","Bericht mit Stopp-Nummern und Zeiten an "+to+" senden? Dein Mail-Programm öffnet sich, du drückst dann nur noch Senden.","Bericht senden","Nein")) mailReport(); }
-$("mailBtn").addEventListener("click",()=>{ let to=""; try{ to=localStorage.getItem(MAIL_KEY)||""; }catch(e){} if(!to) toast("Bitte zuerst unter ⚙ Einstellungen die E-Mail für Tourberichte eintragen."); mailReport(); });
+$("mailBtn").addEventListener("click",()=>{ let to=""; try{ to=localStorage.getItem(MAIL_KEY)||""; }catch(e){} if(!to) toast("Bitte zuerst unter 👤 Persönliche Einstellungen die E-Mail für Tourberichte eintragen."); mailReport(); });
 try{ $("mailTo").value=localStorage.getItem(MAIL_KEY)||""; }catch(e){}
 $("mailToSave").addEventListener("click",()=>{ const v=$("mailTo").value.trim(); try{ if(v) localStorage.setItem(MAIL_KEY,v); else localStorage.removeItem(MAIL_KEY); }catch(e){} toast(v?"E-Mail gespeichert":"E-Mail entfernt"); });
 // Restzeit beim Fahren: restliche Strecke (Anfahrt + Route zu den offenen Stopps) plus durchschnittliche Standzeit je offenem Stopp
@@ -3214,6 +3263,7 @@ function lastTourUi(){ const box=$("lastTour"), a=tour?[]:loadTours(); box.inner
   render(); fit(); lastTourUi(); // Karte bleibt leer, bis eine Tour geöffnet oder eine gespeicherte Tour geladen wird
 })();
 setTimeout(()=>{map.invalidateSize();fit();},200);
+if(tour&&cur>=0) showPg("nav",true); // v=136: läuft eine Tour, öffnet die App gleich die Navigation
 })();
 </script>
 </body></html>

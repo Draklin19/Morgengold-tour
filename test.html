@@ -3074,7 +3074,7 @@ let depot=null; try{ depot=JSON.parse(localStorage.getItem(DEPOT_KEY)||"null"); 
 // danach wählt die App die passende Stelle. Ohne Ausfahrliste: zuletzt zu dieser Tour gemerkte Zone, sonst die einzige bzw. die nächste Stelle zum 1. Kunden.
 // Ein Link (#kom=…) überträgt die Stellen auf die Handys der Fahrer; der Teil nach # geht nicht an den Server.
 const KOM_KEY="navi-kom", ZONE_KEY="navi-tourzone";
-const DEPOT_TXT="Die passende Stelle erkennt die App an der „Kommissionierzone“ in der Ausfahrliste. Von dort zählen die Kilometer bis zum letzten Kunden. Die Adressen bleiben nur auf diesem Handy.";
+const DEPOT_TXT="Die passende Stelle erkennt die App an der „Kommissionierzone“ in der Ausfahrliste. Von dort zählen die Kilometer bis zum letzten Kunden. Passt keine Stelle zur Tour, fährt die App direkt zum ersten Kunden. Die Adressen bleiben nur auf diesem Handy.";
 // v=124: die drei Kommissionierstellen von Morgengold sind vorab eingetragen (Draklin: darf im App-Code stehen); löschen/ändern/hinzufügen wie bisher
 const KOM_START=[{n:"01-Licht-ROTTWEIL",a:"Bösinger Straße 42, 78662 Bösingen",ll:null},{n:"02-Licht-TUTTLINGEN",a:"Tuttlinger Straße 20, 78582 Balgheim",ll:null},{n:"03-Hettich",a:"Kirnacher Straße 4, 78050 Villingen-Schwenningen",ll:null}];
 function komGet(){ let a=null; try{ a=JSON.parse(localStorage.getItem(KOM_KEY)||"null"); }catch(e){}
@@ -3085,16 +3085,14 @@ function komSet(a){ try{ localStorage.setItem(KOM_KEY,JSON.stringify(a)); }catch
 const zoneN=x=>String(x||"").toLowerCase().replace(/[^a-z0-9äöüß]/g,"");
 function setActiveDepot(e){ const v=e&&e.ll?{addr:e.a,ll:e.ll,n:e.n||""}:null; try{ if(v) localStorage.setItem(DEPOT_KEY,JSON.stringify(v)); else localStorage.removeItem(DEPOT_KEY); }catch(x){} try{ depot=v; }catch(x){} }
 function pickDepot(t){
-  const list=komGet().filter(e=>e.ll); if(!list.length) return;
+  const list=komGet().filter(e=>e.ll); if(!list.length){ setActiveDepot(null); return; }
   const keys=[t&&t.name,bcrTour&&bcrTour.name,pdfTour&&pdfTour.name].filter(Boolean).map(x=>String(x).split(" · ")[0]);
   let zones={}; try{ zones=JSON.parse(localStorage.getItem(ZONE_KEY)||"{}")||{}; }catch(e){}
   let z=pdfTour&&pdfTour.zone||"";
   if(z){ keys.forEach(k=>zones[k]=z); try{ localStorage.setItem(ZONE_KEY,JSON.stringify(zones)); }catch(e){} } else z=keys.map(k=>zones[k]).find(Boolean)||"";
   let e=null;
   if(z){ const zn=zoneN(z); e=list.find(x=>zoneN(x.n)===zn)||list.find(x=>x.n&&(zn.includes(zoneN(x.n))||zoneN(x.n).includes(zn))); }
-  if(!e&&list.length===1) e=list[0];
-  if(!e){ const f=t&&t.stops.find(q=>q.ll); if(f) e=list.reduce((a,b)=>dist(b.ll,f.ll)<dist(a.ll,f.ll)?b:a); }
-  if(e) setActiveDepot(e); }
+  setActiveDepot(e); } // v=147: nur wenn die Kommissionierzone der Tour zu einer gespeicherten Stelle passt, sonst keine (Draklin; früher: einzige bzw. nächste Stelle)
 function depotUi(){ const box=$("komList"), list=komGet(); box.textContent="";
   list.forEach((e,i)=>{ const d=document.createElement("div"); d.className="kom-it"+(depot&&depot.ll&&e.ll&&dist(depot.ll,e.ll)<5?" on":"");
     // v=123: gespeicherte Stellen als Zeile mit „✏️ Ändern“; beim Ändern bzw. bei neuen Stellen erscheinen die Eingabefelder

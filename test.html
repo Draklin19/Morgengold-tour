@@ -693,6 +693,7 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 body:not(.drive):not(.sim) .st-wrap{display:none}
 .st-wrap{position:absolute;width:0;height:0}
 .st-pill{position:absolute;background:#1f6f4a;color:#fff;font:800 20px/1.15 var(--font-body);padding:7px 15px;border-radius:999px;border:2px solid #fff;box-shadow:0 2px 10px rgb(0 0 0 / .35);white-space:nowrap;pointer-events:none;translate:-50% calc(-100% - 22px)}
+.pin.nonum{color:transparent!important;font-size:0!important;width:14px!important;height:14px!important;min-width:0!important;padding:0!important} /* v=148 */
 .st-pill.l{translate:calc(-100% - 22px) -50%}
 .st-pill.r{translate:22px -50%}
 #sideBar{position:absolute;top:0;bottom:0;width:48px;z-index:650;pointer-events:none;display:none;align-items:center}
@@ -1631,6 +1632,17 @@ let bcrTour=null, pdfTour=null;
 const bcrOnly=()=>{ if(!IS_TEST) return false; try{ return localStorage.getItem("navi-nur-bcr")!=="aus"; }catch(e){ return true; } };
 // v=109: Fahrweg wie in der .bcr: deren Wegpunkte (Mitten der Streckenabschnitte) gehen als Zwischenpunkte an den Routenserver,
 // so folgt die Straßenroute dem von Morgengold geplanten Weg. Punkte näher als 60 m zueinander oder zum Haus fallen weg, höchstens 23 je Abschnitt.
+// v=148: Fahrzeit-Faktor: der Routenserver schätzt nachts zu langsam. Start mit 0,7, danach lernt jedes Handy aus den eigenen fertigen Touren.
+const FF_KEY="navi-fahrfaktor";
+function fahrF(){ try{ const a=JSON.parse(localStorage.getItem(FF_KEY)||"[]"); if(Array.isArray(a)&&a.length) return a.reduce((x,y)=>x+y,0)/a.length; }catch(e){} return 0.7; }
+function learnDrive(){ // nach dem letzten Kunden: echte Fahrzeit (ohne Standzeit) zwischen 1. und letztem Kunden mit der Schätzung vergleichen
+  if(!tour||tour.ffDone||tour.stops.some(s=>!s.done)||!tour.road||!tour.road.sec) return;
+  const st=tour.stops.filter(s=>s.ll&&s.at), line=tour.line||[]; tour.ffDone=true; if(st.length<5) return;
+  const a=st[0], b=st[st.length-1], t0=a.dep||a.at, t=(b.at-t0)/1000; if(!(t>600)) return;
+  const per=planStand(tour.stops); let stand=0; st.slice(1,-1).forEach(s=>{ const d=standOf(s); stand+=(d!=null?d:per)/1000; });
+  let m=0; if(a.li>=0&&b.li>a.li) for(let k=a.li+1;k<=b.li;k++) m+=dist(line[k-1],line[k]); let km=0; for(let k=1;k<line.length;k++) km+=dist(line[k-1],line[k]);
+  if(!(m>2000&&km>0)) return; const pred=m/(km/tour.road.sec), real=t-stand, f=real/pred; if(!(f>0.3&&f<1.5)) return;
+  try{ const h=JSON.parse(localStorage.getItem(FF_KEY)||"[]"); const arr=Array.isArray(h)?h:[]; arr.push(Math.round(f*100)/100); while(arr.length>10) arr.shift(); localStorage.setItem(FF_KEY,JSON.stringify(arr)); }catch(e){} }
 function planStand(stops){ // Standzeit je Stopp in ms: heute (ab 3 Stopps), sonst Durchschnitt dieses Handys, sonst 45 s
   try{ const today=avgStand(stops); if(today!=null&&stops.filter(s=>standOf(s)!=null).length>=3) return today; }catch(e){}
   try{ const h=JSON.parse(localStorage.getItem("navi-standzeit")||"{}")||{}; if(h.n>=3) return h.sum/h.n; }catch(e){} return 45000; }
@@ -1982,7 +1994,7 @@ function render(){ setTimeout(()=>declutter(),0);
   { const nd=tour.stops.filter(s=>s.done).length, a=$("allChk"); a.checked=nd===tour.stops.length&&nd>0; a.indeterminate=nd>0&&nd<tour.stops.length; }
   { // v=110: Tourzeit = Fahrzeit (aus der .bcr, sonst Routenserver) + Anfahrt ab Kommissionierstelle + Standzeit je Stopp
     const drive=tour.time?tour.time+(tour.road&&tour.road.depot?tour.road.firstSec:0):tour.road?tour.road.sec:null;
-    $("sTime").textContent=drive!=null?hm(drive+tour.stops.length*planStand(tour.stops)/1000):"–"; }
+    $("sTime").textContent=drive!=null?hm(drive*fahrF()+tour.stops.length*planStand(tour.stops)/1000):"–"; } // v=148: Fahrzeit × gelernter Faktor (Start 0,7)
   $("sKm").textContent=line.length>1?(km/1000).toFixed(1).replace(".",",")+" km":(tour.km?tour.km.replace(".",",")+" km":"–");
   $("loadBox").hidden=true; // Backwaren werden nicht angezeigt
   const nc=$("nextCard");
@@ -2042,10 +2054,13 @@ function apRest(){ if(!apLine||apLine.length<2||!carPos) return null; const b=ne
   let m=dist(b.pt,apLine[b.k+1]); for(let k=b.k+1;k<apLine.length-1;k++) m+=dist(apLine[k],apLine[k+1]); return m; }
 function hnMark(){ const drv=document.body.classList.contains("drive")||!!simTimer;
   const T=tour&&cur>=0?(apStop>=0&&tour.stops[apStop]?apStop:cur):-1, s=T>=0?tour.stops[T]:null;
-  let near=false; if(s&&s.ll){ if(!drv) near=true; else if(carPos){ const r=apStop===T&&apRouted?apRest():null; near=r!=null?r<=HN_AHEAD:dist(carPos,s.ll)<=250; } }
+  let near=false; if(s&&s.ll){ if(!drv) near=true; else if(carPos){ // v=148: erst kurz vor dem Einbiegen in die Straße des Kunden (bzw. in ihr)
+      if(apStop===T&&apRouted&&apLine&&T===cur){ const lt=turns.length?turns[turns.length-1].ll:null, r=apRest();
+        near=onFinalStreet()||(!!lt&&r!=null&&dist(carPos,lt)<=80&&r<=HN_AHEAD+dist(lt,s.ll)); }
+      else near=dist(carPos,s.ll)<=150; } }
   const mm=s&&s.addr&&s.ll?s.addr.match(/^(.*?)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/):null;
   const kn=mm?hnKey(mm[2]):"", ks=mm?hnKey(mm[1]):"";
-  hnList.forEach(h=>{ const vis=near&&dist(h.at,s.ll)<=150, on=vis&&!!kn&&h.num===kn&&(!h.street||!ks||h.street===ks);
+  hnList.forEach(h=>{ const vis=near&&dist(h.at,s.ll)<=250&&(!ks||h.street===ks), /* v=148: nur Häuser in der Straße des Kunden */ on=vis&&!!kn&&h.num===kn&&(!h.street||!ks||h.street===ks);
     if(on!==h.k){ h.k=on; h.m.setIcon(hnIcon(h.txt,on)); h.m.setZIndexOffset(on?-100:-500); }
     if(vis!==h.on){ h.on=vis; if(vis) h.m.addTo(hnLayer); else hnLayer.removeLayer(h.m); } }); }
 map.on("zoomend",footShow);
@@ -2214,7 +2229,8 @@ function updateHouseNo(){
   try{ const a=wrap.getBoundingClientRect(), bx=$("map").getBoundingClientRect(), w=el.offsetWidth+30;
     if(pos==="l"&&a.left-w<bx.left+8) pos=a.right+w<bx.right-8?"r":"u";
     else if(pos==="r"&&a.right+w>bx.right-8) pos=a.left-w>bx.left+8?"l":"u"; }catch(e){}
-  if(el.dataset.p!==pos){ el.dataset.p=pos; el.className="st-pill "+pos; } }
+  if(el.dataset.p!==pos){ el.dataset.p=pos; el.className="st-pill "+pos; }
+  try{ const mk=markers.find(m=>m.options.si===cur), pe=mk&&mk.getElement(); const d=pe&&pe.firstElementChild; if(d&&!d.classList.contains("nonum")) d.classList.add("nonum"); }catch(e){} } // v=148: nur das Straßenschild, keine Kundennummer am Pin
 function setSideBar(side){ let b=$("sideBar"); if(!b){ b=document.createElement("div"); b.id="sideBar"; b.innerHTML="<span></span>"; $("map").appendChild(b); }
   b.className=side==="links"||side==="rechts"?side:""; b.firstChild.textContent=side?`HAUS ${side.toUpperCase()}`:""; }
 // Simulationstempo: 5 Stufen, Stufe 5 = bisheriges Tempo (40 m pro Takt)
@@ -2352,7 +2368,7 @@ function noteBan(dd){ const b=$("noteBan"); if(!b) return; const s=tour&&cur>=0?
   const mb=$("mapBar"); if(mb) b.style.setProperty("--nb",(mb.offsetHeight+18)+"px"); b.hidden=false; }
 $("noteBan").addEventListener("click",()=>{ noteHid=cur; $("noteBan").hidden=true; });
 function checkArrival(){
-  kmEnd(); if(carPos) kmFix(carPos,gpsAcc);
+  kmEnd(); try{ learnDrive(); }catch(e){} if(carPos) kmFix(carPos,gpsAcc);
   updateHouseNo(); hnMark(); checkTurns(); updateEta();
   if(depW&&carPos&&depW.s.ll&&dist(carPos,depW.s.park||depW.s.ll)>depW.r+15){ depW.s.dep=Date.now(); learnStand(depW.s); saveTour(); depW=null; } // Abfahrt merken (Standzeit)
   if(tour&&cur<0&&carPos){ homeNav(); return; } // v=122: Heimweg
@@ -3156,7 +3172,7 @@ function needDepot(){ return !!(tour&&cur>=0&&!tour.depotDone&&depot&&depot.ll&&
 function depotBan(){} // v=124: kein Banner mehr; die Kommissionierstelle wird über den Standort erkannt und abgehakt
 function depotNav(){ if(!needDepot()){ depotBan(false); return false; }
   if(!carPos) return true;
-  if(dist(carPos,depot.ll)<120){ tour.depotDone=true; saveTour(); depotBan(false); clearApproach(); toast("Kommissionierstelle erreicht ✓ Ab hier zählen die Kilometer."); say("Kommissionierstelle erreicht. Ab hier zählen die Kilometer."); return false; }
+  if(dist(carPos,depot.ll)<120){ tour.depotDone=true; saveTour(); depotBan(false); clearApproach(); toast(IS_TEST?"Kommissionierstelle erreicht ✓ Ab hier zählen die Kilometer.":"Kommissionierstelle erreicht ✓"); say(IS_TEST?"Kommissionierstelle erreicht. Ab hier zählen die Kilometer.":"Kommissionierstelle erreicht."); return false; }
   depotBan(true); navTo(depot.ll,-3); return true; }
 async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
 let km=null, kmBusy=false;
@@ -3179,9 +3195,9 @@ async function kmFix(p,acc){
   else km.m+=d;
   km.last=p; km.t=Date.now(); kmSave(); }
 function kmEnd(){ if(km&&!km.end&&tour&&!tour.stops.some(s=>!s.done)){ km.end=true; km.endAt=Date.now(); kmSave(); // letzter Kunde abgehakt: Zähler steht
-    const k=(km.m/1000).toFixed(1); toast(`Kilometerzähler gestoppt: ${k.replace(".",",")} km (Kommissionierstelle bis letzter Kunde)`); say(`Letzter Kunde erledigt. Gefahren: ${k.replace(".",",")} Kilometer.`); } }
+    const k=(km.m/1000).toFixed(1); if(!IS_TEST) return; /* v=148: Fahrer-Version ohne km-Anzeige und km-Ansage beim Feierabend */ toast(`Kilometerzähler gestoppt: ${k.replace(".",",")} km (Kommissionierstelle bis letzter Kunde)`); say(`Letzter Kunde erledigt. Gefahren: ${k.replace(".",",")} Kilometer.`); } }
 // v=127: sichtbar, ab wann gezählt wird: vor der Kommissionierstelle „km ab 🧑‍🍳“, danach „🧑‍🍳 X km“
-const kmText=()=>!(depot&&depot.ll)?"":km?`🧑‍🍳 ${(km.m/1000).toFixed(1).replace(".",",")} km gefahren${km.end?" ✓":""}`:"km zählen ab 🧑‍🍳";
+const kmText=()=>!IS_TEST||!(depot&&depot.ll)?"":km?`🧑‍🍳 ${(km.m/1000).toFixed(1).replace(".",",")} km gefahren${km.end?" ✓":""}`:"km zählen ab 🧑‍🍳";
 function updateEta(force){
   const el=$("eta"); if(!el) return;
   if(!tour||cur<0||!document.body.classList.contains("drive")){ el.hidden=true; return; }
@@ -3195,7 +3211,7 @@ function updateEta(force){
   const mps=tour.road&&tour.road.sec&&km>0?km/tour.road.sec:8.3; // Fahrgeschwindigkeit aus der Straßenroute, sonst ca. 30 km/h
   const today=avgStand(tour.stops), h=Object.assign({n:0,sum:0},jget(STAND_KEY)), hist=h.n>=3?h.sum/h.n:null;
   const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??45000; // neue Fahrer: Start mit 45 Sekunden
-  const sec=m/mps+open.length*per/1000; // v=98: m = Restkilometer bis zum letzten offenen Kunden, grün in der Leiste (zählt beim Fahren runter)
+  const sec=m/mps*fahrF()+open.length*per/1000; // v=148: Fahrzeit × gelernter Faktor // v=98: m = Restkilometer bis zum letzten offenen Kunden, grün in der Leiste (zählt beim Fahren runter)
   el.hidden=false; el.innerHTML=`<span>Noch ${hm(sec)} · <b class="eta-km">${(m/1000).toFixed(1).replace(".",",")} km</b> · fertig ${hhmm(Date.now()+sec*1000)}</span><small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit${kmText()?" · "+kmText():""}</small>`; }
 $("gmChip").addEventListener("click",()=>$("nextGmaps").click());
 $("backChip").addEventListener("click",()=>$("prev").click()); // wie „Zurück zum letzten Kunden“: jeder Druck einen Kunden zurück

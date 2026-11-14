@@ -1010,7 +1010,8 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
-html.fahrer #bcrOnlyRow,html.fahrer #ofmRow,html.fahrer #t3dRow{display:none!important}
+html.fahrer #bcrOnlyRow,html.fahrer #ofmRow{display:none!important}
+#t3dRow,.d3-btn{display:none!important} /* v=159: 3D wieder raus (Draklin) */
 /* v=106: Ton-Knopf beim Fahren */
 .snd-btn{display:none}
 body.drive .snd-btn{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--surface);color:var(--fg);font-size:1.45rem;box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;margin-top:10px!important;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -2559,7 +2560,12 @@ function gl3Check(){ const on=want3d();
   const vis=on&&gl3ok; document.body.classList.toggle("r3d",vis);
   if(on&&gl3){ gl3.resize(); if(!gl3raf) gl3raf=requestAnimationFrame(gl3Frame); }
   else if(gl3raf){ cancelAnimationFrame(gl3raf); gl3raf=0; } }
-if(IS_TEST) setInterval(gl3Check,400);
+// v=159 (Test): 3D aus. Karte immer in Fahrtrichtung: solange GPS noch keine Richtung kennt (Stillstand, gerade geöffnet),
+// nimmt die App die Richtung der grünen Linie ab der eigenen Position (Punkt ca. 25 m voraus).
+function routeHead(){ const p=carPos, L=apLine; if(!p||!L||L.length<2) return null;
+  let bi=0,bd=1e9; for(let i=0;i<L.length;i++){ const d=dist(p,L[i]); if(d<bd){ bd=d; bi=i; } } if(bd>60) return null;
+  let acc=0; for(let i=bi+1;i<L.length;i++){ acc+=dist(L[i-1],L[i]); if(acc>=25||i===L.length-1){ const q=L[i]; return dist(p,q)>3?bearingDeg(p,q):null; } } return null; }
+if(IS_TEST) setInterval(()=>{ if(!rotMode()||head!==null) return; const h=routeHead(); if(h!==null){ head=Math.round(h)%360; applyRot(); } },1000);
 function bearingDeg(a,b){ const c=Math.cos(a[0]*Math.PI/180); return (Math.atan2((b[1]-a[1])*c,b[0]-a[0])*180/Math.PI+360)%360; }
 let gpsSpeed=null;
 function setHead(p,gh,speed,acc){ // Fahrtrichtung aus GPS (ab ca. 7 km/h) oder aus mindestens 12 m Bewegung

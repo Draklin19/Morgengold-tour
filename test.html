@@ -1012,7 +1012,7 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
-html.fahrer #bcrOnlyRow,html.fahrer #ofmRow{display:none!important}
+html.fahrer #bcrOnlyRow,html.fahrer #ofmRow,html.fahrer #corrShare{display:none!important}
 #t3dRow,.d3-btn{display:none!important} /* v=159: 3D wieder raus (Draklin) */
 /* v=106: Ton-Knopf beim Fahren */
 .snd-btn{display:none}
@@ -1379,7 +1379,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       <details class="set-row"><summary><span class="ic c-gray">🏠</span><span class="t">Eigene Hauspunkte<small id="corrInfo">0 gespeichert</small></span></summary>
         <div class="set-body"><p class="hint">Haus falsch auf der Karte? Lange auf die Adresse in der Liste drücken und den Pin aufs richtige Haus ziehen. Der Punkt gilt auf diesem Handy für jede weitere Tour.</p>
         <ul class="corr-list" id="corrList"></ul>
-        <div class="opts"><button class="btn" id="corrClear" type="button">Alle eigenen Hauspunkte löschen</button></div></div></details>
+        <div class="opts"><button class="btn" id="corrShare" type="button">🔗 Hauspunkte und Sperrungen teilen</button><button class="btn" id="corrClear" type="button">Alle eigenen Hauspunkte löschen</button></div></div></details>
     </div>
     <div class="set-gl" data-grp="4">Rechnung</div>
     <div class="set-card" data-grp="4">
@@ -3664,6 +3664,36 @@ $("komShare").addEventListener("click",async()=>{ const l=komGet().filter(e=>e.a
     if(k>=0) l[k]=v; else l.push(v); }
   komSet(l); depotUi(); toast(inc.length+(inc.length===1?" Kommissionierstelle":" Kommissionierstellen")+" übernommen");
   for(const e of l) if(!e.ll&&e.a){ e.ll=await komGeo(e.a); komSet(l); } komAfter(); })();
+// v=163 (Test): Hauspunkte und Sperrungen an einen anderen Fahrer weitergeben (Urlaub, Vertretung). Link #teilen=…
+// Der Teil nach # geht nicht an den Server, sondern bleibt zwischen den Handys (z. B. per WhatsApp). Beim Öffnen fragt die App nach.
+// Eigene Punkte des Empfängers bleiben, nur fehlende kommen dazu.
+const b64u=u8=>{ let b=""; for(let i=0;i<u8.length;i+=8192) b+=String.fromCharCode.apply(null,u8.subarray(i,i+8192)); return btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); };
+const ub64=t=>{ let b=t.replace(/-/g,"+").replace(/_/g,"/"); while(b.length%4) b+="="; const r=atob(b), u=new Uint8Array(r.length); for(let i=0;i<r.length;i++) u[i]=r.charCodeAt(i); return u; };
+async function zipTxt(txt){ const u=new TextEncoder().encode(txt); if(typeof CompressionStream==="undefined") return "j"+b64u(u);
+  try{ const z=new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer()); return "z"+b64u(z); }catch(e){ return "j"+b64u(u); } }
+async function unzipTxt(t){ const u=ub64(t.slice(1)); if(t[0]!=="z") return new TextDecoder().decode(u);
+  return new TextDecoder().decode(new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer())); }
+$("corrShare").addEventListener("click",async()=>{ const c=jget(CORR_KEY), nm=jget(CORR_NAME_KEY), r=v=>+(+v).toFixed(6), cc={}, nn={};
+  Object.keys(c).forEach(k=>{ if(Array.isArray(c[k])){ cc[k]=[r(c[k][0]),r(c[k][1])]; if(nm[k]) nn[k]=nm[k]; } });
+  const sp=sperren.map(q=>({ll:[r(q.ll[0]),r(q.ll[1])],name:q.name||""}));
+  const nc=Object.keys(cc).length; if(!nc&&!sp.length){ toast("Noch keine eigenen Hauspunkte oder Sperrungen gespeichert."); return; }
+  const u=location.origin+location.pathname+"#teilen="+await zipTxt(JSON.stringify({v:1,c:cc,n:nn,s:sp}));
+  const what=`${nc} Hauspunkt${nc===1?"":"e"} und ${sp.length} Sperrung${sp.length===1?"":"en"}`;
+  try{ if(navigator.share){ await navigator.share({title:"Hauspunkte und Sperrungen",text:`Öffne diesen Link, dann hast du meine ${what} in deiner App:`,url:u}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+  try{ await navigator.clipboard.writeText(u); toast("Link kopiert ("+what+")"); }catch(e){ prompt("Link für den anderen Fahrer:",u); } });
+(async function shareImport(){ const m=location.hash.match(/teilen=([jz][A-Za-z0-9_-]+)/); if(!m) return;
+  try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+  let d=null; try{ d=JSON.parse(await unzipTxt(m[1])); }catch(e){} if(!d||typeof d!=="object"){ toast("Der Link ist leider beschädigt."); return; }
+  const inC=d.c&&typeof d.c==="object"?d.c:{}, inN=d.n&&typeof d.n==="object"?d.n:{}, inS=Array.isArray(d.s)?d.s:[];
+  const okLL=v=>Array.isArray(v)&&v.length===2&&isFinite(v[0])&&isFinite(v[1])&&Math.abs(v[0])<=90&&Math.abs(v[1])<=180;
+  const c=jget(CORR_KEY), nm=jget(CORR_NAME_KEY); const newK=Object.keys(inC).filter(k=>okLL(inC[k])&&!c[k]);
+  const newS=inS.filter(q=>q&&okLL(q.ll)&&!sperren.some(x=>dist(x.ll,q.ll.map(Number))<30));
+  if(!newK.length&&!newS.length){ toast("Alles aus dem Link ist schon auf diesem Handy."); return; }
+  const parts=[]; if(newK.length) parts.push(`${newK.length} Hauspunkt${newK.length===1?"":"e"}`); if(newS.length) parts.push(`${newS.length} Sperrung${newS.length===1?"":"en"}`);
+  if(!await ask("Von einem anderen Fahrer übernehmen?",`Der Link enthält ${parts.join(" und ")}, die du noch nicht hast. Deine eigenen Punkte bleiben unverändert.`,"Übernehmen","Nein")) return;
+  newK.forEach(k=>{ c[k]=inC[k].map(Number); if(typeof inN[k]==="string") nm[k]=inN[k].slice(0,120); }); jset(CORR_KEY,c); jset(CORR_NAME_KEY,nm);
+  newS.forEach(q=>sperren.push({ll:q.ll.map(Number),name:String(q.name||"").slice(0,80),at:Date.now()})); sperrSave(); sperrDraw();
+  corrUi(); if(tour){ applyCorr(tour); render(); routeTour(); } toast(parts.join(" und ")+" übernommen"); })();
 depotUi();
 (async function komFill(){ const l=komGet(); if(!l.some(e=>!e.ll&&e.a)) return; // fehlende Koordinaten einmal auf dem Handy suchen
   for(const e of l) if(!e.ll&&e.a){ e.ll=await komGeo(e.a); } komSet(l); komAfter(); })();

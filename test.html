@@ -2751,6 +2751,26 @@ function checkArrival(){
   const dd=Math.min(dist(carPos,s.ll),s.park?dist(carPos,s.park):Infinity); // am Anfahrpunkt geparkt zählt als angekommen
   if(dd<=ANNOUNCE_M&&!s.said){ s.said=true; announced=cur; announce(cur); saveTour(); } // jedes Haus genau einmal ansagen, auch nach Neustart
   noteBan(dd);
+  if($("modeAuto").checked&&IS_TEST){
+    // v=153 (Test, Draklin): erst geliefert, dann abgehaken. 20 s Stehen bis 25 m vom Haus = geliefert (grüne Linie zeigt dann zum nächsten),
+    // abgehakt wird beim Wegfahren (40 m weg vom Standplatz). Nur Vorbeifahren oder kurzes Halten (Kreuzung, Gegenverkehr) hakt nichts ab.
+    // Nachbarhäuser (z. B. 20 und 22) innerhalb 25 m vom Standplatz gelten mit als geliefert.
+    if(arr.i!==cur){ if(dd>r) return; arr={i:cur,min:dd,at:Date.now(),p:carPos.slice(),t0:Date.now(),ok:false,grp:[cur]}; }
+    if(dd<arr.min){ arr.min=dd; if(!arr.ok) arr.at=Date.now(); }
+    if(!arr.ok){
+      if(gpsAcc>15) return; // ungenaues GPS: noch nichts entscheiden
+      const still=dist(carPos,arr.p)<6&&(simTimer||gpsSpeed==null||gpsSpeed<0||gpsSpeed<1.5);
+      if(!still||dd>STAND_R){ arr.p=carPos.slice(); arr.t0=Date.now(); }
+      else { clearTimeout(arr.tm); arr.tm=setTimeout(checkArrival,1000); // im Stand meldet das Handy selten, daher selbst nachsehen
+        if(Date.now()-arr.t0>=STAND_MS){ arr.ok=true; arr.sp=carPos.slice(); arr.grp=[cur];
+          for(let i=cur+1;i<tour.stops.length;i++){ const q=tour.stops[i]; if(q.done) continue; if(q.ll&&dist(q.ll,carPos)<=STAND_R) arr.grp.push(i); else break; }
+          const nx=apTarget(); toast(nx>=0&&nx!==cur?`Stopp ${arr.grp.map(i=>i+1).join(", ")} geliefert, weiter zu Stopp ${nx+1}`:`Stopp ${cur+1} geliefert`); updateApproach(); render(); } }
+      if(dd>r+15){ clearTimeout(arr.tm); arr.i=-1; } // nur vorbeigefahren
+      return; }
+    if(gpsAcc<=25&&dist(carPos,arr.sp)>40){ clearTimeout(arr.tm); const g=arr.grp, at=arr.at; arr.i=-1;
+      g.forEach(i=>{ const q=tour.stops[i]; if(q.done) return; q.done=true; if(!q.at) q.at=at; q.dep=Date.now(); if(i===g[0]) learnStand(q); });
+      advanceAfterDone(); render(); if(cur<0) tourFinished(); }
+    return; }
   if($("modeAuto").checked){
     // Automatisch abhaken erst beim Wegfahren: Ankunft im Umkreis merken (nächster Punkt = Ankunftszeit),
     // abgehakt wird, sobald man sich wieder entfernt (aus dem Umkreis raus oder 25 m weiter weg als am nächsten Punkt). Kein Zeitzähler.
@@ -2833,7 +2853,7 @@ async function startGps(){
   },err=>{
     $("gpsState").textContent=err.code===1?"GPS wurde nicht erlaubt. Bitte in den Browser-Einstellungen den Standort für diese Seite freigeben.":"Kein GPS-Signal. Ich versuche es weiter.";
     if(err.code===1){ stopGps(); toast("Standort im Browser gesperrt. Bitte in den Browser-Einstellungen für diese Seite erlauben."); }
-  },{enableHighAccuracy:true,maximumAge:2000,timeout:20000});
+  },{enableHighAccuracy:true,maximumAge:IS_TEST?0:2000,timeout:20000}); // v=153 (Test): nur frische GPS-Werte
   $("gps").textContent="■ GPS stoppen";
 }
 // Standort: bei jedem „Tour starten“ (und „GPS starten“) wird neu gefragt. Ab 8:30 Uhr fragt die App, ob GPS weiterlaufen soll,
@@ -3214,8 +3234,11 @@ async function updateApproach(){
     const m=[(sx.park[0]+to[0])/2,(sx.park[1]+to[1])/2];
     L.marker(m,{icon:L.divIcon({className:"",html:'<div class="walkman">🚶</div>',iconSize:[22,22],iconAnchor:[11,11]}),interactive:false,keyboard:false}).addTo(approachLayer); }
 }
+const STAND_MS=20000, STAND_R=25; // v=153 (Test): so lange und so nah muss man stehen, damit ein Kunde als geliefert gilt
 function apTarget(){ // Ziel der grünen Anfahrt: beim aktuellen Kunden angekommen (noch nicht abgehakt) → schon der Weg zum nächsten
-  if(!tour||cur<0) return cur; if(arr.i!==cur&&arrivedShown!==cur) return cur;
+  if(!tour||cur<0) return cur;
+  if(IS_TEST){ if(!(arr.i===cur&&arr.ok)) return cur; const last=arr.grp[arr.grp.length-1]; const n=tour.stops.findIndex((q,i)=>i>last&&!q.done); return n<0?cur:n; } // v=153: erst nach „geliefert“ zum nächsten
+  if(arr.i!==cur&&arrivedShown!==cur) return cur;
   if(backTo>=0&&backTo!==cur&&!tour.stops[backTo].done) return backTo;
   let n=tour.stops.findIndex((q,i)=>i>cur&&!q.done); if(n<0) n=tour.stops.findIndex((q,i)=>i!==cur&&!q.done); return n<0?cur:n; }
 function approachPt(s,from){ // letzter Streckenpunkt der Morgengold-Route vor dem Haus; nur solange man noch nicht daran vorbei ist

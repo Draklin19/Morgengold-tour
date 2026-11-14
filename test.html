@@ -802,6 +802,8 @@ body.drive .footman{transform:scale(.7);opacity:.55;filter:grayscale(1)}
 .stop .pwarn{display:block;font-size:.82rem;color:#7a4b00;background:color-mix(in srgb,#f59e0b 22%,transparent);border-radius:4px;padding:1px 5px;margin-top:2px}
 .stop .pfix{display:block;font-size:.78rem;color:var(--muted,#667);margin-top:2px}
 @media (prefers-color-scheme: dark){.stop .pwarn{color:#ffd28a}}
+#mapIn .leaflet-popup{rotate:var(--cr,0deg);transform-origin:50% calc(100% + 0px)} /* v=161: Menü beim Fahren aufrecht */
+.sperr{font-size:26px;line-height:1;filter:drop-shadow(0 1px 2px rgb(0 0 0 / .55));cursor:pointer}
 .posbox{display:grid;gap:6px;min-width:12em}.posbox b{font-size:.9rem}.posbox .btn{width:100%;text-align:left}
 details.mode summary{cursor:pointer;font-weight:600}
 .loaded{font-size:.85rem;color:var(--muted);margin:0}
@@ -2489,16 +2491,58 @@ function fit(){ const p=tour?tour.stops.filter(s=>s.ll).map(s=>s.ll):[]; if(p.le
 function focusStop(i){ const s=tour.stops[i]; if(!s.ll) return; setFollow(false);
   if(IS_TEST&&s.warn&&!s.fixed&&s.osm) fitVis(L.latLngBounds([s.ll,s.osm]).pad(.6),{maxZoom:18}); else map.setView(s.ll,16); }
 // Lange auf die Karte drücken: Hauspunkt für den aktuellen oder den nächstgelegenen Stopp hierher setzen
-map.on("contextmenu",e=>{ if(!tour) return; const p=[e.latlng.lat,e.latlng.lng], c=[];
-  if(cur>=0) c.push(cur);
-  let ni=-1,nd=400; tour.stops.forEach((s,i)=>{ if(s.ll){ const d=dist(p,s.ll); if(d<nd){nd=d;ni=i;} } });
+map.on("contextmenu",e=>{ const p=[e.latlng.lat,e.latlng.lng], c=[];
+  if(tour&&cur>=0) c.push(cur);
+  let ni=-1,nd=400; if(tour) tour.stops.forEach((s,i)=>{ if(s.ll){ const d=dist(p,s.ll); if(d<nd){nd=d;ni=i;} } });
   if(ni>=0&&!c.includes(ni)) c.push(ni);
-  if(!c.length) return;
-  const box=document.createElement("div"); box.className="posbox"; const b=document.createElement("b"); b.textContent="Hauspunkt hier setzen für:"; box.append(b);
+  const box=document.createElement("div"); box.className="posbox";
+  if(IS_TEST) sperrMenu(box,p); // v=161 (Test): Straße sperren
+  if(!c.length&&!box.children.length) return;
+  if(c.length){ const b=document.createElement("b"); b.textContent="Hauspunkt hier setzen für:"; box.append(b); }
   c.forEach(i=>{ const s=tour.stops[i], x=document.createElement("button"); x.type="button"; x.className="btn";
     x.textContent=`Stopp ${i+1} · ${s.addr||""}`; x.addEventListener("click",()=>setPos(i,p)); box.append(x);
     if(s.fixed){ const r=document.createElement("button"); r.type="button"; r.className="btn"; r.textContent=`Stopp ${i+1}: eigenen Punkt entfernen`; r.addEventListener("click",()=>resetPos(i)); box.append(r); } });
   L.popup({closeButton:true}).setLatLng(e.latlng).setContent(box).openOn(map); });
+// v=161 (Test): Straße sperren. Lange auf die Straße drücken → „Straße hier sperren“. Die Sperrung bleibt nur auf diesem Handy (navi-sperren).
+// Führt die grüne Anfahrt durch eine Sperrung, fragt die App andere Wege an (Alternativen, dann Umwege über Punkte rund um die Sperrung)
+// und nimmt den kürzesten ohne Sperrung. Klappt das nicht, kommt „Gesperrte Straße auf der Strecke, bitte selbst umfahren“.
+const SPK="navi-sperren"; let sperren=[]; try{ const v=JSON.parse(localStorage.getItem(SPK)||"[]"); if(Array.isArray(v)) sperren=v; }catch(e){}
+const sperrLayer=L.layerGroup(); if(IS_TEST) sperrLayer.addTo(map);
+let sperrWarned=-1;
+function sperrSave(){ try{ localStorage.setItem(SPK,JSON.stringify(sperren)); }catch(e){} }
+function sperrDraw(){ sperrLayer.clearLayers(); if(!IS_TEST) return;
+  sperren.forEach((q,i)=>{ const m=L.marker(q.ll,{icon:L.divIcon({className:"",html:'<div class="sperr">⛔</div>',iconSize:[28,28],iconAnchor:[14,14]}),keyboard:false,zIndexOffset:500}).addTo(sperrLayer);
+    m.on("click",()=>{ const box=document.createElement("div"); box.className="posbox"; const b=document.createElement("b"); b.textContent="Gesperrt"+(q.name?": "+q.name:""); box.append(b);
+      const x=document.createElement("button"); x.type="button"; x.className="btn"; x.textContent="Sperrung entfernen"; x.addEventListener("click",()=>sperrDel(i)); box.append(x);
+      L.popup({closeButton:true}).setLatLng(q.ll).setContent(box).openOn(map); }); }); }
+function sperrMenu(box,p){ const ni=sperren.findIndex(q=>dist(q.ll,p)<40);
+  const x=document.createElement("button"); x.type="button"; x.className="btn"; x.textContent="⛔ Straße hier sperren"; x.addEventListener("click",()=>sperrAdd(p)); box.append(x);
+  if(ni>=0){ const r=document.createElement("button"); r.type="button"; r.className="btn"; r.textContent="Sperrung hier entfernen"; r.addEventListener("click",()=>sperrDel(ni)); box.append(r); } }
+async function sperrAdd(p){ map.closePopup();
+  if(document.body.classList.contains("drive")&&gpsSpeed!=null&&gpsSpeed>3){ toast("Sperren bitte nur im Stand"); return; }
+  let ll=p.slice(), name="";
+  for(const base of ROUTERS){ try{ const r=await fetch(base.replace("/route/","/nearest/")+p[1].toFixed(6)+","+p[0].toFixed(6)+"?number=1",typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(6000)}:{});
+      const j=await r.json(); const w=j&&j.waypoints&&j.waypoints[0]; if(w&&w.distance<60){ ll=[w.location[1],w.location[0]]; name=w.name||""; } break; }catch(e){} }
+  sperren.push({ll,name,at:Date.now()}); sperrSave(); sperrDraw(); toast("⛔ Gesperrt"+(name?": "+name:"")); sperrReroute(); }
+function sperrDel(i){ map.closePopup(); sperren.splice(i,1); sperrSave(); sperrDraw(); toast("Sperrung entfernt"); sperrReroute(); }
+function sperrReroute(){ sperrWarned=-1; if(!tour||!(document.body.classList.contains("drive")||simTimer)) return; apStop=-1; apAt=0; updateApproach(); }
+sperrDraw();
+function segD(p,a,b){ const kx=Math.cos(p[0]*Math.PI/180)*111320, ky=111320, ax=(a[1]-p[1])*kx, ay=(a[0]-p[0])*ky, dx=(b[1]-a[1])*kx, dy=(b[0]-a[0])*ky, l=dx*dx+dy*dy;
+  const t=l?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/l)):0; return Math.hypot(ax+t*dx,ay+t*dy); }
+function sperrHit(line,from){ if(!IS_TEST||!sperren.length||!line||line.length<2) return null;
+  return sperren.find(q=>dist(from,q.ll)>25&&line.some((pt,i)=>i>0&&segD(q.ll,line[i-1],pt)<12))||null; }
+async function routeAlts(pts){ for(const base of ROUTERS){ try{
+    const r=await fetch(base+pts.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true&alternatives=3",typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(8000)}:{});
+    const j=await r.json(); if(j.code!=="Ok"||!j.routes) throw new Error(j.code);
+    return j.routes.map(rt=>{ const steps=[]; (rt.legs||[]).forEach((l,li)=>(l.steps||[]).forEach(st=>{ const t=turnText(st); if(t) steps.push({ll:[st.maneuver.location[1],st.maneuver.location[0]],t,s:t.replace(/ auf .*$/,""),leg:li}); }));
+      return {line:rt.geometry.coordinates.map(c=>[c[1],c[0]]),steps,legs:(rt.legs||[]).map(l=>l.distance)}; });
+  }catch(e){} } return []; }
+async function sperrAround(from,to,hit,getRoute){ const len=r=>r.legs.reduce((a,b)=>a+b,0), clean=r=>r&&!sperrHit(r.line,from);
+  const alts=(await routeAlts([from,to])).filter(clean); if(alts.length) return alts.sort((a,b)=>len(a)-len(b))[0];
+  for(const rad of [250,600]){ const vs=[0,45,90,135,180,225,270,315].map(b=>{ const t=b*Math.PI/180; return [hit.ll[0]+rad*Math.cos(t)/111320,hit.ll[1]+rad*Math.sin(t)/(111320*Math.cos(hit.ll[0]*Math.PI/180))]; });
+    const rs=(await Promise.all(vs.map(v=>getRoute([from,v,to]).catch(()=>null)))).filter(r=>clean(r)&&!r.steps.some(t=>t.t==="wenden"));
+    if(rs.length){ const b=rs.sort((a,c)=>len(a)-len(c))[0]; b.steps.forEach(t=>t.leg=0); return b; } }
+  return null; }
 // Karte in Fahrtrichtung: Die Leaflet-Karte (#mapIn) ist beim Fahren ein Quadrat so groß wie die Diagonale des sichtbaren Felds (#map)
 // und wird als Ganzes gedreht, sodass die Straße vor einem nach oben zeigt. Markierungen werden zurückgedreht und bleiben aufrecht.
 // Norden oben, sobald man die Karte selbst verschiebt; „Zur aktuellen Position“ dreht wieder in Fahrtrichtung.
@@ -3287,6 +3331,8 @@ async function updateApproach(){
   if(ap){ // Zwischenpunkt aus der Routendatei nur nehmen, wenn der Weg darüber kaum länger ist als der direkte Weg
     const rd=await getRoute([from,to]), len=r=>r.legs.reduce((a,b)=>a+b,0);
     if(rd&&(!rr||len(rr)>len(rd)*1.15+80)){ rr=rd; ap=null; } }
+  { const hit=rr&&sperrHit(rr.line,from); // v=161 (Test): Sperrung auf der Strecke → drumherum
+    if(hit){ const alt=await sperrAround(from,to,hit,getRoute); if(alt){ rr=alt; ap=null; } else if(sperrWarned!==stopNo){ sperrWarned=stopNo; toast("⛔ Gesperrte Straße auf der Strecke, bitte selbst umfahren"); say("Achtung, gesperrte Straße auf der Strecke",true); } } }
   if(rr){ line=rr.line; steps=rr.steps; legs=rr.legs; }
   const off=!rr&&noNet; if(off){ ap=null; line=tourPart(from,to); }
   if(hadAp) sx.park=null;

@@ -692,6 +692,9 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 /* Große, verblasste Hausnummer oben auf der Karte, wenn man dem Kunden nahe kommt */
 body:not(.drive):not(.sim) .st-wrap{display:none}
 .st-wrap{position:absolute;width:0;height:0}
+.st-sign{position:absolute;left:50%;top:12px;translate:-50% 0;z-index:900;max-width:min(78%,560px);background:#1f6f4a;color:#fff;border:3px solid #fff;border-radius:14px;padding:8px 18px 9px;box-shadow:0 4px 16px rgb(0 0 0 / .4);text-align:center;pointer-events:none;font:800 clamp(24px,7.5cqi,40px)/1.1 var(--font-display)}
+.st-sign small{display:block;font:700 clamp(15px,4.2cqi,22px)/1.2 var(--font-body);opacity:.92;margin-top:2px}
+.st-sign[hidden]{display:none}
 .st-pill{position:absolute;background:#1f6f4a;color:#fff;font:800 20px/1.15 var(--font-body);padding:7px 15px;border-radius:999px;border:2px solid #fff;box-shadow:0 2px 10px rgb(0 0 0 / .35);white-space:nowrap;pointer-events:none;translate:-50% calc(-100% - 22px)}
 .pin.nonum{color:transparent!important;font-size:0!important;width:14px!important;height:14px!important;min-width:0!important;padding:0!important} /* v=148 */
 .st-pill.l{translate:calc(-100% - 22px) -50%}
@@ -831,7 +834,10 @@ body.drive .side>*{zoom:var(--dz)} /* Schriftgröße der Tourleiste, 5 Stufen */
 body.drive #map{height:100%;min-height:0;border-radius:0;border:0}
 #map{position:relative;overflow:hidden}
 #mapIn{position:absolute;left:0;top:0;width:100%;height:100%;z-index:0;transform-origin:50% 50%;transition:transform 1s linear;border-radius:inherit}
-#mapIn .leaflet-marker-icon>*{rotate:var(--cr,0deg);transition:rotate .8s ease-out} /* Markierungen bleiben aufrecht, wenn die Karte gedreht ist */
+#mapIn .leaflet-marker-icon>*{rotate:var(--cr,0deg);transition:rotate .8s ease-out}
+#gl3d{position:absolute;inset:0;z-index:400;pointer-events:none;display:none;border-radius:inherit;overflow:hidden}
+body.r3d #gl3d{display:block}
+.car3d{width:46px;height:46px;filter:drop-shadow(0 6px 5px rgb(0 0 0 / .45))} /* v=155: 3D-Sicht: Markierungen strecken, damit sie trotz Neigung normal aussehen */ /* Markierungen bleiben aufrecht, wenn die Karte gedreht ist */
 #mapIn .leaflet-marker-icon>.me{transform-origin:50% 100%}
 .leaflet-ctl{position:absolute;inset:0;pointer-events:none;background:none!important;overflow:visible;z-index:1}
 #compass{position:absolute;left:10px;top:92px;z-index:1000;width:40px;height:40px;border-radius:50%;border:1px solid rgb(0 0 0 / .15);background:rgb(255 255 255 / .85);box-shadow:0 1px 4px rgb(0 0 0 / .25);display:grid;place-items:center;padding:0;cursor:pointer}
@@ -1004,12 +1010,16 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
-html.fahrer #bcrOnlyRow{display:none!important}
+html.fahrer #bcrOnlyRow,html.fahrer #ofmRow{display:none!important}
+#t3dRow,.d3-btn{display:none!important} /* v=159: 3D wieder raus (Draklin) */
 /* v=106: Ton-Knopf beim Fahren */
 .snd-btn{display:none}
 body.drive .snd-btn{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--surface);color:var(--fg);font-size:1.45rem;box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;margin-top:10px!important;touch-action:none;-webkit-user-select:none;user-select:none}
 body.drive .snd-btn.off{background:#c0392b;color:#fff}
 body.drive .snd-btn.press{transform:scale(.92)}
+.d3-btn{display:none}
+body.drive .d3-btn,body.sim .d3-btn{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--surface);color:var(--fg);font:700 1rem var(--font-display);box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;margin-top:10px!important}
+html.fahrer .d3-btn{display:none!important} /* v=156: 3D/2D-Knopf nur Test */
 .snd-pop{position:fixed;inset:0;z-index:3000;background:transparent}
 .snd-pop[hidden]{display:none}
 .snd-box{position:absolute;background:var(--surface);color:var(--fg);border-radius:999px;padding:8px 14px;width:min(260px,calc(100vw - 90px));display:flex;align-items:center;gap:8px;box-shadow:0 2px 12px rgb(0 0 0 / .35);font-size:1.1rem}
@@ -1342,6 +1352,8 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       <details class="set-row"><summary><span class="ic c-green">🔗</span><span class="t">Link zur Tour-Seite<small id="tourUrlSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="tourUrl" type="url" inputmode="url" placeholder="https://…"><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
         <p class="hint">Von dort lädst du Ausfahrliste und Routendatei. Oben erscheint dann „⬇ Tour herunterladen“.</p></div></details>
+      <label class="set-row r" id="t3dRow" for="t3dSw"><span class="ic c-green">🛣</span><span class="t">3D-Sicht beim Fahren<small>Karte schräg von hinten wie bei Google (nur Test-Version)</small></span><input type="checkbox" class="sw" id="t3dSw"></label>
+      <label class="set-row r" id="ofmRow" for="ofmSw"><span class="ic c-green">🗺</span><span class="t">Moderne Karte (OpenFreeMap)<small>aus = Esri-Karte wie bisher (nur Test-Version)</small></span><input type="checkbox" class="sw" id="ofmSw"></label>
       <label class="set-row r" id="bcrOnlyRow" for="bcrOnly"><span class="ic c-green">🧭</span><span class="t">Tour nur aus der .bcr<small>Ausfahrliste wird ignoriert (nur Test-Version)</small></span><input type="checkbox" class="sw" id="bcrOnly"></label>
     </div>
     <div class="set-gl" data-grp="2">Beim Fahren</div>
@@ -1504,6 +1516,298 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
 //# sourceMappingURL=leaflet.js.map</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script>/* v=149+: @maplibre/maplibre-gl-leaflet 0.0.22 (ISC, MapLibre contributors), wird erst nach dem Laden von MapLibre ausgeführt */
+window.mlLeafletInit=function(){
+(function (root, factory) {
+    if (typeof define === 'function' && define.amd) {
+        // AMD
+        define(['leaflet', 'maplibre-gl'], factory);
+    } else if (typeof exports === 'object') {
+        // Node, CommonJS-like
+        module.exports = factory(require('leaflet'), require('maplibre-gl'));
+    } else {
+        // Browser globals (root is window)
+        root.returnExports = factory(root.L, root.maplibregl);
+    }
+}(typeof globalThis !== 'undefined' ? globalThis : this || self, function (L, maplibregl) {
+    L.MaplibreGL = L.Layer.extend({
+            options: {
+            updateInterval: 32,
+            // How much to extend the overlay view (relative to map size)
+            // e.g. 0.1 would be 10% of map view in each direction
+            padding: 0.1,
+            // whether or not to register the mouse and keyboard
+            // events on the maplibre overlay
+            interactive: false,
+            // set the tilepane as the default pane to draw gl tiles
+            pane: 'tilePane'
+        },
+
+        initialize: function (options) {
+            L.setOptions(this, options);
+
+            // setup throttling the update event when panning
+            this._throttledUpdate = L.Util.throttle(this._update, this.options.updateInterval, this);
+        },
+
+        onAdd: function (map) {
+            if (!this._container) {
+                this._initContainer();
+            }
+
+            var paneName = this.getPaneName();
+            map.getPane(paneName).appendChild(this._container);
+
+            this._initGL();
+
+            this._offset = this._map.containerPointToLayerPoint([0, 0]);
+
+            // work around https://github.com/mapbox/mapbox-gl-leaflet/issues/47
+            if (map.options.zoomAnimation) {
+                L.DomEvent.on(map._proxy, L.DomUtil.TRANSITION_END, this._transitionEnd, this);
+            }
+        },
+
+        onRemove: function (map) {
+            if (this._map._proxy && this._map.options.zoomAnimation) {
+                L.DomEvent.off(this._map._proxy, L.DomUtil.TRANSITION_END, this._transitionEnd, this);
+            }
+            var paneName = this.getPaneName();
+            map.getPane(paneName).removeChild(this._container);
+
+            this._glMap.remove();
+            this._glMap = null;
+        },
+
+        getEvents: function () {
+            return {
+                move: this._throttledUpdate, // sensibly throttle updating while panning
+                zoomanim: this._animateZoom, // applys the zoom animation to the <canvas>
+                zoom: this._pinchZoom, // animate every zoom event for smoother pinch-zooming
+                zoomstart: this._zoomStart, // flag starting a zoom to disable panning
+                zoomend: this._zoomEnd,
+                resize: this._resize
+            };
+        },
+
+        getMaplibreMap: function () {
+            return this._glMap;
+        },
+
+        getCanvas: function () {
+            return this._glMap.getCanvas();
+        },
+
+        getSize: function () {
+            return this._map.getSize().multiplyBy(1 + this.options.padding * 2);
+        },
+
+        getBounds: function () {
+            var halfSize = this.getSize().multiplyBy(0.5);
+            var center = this._map.latLngToContainerPoint(this._map.getCenter());
+            return L.latLngBounds(
+                this._map.containerPointToLatLng(center.subtract(halfSize)),
+                this._map.containerPointToLatLng(center.add(halfSize))
+            );
+        },
+
+        getContainer: function () {
+            return this._container;
+        },
+
+        // returns the pane name set in options if it is a valid pane, defaults to tilePane
+        getPaneName: function () {
+            return this._map.getPane(this.options.pane) ? this.options.pane : 'tilePane';
+        },
+
+        _roundPoint: function(p) {
+            return {x: Math.round(p.x), y: Math.round(p.y)};
+        },
+
+        _initContainer: function () {
+            var container = this._container = L.DomUtil.create('div', 'leaflet-gl-layer');
+
+            var size = this.getSize();
+            var offset = this._map.getSize().multiplyBy(this.options.padding);
+            container.style.width  = size.x + 'px';
+            container.style.height = size.y + 'px';
+
+            var topLeft = this._map.containerPointToLayerPoint([0, 0]).subtract(offset);
+
+            L.DomUtil.setPosition(container, this._roundPoint(topLeft));
+        },
+
+        _initGL: function () {
+            var center = this._map.getCenter();
+
+            var options = L.extend({}, this.options, {
+                container: this._container,
+                center: [center.lng, center.lat],
+                zoom: this._map.getZoom() - 1,
+                attributionControl: false
+            });
+
+            this._glMap = new maplibregl.Map(options);
+
+            // allow GL base map to pan beyond min/max latitudes
+            this._glMap.transform.latRange = null;
+            this._glMap.transform.maxValidLatitude = Infinity;
+
+            this._transformGL(this._glMap);
+
+            if (this._glMap._canvas.canvas) {
+                // older versions of mapbox-gl surfaced the canvas differently
+                this._glMap._actualCanvas = this._glMap._canvas.canvas;
+            } else {
+                this._glMap._actualCanvas = this._glMap._canvas;
+            }
+
+            // treat child <canvas> element like L.ImageOverlay
+            var canvas = this._glMap._actualCanvas;
+            L.DomUtil.addClass(canvas, 'leaflet-image-layer');
+            L.DomUtil.addClass(canvas, 'leaflet-zoom-animated');
+            if (this.options.interactive) {
+                L.DomUtil.addClass(canvas, 'leaflet-interactive');
+            }
+            if (this.options.className) {
+                L.DomUtil.addClass(canvas, this.options.className);
+            }
+        },
+
+        _update: function (e) {
+            if (!this._map) {
+                return;
+            }
+            // update the offset so we can correct for it later when we zoom
+            this._offset = this._map.containerPointToLayerPoint([0, 0]);
+
+            if (this._zooming) {
+                return;
+            }
+
+            var size = this.getSize(),
+                container = this._container,
+                gl = this._glMap,
+                offset = this._map.getSize().multiplyBy(this.options.padding),
+                topLeft = this._map.containerPointToLayerPoint([0, 0]).subtract(offset);
+
+            L.DomUtil.setPosition(container, this._roundPoint(topLeft));
+
+            this._transformGL(gl);
+
+            if (gl.transform.width !== size.x || gl.transform.height !== size.y) {
+                container.style.width  = size.x + 'px';
+                container.style.height = size.y + 'px';
+                if (gl._resize !== null && gl._resize !== undefined){
+                    gl._resize();
+                } else {
+                    gl.resize();
+                }
+            } else {
+                // older versions of mapbox-gl surfaced update publicly
+                if (gl._update !== null && gl._update !== undefined){
+                    gl._update();
+                } else {
+                    gl.update();
+                }
+            }
+        },
+
+        _transformGL: function (gl) {
+            var center = this._map.getCenter();
+
+            // gl.setView([center.lat, center.lng], this._map.getZoom() - 1, 0);
+            // calling setView directly causes sync issues because it uses requestAnimFrame
+
+            var tr = gl.transform;
+            tr.center = maplibregl.LngLat.convert([center.lng, center.lat]);
+            tr.zoom = this._map.getZoom() - 1;
+        },
+
+        // update the map constantly during a pinch zoom
+        _pinchZoom: function (e) {
+            this._glMap.jumpTo({
+                zoom: this._map.getZoom() - 1,
+                center: this._map.getCenter()
+            });
+        },
+
+        // borrowed from L.ImageOverlay
+        // https://github.com/Leaflet/Leaflet/blob/master/src/layer/ImageOverlay.js#L139-L144
+        _animateZoom: function (e) {
+            var scale = this._map.getZoomScale(e.zoom);
+            var padding = this._map.getSize().multiplyBy(this.options.padding * scale);
+            var viewHalf = this.getSize()._divideBy(2);
+            // corrections for padding (scaled), adapted from
+            // https://github.com/Leaflet/Leaflet/blob/master/src/map/Map.js#L1490-L1508
+            var topLeft = this._map.project(e.center, e.zoom)
+                ._subtract(viewHalf)
+                ._add(this._map._getMapPanePos()
+                .add(padding))._round();
+            var offset = this._map.project(this._map.getBounds().getNorthWest(), e.zoom)
+                ._subtract(topLeft);
+
+            L.DomUtil.setTransform(
+                this._glMap._actualCanvas,
+                offset.subtract(this._offset),
+                scale
+            );
+        },
+
+        _zoomStart: function (e) {
+            this._zooming = true;
+        },
+
+        _zoomEnd: function () {
+            var scale = this._map.getZoomScale(this._map.getZoom());
+
+            L.DomUtil.setTransform(
+                this._glMap._actualCanvas,
+                // https://github.com/mapbox/mapbox-gl-leaflet/pull/130
+                null,
+                scale
+            );
+
+            this._zooming = false;
+
+            this._update();
+        },
+
+        _transitionEnd: function (e) {
+            L.Util.requestAnimFrame(function () {
+                var zoom = this._map.getZoom();
+                var center = this._map.getCenter();
+                var offset = this._map.latLngToContainerPoint(
+                    this._map.getBounds().getNorthWest()
+                );
+
+                // reset the scale and offset
+                L.DomUtil.setTransform(this._glMap._actualCanvas, offset, 1);
+
+                // enable panning once the gl map is ready again
+                this._glMap.once('moveend', L.Util.bind(function () {
+                    this._zoomEnd();
+                }, this));
+
+                // update the map position
+                this._glMap.jumpTo({
+                    center: center,
+                    zoom: zoom - 1
+                });
+            }, this);
+        },
+
+        _resize: function (e) {
+            this._transitionEnd(e);
+        }
+    });
+
+    L.maplibreGL = function (options) {
+        return new L.MaplibreGL(options);
+    };
+
+}));
+};</script>
 <script>
 (function(){
 const R=6371000; // PTV-Mercator (Kugel mit 6371 km), nicht Web-Mercator
@@ -1567,6 +1871,36 @@ const TAGS=[{re:/^RKL/,k:"rkl",t:"Reklamation"},{re:/^PRO/,k:"pro",t:"Probe"},{r
 function tagsOf(tokens){ const out=[]; tokens.forEach(x=>{ if(!/^[A-Z0-9]{3,8}$/.test(x)) return; const T=TAGS.find(T=>T.re.test(x)); if(T&&!out.includes(T.k)) out.push(T.k); });
   return TAGS.map(T=>T.k).filter(k=>out.includes(k)); } // Reihenfolge: Reklamation, Probe, Trinkgeld
 function fillTags(el,tags){ el.textContent=""; (tags||[]).forEach(k=>{ const T=TAGS.find(T=>T.k===k), c=document.createElement("span"); c.className="tagchip "+k; c.textContent=T.t; el.append(c); }); }
+// v=151 (Test): Etiketten-PDF (ein Etikett je Tüte, 3 Spalten) als ganze Tour lesen, ohne .bcr.
+async function readPdfItems(data){ // Textstücke mit Seite, Lage und Schriftgröße
+  const pdf=await pdfjsLib.getDocument({data}).promise, out=[];
+  for(let p=1;p<=pdf.numPages;p++){ const page=await pdf.getPage(p), h=page.getViewport({scale:1}).height, tc=await page.getTextContent();
+    tc.items.forEach(it=>{ const s=(it.str||"").trim(); if(s) out.push({p,x:it.transform[4],y:h-it.transform[5],fs:Math.abs(it.transform[0]),s}); }); }
+  return out; }
+function parseEtiketten(items){
+  const head=items.filter(i=>i.p===1&&i.y<32).map(i=>i.s).join(" ");
+  const tm=head.match(/Tour:\s*(\S+)/), dm=head.match(/\b(Mo|Di|Mi|Do|Fr|Sa|So)\s+(\d\d\.\d\d\.\d\d)\b/), km=head.match(/([\d.,]+)\s*km/);
+  const nums=items.filter(i=>i.fs>=11&&/^\d+$/.test(i.s));
+  if(!tm||nums.length<2) throw new Error("Das sieht weder wie eine Ausfahrliste noch wie Etiketten aus.");
+  const by={};
+  nums.forEach(n=>{ const cx=n.x-19, inL=i=>i.p===n.p&&i.x>=cx-4&&i.x<cx+194&&i.y>=n.y-9&&i.y<n.y+112&&i!==n;
+    const L=items.filter(inL).sort((a,b)=>a.y-b.y||a.x-b.x);
+    const adr=L.find(i=>i.fs>7.5&&i.fs<8.5&&i.y<n.y-3&&/,/.test(i.s));
+    const arts=L.filter(i=>i.fs>8.5&&i.fs<10&&/^\d+\s+\S/.test(i.s)).map(i=>i.s.replace(/\s+/g," "));
+    const vb=L.map(i=>i.s.match(/^(\d+)\s+von\s+(\d+)$/)).find(Boolean);
+    const notes=L.filter(i=>i.fs>6.5&&i.fs<7.5&&!/^\d+\s+von\s+\d+$/.test(i.s)).map(i=>i.s);
+    const codes=L.filter(i=>i.fs<6.5&&i.fs>4&&/^[A-Z]{3,5}$/.test(i.s)).map(i=>i.s);
+    const e=by[n.s]||(by[n.s]={no:n.s,adr:"",arts:[],notes:[],bags:0,codes:[]});
+    if(adr&&adr.s.length>e.adr.length) e.adr=adr.s; e.arts.push(...arts); notes.forEach(t=>{ if(!e.notes.includes(t)) e.notes.push(t); });
+    e.bags=Math.max(e.bags,vb?+vb[2]:1); e.codes.push(...codes); });
+  const stops=Object.values(by).sort((a,b)=>a.no-b.no).map(e=>{ const k=e.adr.lastIndexOf(","); const addr=(k>0?e.adr.slice(0,k):e.adr).trim(), town=k>0?e.adr.slice(k+1).trim():"";
+    const notes=e.notes.length?[e.notes.join(" ")]:[]; if(e.bags>1) notes.unshift(`🛍 ${e.bags} Tüten`);
+    return {no:e.no,addr,town,notes,tags:tagsOf(e.codes),articles:e.arts.length?[e.arts]:[]}; });
+  // Ladeliste oben auf Seite 1: Menge und Artikel stehen als getrennte Stücke nebeneinander
+  const ld=items.filter(i=>i.p===1&&i.y>=32&&i.y<110&&i.fs>8.5&&i.fs<10).sort((a,b)=>a.y-b.y||a.x-b.x), load=[];
+  ld.forEach((i,k)=>{ if(/^\d+$/.test(i.s)&&ld[k+1]&&!/^\d+$/.test(ld[k+1].s)&&Math.abs(ld[k+1].y-i.y)<2) load.push(i.s+" "+ld[k+1].s); });
+  return {name:tm[1], date:dm?dm[2]:"", km:km?km[1]:"", zone:"", load:load.length?[load]:[], stops, etik:true};
+}
 function parseAusfahrliste(words){
   // Wörter zu Zeilen gruppieren
   words.sort((a,b)=>a.y-b.y||a.x-b.x);
@@ -1654,7 +1988,7 @@ function bcrVias(s,from){ if(!s||!s.via||!s.via.length||!s.ll) return [];
 const straightQ=pts=>pts.length>2?"&continue_straight=true":""; // an den Zwischenpunkten nicht wenden (v=110: in beiden Versionen)
 const depotLL=()=>{ try{ const d=JSON.parse(localStorage.getItem("navi-depot")||"null"); return d&&d.ll||null; }catch(e){ return null; } };
 function mergeTours(){
-  const old=tour&&tour.stops, P=bcrOnly()?null:pdfTour;
+  const old=tour&&tour.stops, P=bcrOnly()&&!(pdfTour&&pdfTour.etik)?null:pdfTour; // v=151: Etiketten gelten auch bei „nur .bcr“
   let t=null;
   if(bcrTour){
     t={name:bcrTour.name,time:bcrTour.time,stops:bcrTour.stops.map((s,i)=>({...s,name:"",notes:[],articles:[],town:s.town||"",exact:true}))};
@@ -1675,7 +2009,7 @@ function mergeTours(){
 function fillArts(ul,cols){ ul.textContent=""; cols.flatMap(artItems).forEach(it=>{ const li=document.createElement("li"); if(it.qty){const b=document.createElement("b");b.textContent=it.qty+"×";li.append(b);} li.append(it.name); ul.append(li); }); }
 // Adressen aus der Ausfahrliste in Koordinaten umwandeln (OpenStreetMap Nominatim, höchstens 1 Anfrage pro Sekunde).
 let geoRunning=false;
-async function geocodeOne(s){
+async function geocodeOne(s,ref){ // v=151: ref = Bezugspunkt (Kommissionierstelle bzw. Mitte der Tour); ohne PLZ nur in der Nähe suchen, nächster Treffer gewinnt
   const m=(s.town||"").match(/^(\d{5})\s+(.+)$/), plz=m?m[1]:"", ort=m?m[2]:s.town;
   // v=89: nur Treffer in derselben PLZ bzw. demselben Ort annehmen (sonst landet z. B. ein Tippfehler in einer Straße weit weg).
   // Wird die Straße dort nicht gefunden, gibt es die Ortsmitte als Notpunkt zurück: [lat, lon, 1] = ungefähr.
@@ -1687,10 +2021,13 @@ async function geocodeOne(s){
     return [a.city,a.town,a.village,a.municipality,a.hamlet,a.suburb].some(x=>x&&ortN(x)===want)||ortN(h.display_name).includes(want); };
   const ask1=async t=>{
     const u=new URL("https://nominatim.openstreetmap.org/search");
-    Object.entries({...t,format:"jsonv2",limit:"5",addressdetails:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
+    const near=!plz&&ref?{viewbox:[ref[1]-.55,ref[0]+.37,ref[1]+.55,ref[0]-.37].map(v=>v.toFixed(4)).join(","),bounded:"1"}:{};
+    Object.entries({...t,...near,format:"jsonv2",limit:"5",addressdetails:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
     const w=lastAsk+1100-Date.now(); if(w>0) await new Promise(ok=>setTimeout(ok,w)); lastAsk=Date.now(); // höchstens 1 Anfrage pro Sekunde, auch neben dem Hauspunkt-Abgleich
     const r=await fetch(u.toString()); if(!r.ok) throw new Error("Adresssuche nicht erreichbar ("+r.status+")");
-    const h=(await r.json()).find(fits); return h?[parseFloat(h.lat),parseFloat(h.lon)]:null; };
+    let hs=(await r.json()).filter(fits).map(h=>[parseFloat(h.lat),parseFloat(h.lon)]);
+    if(ref&&!plz){ hs=hs.filter(p=>dist(p,ref)<45000).sort((a,b)=>dist(a,ref)-dist(b,ref)); }
+    return hs[0]||null; };
   if(s.addr) for(const t of [{street:s.addr,postalcode:plz,city:ort},{q:`${s.addr}, ${plz} ${ort}`},{street:s.addr,postalcode:plz}]){ const p=await ask1(t); if(p) return p; }
   if(plz||ort){ const p=await ask1({postalcode:plz,city:ort})||(plz&&ort?await ask1({q:`${plz} ${ort}`}):null); if(p) return [p[0],p[1],1]; }
   return null;
@@ -1698,13 +2035,22 @@ async function geocodeOne(s){
 async function geocodeTour(){
   if(geoRunning||!tour) return; geoRunning=true; $("geoBtn").disabled=true;
   const todo=tour.stops.filter(s=>!s.ll&&s.addr); let done=0; const miss=[], rough=[];
+  // v=151: Bezugspunkt = Kommissionierstelle, sonst Mitte der schon gefundenen Stopps. Gefundene Punkte merkt sich das Handy (navi-geocache).
+  const GC="navi-geocache", gc=jget(GC), gk=s=>(s.addr+"|"+s.town).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/\s+/g,"");
+  const mid=()=>{ const f=tour.stops.filter(s=>s.ll&&!s.approx); if(!f.length) return null; const m=k=>f.map(s=>s.ll[k]).sort((a,b)=>a-b)[Math.floor(f.length/2)]; return [m(0),m(1)]; };
+  const put=(s,p)=>{ s.ll=p.slice(0,2); s.approx=p[2]===1; s.via=[]; s.geo=true; };
   try{
     for(const s of todo){
       $("geoState").textContent=`Suche Adresse ${++done} von ${todo.length} …`;
-      const p=await geocodeOne(s);
-      if(p){ s.ll=p.slice(0,2); s.approx=p[2]===1; s.via=[]; s.geo=true; if(s.approx) rough.push(tour.stops.indexOf(s)+1); } else miss.push(tour.stops.indexOf(s)+1);
+      const c=gc[gk(s)]; const p=c||await geocodeOne(s,depotLL()||mid());
+      if(p){ put(s,p); if(!c&&!s.approx){ gc[gk(s)]=p; const ks=Object.keys(gc); if(ks.length>3000) delete gc[ks[0]]; jset(GC,gc); } } else miss.push(tour.stops.indexOf(s)+1);
       render(); if(done===1||done===todo.length) fit();
     }
+    // zweiter Durchgang: Ausreißer weit weg von der Tour (z. B. falsches „Hausen“) nahe der Tourmitte neu suchen
+    const m=mid(); if(m) for(const s of todo){ if(!s.ll||dist(s.ll,m)<=35000) continue;
+      $("geoState").textContent=`Prüfe Stopp ${tour.stops.indexOf(s)+1} nochmal …`; const p=await geocodeOne(s,m);
+      if(p&&dist(p,m)<=35000){ put(s,p); if(!s.approx){ gc[gk(s)]=p; jset(GC,gc); } } else { s.approx=true; } render(); }
+    todo.forEach(s=>{ if(s.ll&&s.approx) rough.push(tour.stops.indexOf(s)+1); });
     $("geoState").textContent=(miss.length?`Fertig. Nicht gefunden: Stopp ${miss.join(", ")}. Diese Stopps fehlen auf der Karte, Google Maps findet sie trotzdem über die Adresse.`:rough.length?"Fertig.":"Fertig, alle Adressen gefunden. Die Punkte können einige Meter neben dem Haus liegen.")+(rough.length?` ⚠ Nur ungefähr (Ortsmitte): Stopp ${rough.join(", ")}. Bitte Adresse prüfen und Hauspunkt per langem Drücken setzen.`:"");
   }catch(x){ $("geoState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal versuchen."; }
   geoRunning=false; $("geoBtn").disabled=false; routeTour(); $("geoBox").hidden=!tour.stops.some(s=>!s.ll);
@@ -1817,7 +2163,7 @@ async function routeTour(){
   road.depot=!!dp; t.road=road; routeState(""); render();
 }
 function loadedInfo(){
-  const parts=[]; if(pdfTour) parts.push(`Ausfahrliste: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
+  const parts=[]; if(pdfTour) parts.push(`${pdfTour.etik?"Etiketten":"Ausfahrliste"}: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour&&!pdfTour.etik?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
   let t=parts.length?"Geladen · "+parts.join(" · "):"";
   if(pdfTour&&bcrTour&&pdfTour.stops.length!==bcrTour.stops.length) t+=" · Achtung: unterschiedliche Anzahl, verbunden über die Stopp-Nummer.";
   $("loaded").textContent=t;
@@ -1850,7 +2196,34 @@ const CachedTiles=L.TileLayer.extend({ createTile(coords,done){ const tile=docum
   L.DomEvent.on(tile,"load",()=>{ if(tile.src.startsWith("blob:")) URL.revokeObjectURL(tile.src); this._tileOnLoad(done,tile); });
   L.DomEvent.on(tile,"error",L.Util.bind(this._tileOnError,this,done,tile));
   tile.alt=""; tile.setAttribute("role","presentation"); const url=this.getTileUrl(coords); tileSrc(url).then(u=>{ tile.src=u; }); return tile; } });
+// v=150 (Test): moderne Vektorkarte von OpenFreeMap (kostenlos, ohne Schlüssel) über MapLibre. Klappt etwas nicht, nimmt die App Esri.
+const OFM_STYLE="https://tiles.openfreemap.org/styles/liberty", ML_VER="4.7.1";
+let mlReady=null;
+function loadMaplibre(){ if(mlReady) return mlReady;
+  mlReady=new Promise((res,rej)=>{ if(window.maplibregl&&L.MaplibreGL) return res();
+    const c=document.createElement("link"); c.rel="stylesheet"; c.href=`https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/${ML_VER}/maplibre-gl.css`; document.head.append(c);
+    const sc=document.createElement("script"); sc.src=`https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/${ML_VER}/maplibre-gl.js`;
+    sc.onload=()=>{ try{ window.mlLeafletInit(); res(); }catch(e){ rej(e); } }; sc.onerror=()=>rej(new Error("MapLibre nicht geladen")); document.head.append(sc);
+    setTimeout(()=>rej(new Error("Zeit")),15000); });
+  mlReady.catch(()=>{ mlReady=null; }); return mlReady; }
+const ofmWanted=()=>{ try{ return localStorage.getItem("navi-ofm")!=="aus"; }catch(e){ return true; } };
+let tileKey="esri";
+function useOfm(){
+  tileKey="ofm";
+  loadMaplibre().then(()=>{ if(tileKey!=="ofm") return;
+    if(tileLayer) map.removeLayer(tileLayer);
+    let ok=false, bad=0;
+    const side=Math.max(screen.width||0,screen.height||0,innerWidth,innerHeight)*2.4*1.1; // v=155: bei 3D-Sicht ist die Karte sehr groß; Bildschärfe begrenzen, sonst zu viel Speicher fürs Handy
+    tileLayer=L.maplibreGL({style:OFM_STYLE,padding:.05,pixelRatio:Math.max(1,Math.min(devicePixelRatio||1,4096/side)),attribution:'<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> '+OSM_ATTR}).addTo(map);
+    document.getElementById("mapErr").hidden=true;
+    const gl=tileLayer.getMaplibreMap&&tileLayer.getMaplibreMap();
+    const fail=()=>{ if(tileKey==="ofm"&&!ok){ tileKey="esri"; useTiles("esri"); } };
+    if(gl){ gl.on("data",e=>{ if(e.dataType==="source"&&e.tile) ok=true; }); gl.once("idle",()=>{ ok=true; }); gl.on("error",()=>{ bad++; if(bad>=4) fail(); }); }
+    setTimeout(fail,12000);
+  }).catch(()=>{ if(tileKey==="ofm"){ tileKey="esri"; useTiles("esri"); } });
+}
 function useTiles(key){
+  if(key==="ofm") return useOfm(); tileKey=key;
   if(tileLayer) map.removeLayer(tileLayer);
   const t=TILE_SOURCES[key]; let ok=0,bad=0;
   tileLayer=(key==="esri"?new CachedTiles(t.url,t.opt):L.tileLayer(t.url,t.opt)).addTo(map);
@@ -1860,7 +2233,7 @@ function useTiles(key){
   document.querySelectorAll("#tileSel button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===key));
 }
 document.querySelectorAll("#tileSel button").forEach(b=>b.addEventListener("click",()=>useTiles(b.dataset.k)));
-useTiles("esri"); // Esri zeigt mehr Umgebung (Feedback: CARTO zu wenig Details)
+useTiles(ofmWanted()?"ofm":"esri"); // v=150: Test-Version standardmäßig OpenFreeMap; Esri zeigt mehr Umgebung (Feedback: CARTO zu wenig Details)
 
 L.control.scale({imperial:false}).addTo(map);
 // Eigene Position als kleine Figur, wahlweise mit eigenem Foto. Das Foto bleibt nur in diesem Browser auf dem Handy.
@@ -2072,17 +2445,30 @@ function hnMark(){ const drv=document.body.classList.contains("drive")||!!simTim
   const kn=mm?hnKey(mm[2]):"", ks=mm?hnKey(mm[1]):"";
   hnList.forEach(h=>{ const vis=near&&dist(h.at,s.ll)<=250&&(!ks||h.street===ks), /* v=148: nur Häuser in der Straße des Kunden */ on=vis&&!!kn&&h.num===kn&&(!h.street||!ks||h.street===ks);
     if(on!==h.k){ h.k=on; h.m.setIcon(hnIcon(h.txt,on)); h.m.setZIndexOffset(on?-100:-500); }
-    if(vis!==h.on){ h.on=vis; if(vis) h.m.addTo(hnLayer); else hnLayer.removeLayer(h.m); } }); }
+    if(vis!==h.on){ h.on=vis; if(vis) h.m.addTo(hnLayer); else hnLayer.removeLayer(h.m); } });
+  footList.forEach(f=>{ const vis=near&&!!s&&f.pts.some(q=>dist(q,s.ll)<=120);
+    if(vis!==f.on){ f.on=vis; if(vis) f.grp.addTo(footLayer); else footLayer.removeLayer(f.grp); } });
+  stSign(drv&&near&&T===cur?s:null, mm); }
+// v=157 (Test, Draklin „Schild oben“): kurz vor dem Einbiegen in die Straße des Kunden oben ein großes grünes Straßenschild mit Hausnummer
+function stSign(s,mm){ let b=document.getElementById("stSign");
+  if(!b){ b=document.createElement("div"); b.id="stSign"; b.className="st-sign"; b.hidden=true; b.setAttribute("role","status"); b.innerHTML="<span></span><small></small>"; $("map").appendChild(b); }
+  if(!s){ if(!b.hidden) b.hidden=true; return; }
+  const name=mm?mm[1]:String(s.addr).split(",")[0], no=mm?mm[2]:"";
+  if(b.firstChild.textContent!==name) b.firstChild.textContent=name; const sub=no?"Nr. "+no:""; if(b.lastChild.textContent!==sub) b.lastChild.textContent=sub; b.lastChild.hidden=!sub;
+  if(b.hidden) b.hidden=false; }
 map.on("zoomend",footShow);
+// v=154 (Test): Fußwege wie die Hausnummern nur kurz vor dem Einbiegen in die Straße des Kunden und nur nahe am Haus (120 m), sonst unsichtbar
+const footList=[];
 function drawFoot(w){
   const g=w.geometry.map(q=>[q.lat,q.lon]); if(g.length<2) return;
-  L.polyline(g,{color:"#fff",weight:6,opacity:.75,interactive:false,className:"foot-halo"}).addTo(footLayer);
-  L.polyline(g,{color:"#3d5a80",weight:3,dashArray:"3 7",lineCap:"round",interactive:false,className:"foot-line"}).addTo(footLayer);
+  const tgt=IS_TEST?L.layerGroup():footLayer; if(IS_TEST) footList.push({grp:tgt,pts:g,on:false});
+  L.polyline(g,{color:"#fff",weight:6,opacity:.75,interactive:false,className:"foot-halo"}).addTo(tgt);
+  L.polyline(g,{color:"#3d5a80",weight:3,dashArray:"3 7",lineCap:"round",interactive:false,className:"foot-line"}).addTo(tgt);
   let len=0; const seg=[]; for(let k=1;k<g.length;k++){ const d=dist(g[k-1],g[k]); seg.push(d); len+=d; }
   if(len<20) return;
   let h=len/2, k=0; while(k<seg.length-1&&h>seg[k]){ h-=seg[k]; k++; } const f=seg[k]?h/seg[k]:0;
   const mid=[g[k][0]+(g[k+1][0]-g[k][0])*f, g[k][1]+(g[k+1][1]-g[k][1])*f];
-  L.marker(mid,{icon:L.divIcon({className:"",html:'<div class="footman">🚶</div>',iconSize:[20,20],iconAnchor:[10,10]}),interactive:false,keyboard:false}).addTo(footLayer);
+  L.marker(mid,{icon:L.divIcon({className:"",html:'<div class="footman">🚶</div>',iconSize:[20,20],iconAnchor:[10,10]}),interactive:false,keyboard:false}).addTo(tgt);
 }
 async function loadFoot(i){
   if(footBusy||!tour) return; const s=tour.stops[i]; if(!s||!s.ll) return;
@@ -2123,15 +2509,58 @@ const mapBox=document.getElementById("map"), mapIn=document.getElementById("mapI
   c.addEventListener("click",()=>setFollow(false)); mapBox.append(c); }
 function rotMode(){ const b=document.body.classList; return b.contains("drive")||b.contains("sim"); }
 function rotOn(){ let pe=false; try{ pe=!!pinEdit; }catch(e){} return rotMode()&&follow&&!pe&&head!==null; }
+// v=155 (Test): 3D-Sicht beim Fahren: die gedrehte Karte wird zusätzlich nach hinten geneigt (wie Google). Nur solange sie in Fahrtrichtung zeigt.
+const TILT=50; const t3dPref=()=>{ try{ return localStorage.getItem("navi-3d")!=="aus"; }catch(e){ return true; } }; const t3d=()=>false; /* v=158: der Kipp-Trick ist ersetzt durch die echte 3D-Karte (gl3d) */
 function sizeInner(){ const w=mapBox.clientWidth, h=mapBox.clientHeight;
-  if(rotMode()&&w&&h){ const q=Math.ceil(Math.hypot(w,h)); Object.assign(mapIn.style,{width:q+"px",height:q+"px",left:(w-q)/2+"px",top:(h-q)/2+"px"}); }
+  if(rotMode()&&w&&h){ const q=Math.ceil(Math.max(Math.hypot(w,h),t3d()?h*2.4:0)); /* v=155: bei 3D-Sicht größer, weil man weiter nach vorn sieht */ Object.assign(mapIn.style,{width:q+"px",height:q+"px",left:(w-q)/2+"px",top:(h-q)/2+"px"}); }
   else Object.assign(mapIn.style,{width:"",height:"",left:"",top:""}); }
 function applyRot(now){ const t=rotOn()?head:0, d=((t-brg)%360+540)%360-180; brg+=d; // kürzester Drehweg
   if(Math.abs(brg)>=360&&!d){ brg=((brg%360)+360)%360; now=true; }
   if(now){ mapIn.style.transition="none"; requestAnimationFrame(()=>requestAnimationFrame(()=>{ mapIn.style.transition=""; })); }
-  brg=Math.round(brg); const r=brg%360?-brg:0; rotDeg=r; mapIn.style.transform=r?`rotate(${r}deg)`:""; mapIn.style.setProperty("--cr",(r?brg:0)+"deg");
+  brg=Math.round(brg); const r=brg%360?-brg:0; rotDeg=r; const tl=t3d()&&rotOn(); mapIn.classList.toggle("tilt",tl);
+  mapIn.style.transform=tl?`perspective(700px) rotateX(${TILT}deg) rotate(${r}deg)`:r?`rotate(${r}deg)`:""; mapIn.style.setProperty("--cr",(r?brg:0)+"deg");
   const c=document.getElementById("compass"); if(c){ c.hidden=!r; c.firstChild.style.transform=`rotate(${-brg}deg)`; } }
-// v=159: Karte immer in Fahrtrichtung: solange GPS noch keine Richtung kennt (Stillstand, gerade geöffnet),
+// v=158 (Test): echte 3D-Fahransicht. Beim Fahren mit 3D liegt über der Leaflet-Karte eine MapLibre-Karte (OpenFreeMap), schräg von hinten,
+// mit Häusern in 3D. Sie zeigt grüne Anfahrt, restliche Tour, offene Kunden und einen 3D-Pfeil; alles andere (Schild, Leiste, Knöpfe) bleibt darüber.
+// Fingerbewegungen gehen weiter an die Leaflet-Karte: Verschieben = flach mit Norden oben, „Zur aktuellen Position“ = wieder 3D.
+let gl3b=null, gl3=null, gl3ok=false, gl3car=null, gl3raf=0, gl3sig="";
+const want3d=()=>IS_TEST&&t3dPref()&&rotMode()&&rotOn()&&!!(disp||carPos);
+const llq=a=>a.map(q=>[q[1],q[0]]);
+function gl3Make(){ if(gl3) return; const box=document.createElement("div"); box.id="gl3d"; mapIn.after(box);
+  try{ gl3=new maplibregl.Map({container:box,style:OFM_STYLE,interactive:false,attributionControl:false,pitch:60,zoom:16,center:[8.6,48.2],pixelRatio:devicePixelRatio||1,fadeDuration:0}); }
+  catch(e){ gl3=null; box.remove(); return; }
+  gl3.on("error",()=>{}); gl3.on("load",()=>{ try{
+    gl3.addSource("tour",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+    gl3.addSource("ap",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+    gl3.addSource("stops",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+    gl3.addLayer({id:"tour",type:"line",source:"tour",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#8f969c","line-width":5,"line-opacity":.55}});
+    gl3.addLayer({id:"ap-halo",type:"line",source:"ap",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#ffffff","line-width":13}});
+    gl3.addLayer({id:"ap",type:"line",source:"ap",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#1f9d55","line-width":9}});
+    gl3.addLayer({id:"stops",type:"circle",source:"stops",paint:{"circle-radius":["case",["get","t"],9,11],"circle-color":["case",["get","t"],"#1f6f4a","#1f6f5c"],"circle-stroke-color":"#fff","circle-stroke-width":2.5,"circle-pitch-alignment":"viewport"}});
+    gl3.addLayer({id:"stop-no",type:"symbol",source:"stops",filter:["!",["get","t"]],layout:{"text-field":["get","n"],"text-font":["Noto Sans Bold"],"text-size":12,"text-allow-overlap":true,"text-ignore-placement":true},paint:{"text-color":"#fff"}});
+    gl3ok=true; gl3sig=""; }catch(e){} });
+  const el=document.createElement("div"); el.className="car3d";
+  el.innerHTML='<svg viewBox="0 0 48 48" width="46" height="46"><path d="M24 3 L41 43 L24 34 L7 43 Z" fill="#1a73e8" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/><path d="M24 3 L24 34 L7 43 Z" fill="#000" opacity=".18"/></svg>';
+  gl3car=new maplibregl.Marker({element:el,rotationAlignment:"map",pitchAlignment:"map"}).setLngLat([8.6,48.2]).addTo(gl3); }
+function gl3Data(){ if(!gl3ok||!tour) return;
+  const sig=[cur,apStop,apLine&&apLine.length,apLine&&apLine[0]&&apLine[0][0],tour.road&&tour.road.line.length,tour.stops.filter(q=>q.done).length].join("|"); if(sig===gl3sig) return; gl3sig=sig;
+  const rl=tour.road&&tour.road.line||tour.line||[];
+  gl3.getSource("tour").setData({type:"Feature",geometry:{type:"LineString",coordinates:llq(rl.length>1?rl:[[0,0],[0,0]])}});
+  gl3.getSource("ap").setData(apLine&&apLine.length>1?{type:"Feature",geometry:{type:"LineString",coordinates:llq(apLine)}}:{type:"FeatureCollection",features:[]});
+  gl3.getSource("stops").setData({type:"FeatureCollection",features:tour.stops.map((q,i)=>!q.done&&q.ll?{type:"Feature",properties:{n:String(i+1),t:i===cur},geometry:{type:"Point",coordinates:[q.ll[1],q.ll[0]]}}:null).filter(Boolean)}); }
+function gl3Frame(){ gl3raf=0; if(!want3d()||!gl3){ return; }
+  const p=disp||carPos, h=mapBox.clientHeight;
+  const hb=head||0; if(gl3b==null) gl3b=hb; else { const d=((hb-gl3b)%360+540)%360-180; gl3b=(gl3b+d*.08+360)%360; }
+  gl3.jumpTo({center:[p[1],p[0]],bearing:gl3b,pitch:62,zoom:Math.min(19,map.getZoom()-.6),padding:{top:Math.round(h*.38),bottom:0,left:0,right:0}});
+  if(gl3car){ gl3car.setLngLat([p[1],p[0]]); gl3car.setRotation(gl3b); }
+  gl3Data(); gl3raf=requestAnimationFrame(gl3Frame); }
+function gl3Check(){ const on=want3d();
+  if(on&&!window.maplibregl){ loadMaplibre().then(gl3Check).catch(()=>{}); return; }
+  if(on&&!gl3) gl3Make();
+  const vis=on&&gl3ok; document.body.classList.toggle("r3d",vis);
+  if(on&&gl3){ gl3.resize(); if(!gl3raf) gl3raf=requestAnimationFrame(gl3Frame); }
+  else if(gl3raf){ cancelAnimationFrame(gl3raf); gl3raf=0; } }
+// v=159 (Test): 3D aus. Karte immer in Fahrtrichtung: solange GPS noch keine Richtung kennt (Stillstand, gerade geöffnet),
 // nimmt die App die Richtung der grünen Linie ab der eigenen Position (Punkt ca. 25 m voraus).
 function routeHead(){ const p=carPos, L=apLine; if(!p||!L||L.length<2) return null;
   let bi=0,bd=1e9; for(let i=0;i<L.length;i++){ const d=dist(p,L[i]); if(d<bd){ bd=d; bi=i; } } if(bd>60) return null;
@@ -2148,7 +2577,7 @@ function setHead(p,gh,speed,acc){ // Fahrtrichtung aus GPS (ab ca. 7 km/h) oder 
   applyRot(); }
 function followPt(z,p){ // Mittelpunkt beim Nachführen: mit Drehung etwas vor dem Auto, damit man mehr von der Straße voraus sieht
   p=p||disp||carPos; if(!p) return null; z=z??map.getZoom(); if(!rotOn()) return p;
-  const k=mapBox.clientHeight*.06, b=head*Math.PI/180; // v=112: Männchen fast mittig (vorher 22 % unter der Mitte)
+  const k=mapBox.clientHeight*(t3d()?.2:.06), b=head*Math.PI/180; /* v=155: bei 3D-Sicht steht das Männchen weiter unten */ // v=112: Männchen fast mittig (vorher 22 % unter der Mitte)
   return map.unproject(map.project(p,z).add(L.point(Math.sin(b)*k,-Math.cos(b)*k)),z); }
 // Flüssige Bewegung: GPS meldet etwa einmal pro Sekunde eine Position. Das Auto (und die Karte) gleitet in dieser Zeit
 // gleichmäßig von der alten zur neuen Position, statt zu springen. Die grüne Anfahrt wird dabei laufend hinter dem Auto abgeschnitten.
@@ -2178,7 +2607,7 @@ function declutter(){ // v=85: nur beim Fahren, nah dran (Zoom ab 16, unter 40 m
       lead.style.width=L+"px"; lead.style.transform=`rotate(${Math.atan2(oy,ox)}rad)`; m.setZIndexOffset(2500); }
     else if(lead){ pin.style.translate=""; lead.remove(); m.setZIndexOffset(m.options.zIndexOffset0||0); } }); }
 map.on("zoomend viewreset",declutter);
-function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<33&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
+function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<(IS_TEST?15:33)&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
   const f=Math.min(1,(now-animT0)/animDur); disp=[animFrom[0]+(animTo[0]-animFrom[0])*f, animFrom[1]+(animTo[1]-animFrom[1])*f];
   const sn=trimApproach(disp); if(car) car.setLatLng(sn||disp); // nahe der Route: Auto sitzt genau auf der Straße
   declutter();
@@ -2233,6 +2662,7 @@ let stPill=null, stShown=-1;
 function updateHouseNo(){
   const s=tour&&cur>=0?tour.stops[cur]:null, drv=document.body.classList.contains("drive")||!!simTimer;
   if(!drv||!s||!s.ll||!s.addr){ if(stPill){ stPill.remove(); stPill=null; } stShown=-1; return; }
+  { try{ const mk=markers.find(m=>m.options.si===cur), pe=mk&&mk.getElement(); const d=pe&&pe.firstElementChild; if(d&&!d.classList.contains("nonum")) d.classList.add("nonum"); }catch(e){} return; } // v=157: statt Marke am Haus ein Schild oben (stSign)
   if(stShown!==cur){
     if(stPill){ stPill.remove(); stPill=null; }
     if(!carPos||apStop!==cur) return;
@@ -2397,6 +2827,26 @@ function checkArrival(){
   if(dd<=ANNOUNCE_M&&!s.said){ s.said=true; announced=cur; announce(cur); saveTour(); } // jedes Haus genau einmal ansagen, auch nach Neustart
   noteBan(dd);
   if($("modeAuto").checked){
+    // v=153 (Test, Draklin): erst geliefert, dann abgehaken. 15 s (v=160, vorher 20 s) Stehen bis 25 m vom Haus = geliefert (grüne Linie zeigt dann zum nächsten),
+    // abgehakt wird beim Wegfahren (40 m weg vom Standplatz). Nur Vorbeifahren oder kurzes Halten (Kreuzung, Gegenverkehr) hakt nichts ab.
+    // Nachbarhäuser (z. B. 20 und 22) innerhalb 25 m vom Standplatz gelten mit als geliefert.
+    if(arr.i!==cur){ if(dd>r) return; arr={i:cur,min:dd,at:Date.now(),p:carPos.slice(),t0:Date.now(),ok:false,grp:[cur]}; }
+    if(dd<arr.min){ arr.min=dd; if(!arr.ok) arr.at=Date.now(); }
+    if(!arr.ok){
+      if(gpsAcc>15) return; // ungenaues GPS: noch nichts entscheiden
+      const still=dist(carPos,arr.p)<6&&(simTimer||gpsSpeed==null||gpsSpeed<0||gpsSpeed<1.5);
+      if(!still||dd>STAND_R){ arr.p=carPos.slice(); arr.t0=Date.now(); }
+      else { clearTimeout(arr.tm); arr.tm=setTimeout(checkArrival,1000); // im Stand meldet das Handy selten, daher selbst nachsehen
+        if(Date.now()-arr.t0>=STAND_MS){ arr.ok=true; arr.sp=carPos.slice(); arr.grp=[cur];
+          for(let i=cur+1;i<tour.stops.length;i++){ const q=tour.stops[i]; if(q.done) continue; if(q.ll&&dist(q.ll,carPos)<=STAND_R) arr.grp.push(i); else break; }
+          const nx=apTarget(); toast(nx>=0&&nx!==cur?`Stopp ${arr.grp.map(i=>i+1).join(", ")} geliefert, weiter zu Stopp ${nx+1}`:`Stopp ${cur+1} geliefert`); updateApproach(); render(); } }
+      if(dd>r+15){ clearTimeout(arr.tm); arr.i=-1; } // nur vorbeigefahren
+      return; }
+    if(gpsAcc<=25&&dist(carPos,arr.sp)>40){ clearTimeout(arr.tm); const g=arr.grp, at=arr.at; arr.i=-1;
+      g.forEach(i=>{ const q=tour.stops[i]; if(q.done) return; q.done=true; if(!q.at) q.at=at; q.dep=Date.now(); if(i===g[0]) learnStand(q); });
+      advanceAfterDone(); render(); if(cur<0) tourFinished(); }
+    return; }
+  if($("modeAuto").checked){
     // Automatisch abhaken erst beim Wegfahren: Ankunft im Umkreis merken (nächster Punkt = Ankunftszeit),
     // abgehakt wird, sobald man sich wieder entfernt (aus dem Umkreis raus oder 25 m weiter weg als am nächsten Punkt). Kein Zeitzähler.
     if(arr.i!==cur){ if(dd>r) return; arr={i:cur,min:dd,at:Date.now(),p:carPos.slice(),t0:Date.now()}; updateApproach(); } // angekommen: grüne Linie zeigt schon zum nächsten Kunden
@@ -2478,7 +2928,7 @@ async function startGps(){
   },err=>{
     $("gpsState").textContent=err.code===1?"GPS wurde nicht erlaubt. Bitte in den Browser-Einstellungen den Standort für diese Seite freigeben.":"Kein GPS-Signal. Ich versuche es weiter.";
     if(err.code===1){ stopGps(); toast("Standort im Browser gesperrt. Bitte in den Browser-Einstellungen für diese Seite erlauben."); }
-  },{enableHighAccuracy:true,maximumAge:2000,timeout:20000});
+  },{enableHighAccuracy:true,maximumAge:0,timeout:20000}); // v=153 (Test): nur frische GPS-Werte
   $("gps").textContent="■ GPS stoppen";
 }
 // Standort: bei jedem „Tour starten“ (und „GPS starten“) wird neu gefragt. Ab 8:30 Uhr fragt die App, ob GPS weiterlaufen soll,
@@ -2859,8 +3309,11 @@ async function updateApproach(){
     const m=[(sx.park[0]+to[0])/2,(sx.park[1]+to[1])/2];
     L.marker(m,{icon:L.divIcon({className:"",html:'<div class="walkman">🚶</div>',iconSize:[22,22],iconAnchor:[11,11]}),interactive:false,keyboard:false}).addTo(approachLayer); }
 }
+const STAND_MS=15000, STAND_R=25; // v=153 (Test): so lange und so nah muss man stehen, damit ein Kunde als geliefert gilt
 function apTarget(){ // Ziel der grünen Anfahrt: beim aktuellen Kunden angekommen (noch nicht abgehakt) → schon der Weg zum nächsten
-  if(!tour||cur<0) return cur; if(arr.i!==cur&&arrivedShown!==cur) return cur;
+  if(!tour||cur<0) return cur;
+  { if(!(arr.i===cur&&arr.ok)) return cur; const last=arr.grp[arr.grp.length-1]; const n=tour.stops.findIndex((q,i)=>i>last&&!q.done); return n<0?cur:n; } // v=153: erst nach „geliefert“ zum nächsten
+  if(arr.i!==cur&&arrivedShown!==cur) return cur;
   if(backTo>=0&&backTo!==cur&&!tour.stops[backTo].done) return backTo;
   let n=tour.stops.findIndex((q,i)=>i>cur&&!q.done); if(n<0) n=tour.stops.findIndex((q,i)=>i!==cur&&!q.done); return n<0?cur:n; }
 function approachPt(s,from){ // letzter Streckenpunkt der Morgengold-Route vor dem Haus; nur solange man noch nicht daran vorbei ist
@@ -2880,7 +3333,13 @@ new DriveCtl().addTo(map);
 const SndCtl=L.Control.extend({options:{position:"topleft"},onAdd(){ const b=L.DomUtil.create("button","snd-btn"); b.type="button"; b.id="sndBtn";
   L.DomEvent.disableClickPropagation(b); return b; }});
 new SndCtl().addTo(map);
-map.attributionControl.setPosition("topright"); // Lizenzhinweis oben statt unten (unten stört er die Leiste)
+// v=156 (Test): Knopf 3D/2D beim Fahren, zeigt an, wohin er umschaltet
+const D3Ctl=L.Control.extend({options:{position:"topleft"},onAdd(){ const b=L.DomUtil.create("button","d3-btn"); b.type="button"; b.id="d3Btn";
+  L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ const on=!t3dPref(); try{ localStorage.setItem("navi-3d",on?"an":"aus"); }catch(x){} $("t3dSw").checked=on; d3Ui(); sizeInner(); map.invalidateSize({animate:false}); applyRot(true); if(follow&&carPos) map.setView(followPt(),map.getZoom(),{animate:false}); toast(on?"3D-Sicht":"Flache Karte"); }; return b; }});
+if(IS_TEST) new D3Ctl().addTo(map);
+function d3Ui(){ const b=document.getElementById("d3Btn"); if(!b) return; const on=t3dPref(); b.textContent=on?"2D":"3D"; b.setAttribute("aria-label",on?"Flache Karte":"3D-Sicht"); }
+d3Ui();
+map.attributionControl.setPosition("topright"); map.attributionControl.setPrefix(false); // v=152 (Test): nur die Kartenanbieter nennen, kein „Leaflet“ // Lizenzhinweis oben statt unten (unten stört er die Leiste)
 const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
   const b=L.DomUtil.create("button","to-me"); b.type="button"; b.id="toMe"; b.hidden=true; b.textContent="◎ Zur aktuellen Position";
   L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ setFollow(true); map.invalidateSize({pan:false}); if(carPos){ const z=Math.max(map.getZoom(),16); map.setView(followPt(z),z); } };
@@ -2907,7 +3366,9 @@ async function loadFiles(files){
       const head=new Uint8Array(await f.slice(0,5).arrayBuffer());
       if(String.fromCharCode(...head)==="%PDF-"){
         if(!window.pdfjsLib) throw new Error("Der PDF-Leser konnte nicht geladen werden. Bitte Internetverbindung prüfen.");
-        pdfTour=parseAusfahrliste(await readPdfWords(new Uint8Array(await f.arrayBuffer())));
+        const buf=await f.arrayBuffer(); let ausf=true;
+        try{ pdfTour=parseAusfahrliste(await readPdfWords(new Uint8Array(buf.slice(0)))); }catch(x){ if(!IS_TEST||!/nicht wie eine Ausfahrliste/.test(x.message||"")) throw x; ausf=false; }
+        if(!ausf){ pdfTour=parseEtiketten(await readPdfItems(new Uint8Array(buf.slice(0)))); bcrTour=null; } // v=151: Etiketten = ganze Tour, alte .bcr weg
       } else {
         const text=await new Promise((ok,bad)=>{const rd=new FileReader();rd.onload=()=>ok(rd.result);rd.onerror=bad;rd.readAsText(f,"ISO-8859-1");});
         bcrTour=parseBcr(text); bcrTour.stops.forEach(s=>s.name=""); // Kundennamen gar nicht erst behalten
@@ -2917,8 +3378,9 @@ async function loadFiles(files){
   stopSim(); stopGps(); if(car)car.remove(); carPos=null;
   if(!(tour&&files.length===1&&((isPdfOnly(files)&&!hadPdf)||(!isPdfOnly(files)&&!hadBcr)))) curId=null; // neue Tour, außer es wurde nur die fehlende Datei ergänzt
   const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit();
-  if(bcrOnly()&&pdfTour&&!bcrTour) toast("Test-Version: Die Tour läuft nur über die .bcr. Bitte auch die Routendatei öffnen.");
-  if(!bcrOnly()&&pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
+  const etik=!!(pdfTour&&pdfTour.etik);
+  if(bcrOnly()&&!etik&&pdfTour&&!bcrTour) toast("Test-Version: Die Tour läuft nur über die .bcr. Bitte auch die Routendatei öffnen.");
+  if((!bcrOnly()||etik)&&pdfTour&&!bcrTour&&tour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
   else{ routeTour(); checkTour(); }
 }
 // Service Worker nur, damit sich die App installieren lässt. Das frühere Teilen-Ziel ist entfernt, Dateien öffnet man über „Tour öffnen“.
@@ -3059,7 +3521,7 @@ $("clear").addEventListener("click",async()=>{
   if(!await ask("Tour löschen?","Die aktuelle und alle gespeicherten Touren (bis zu 3) werden mit allen Adressen und Haken von diesem Handy entfernt. Eigene Hauspunkte bleiben, die lassen sich in den Einstellungen löschen.","Ja, löschen","Abbrechen")) return;
   $("confirmYes").click(); toast("Tour gelöscht"); });
 $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
-$("confirmYes").addEventListener("click",()=>{setSideBar("");footLayer.clearLayers();footWays.clear();footDone.length=0;endPin();curId=null;try{localStorage.removeItem(TOUR_KEY);localStorage.removeItem(TOURS_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();lastTourUi();});
+$("confirmYes").addEventListener("click",()=>{setSideBar("");footLayer.clearLayers();footWays.clear();footDone.length=0;footList.length=0;endPin();curId=null;try{localStorage.removeItem(TOUR_KEY);localStorage.removeItem(TOURS_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();lastTourUi();});
 // Alle abhaken / alle Haken weg (Liste vor der Fahrt)
 $("allChk").addEventListener("change",e=>{ if(!tour) return; const on=e.target.checked; tour.stops.forEach(s=>s.done=on); backTo=-1;
   cur=on?-1:0; render(); toast(on?"Alle Stopps abgehakt":"Alle Haken entfernt"); });
@@ -3288,6 +3750,10 @@ $("restartBtn").addEventListener("click",async()=>{ if(!tour) return;
   render(); fit(); toast("Tour beginnt wieder bei Stopp 1"); });
 
 $("restartTop").addEventListener("click",()=>$("restartBtn").click());
+$("t3dSw").checked=(()=>{ try{ return localStorage.getItem("navi-3d")!=="aus"; }catch(e){ return true; } })();
+$("t3dSw").addEventListener("change",e=>{ try{ localStorage.setItem("navi-3d",e.target.checked?"an":"aus"); }catch(x){} sizeInner(); map.invalidateSize({animate:false}); applyRot(true); d3Ui(); toast(e.target.checked?"3D-Sicht an":"3D-Sicht aus"); });
+$("ofmSw").checked=ofmWanted();
+$("ofmSw").addEventListener("change",e=>{ try{ localStorage.setItem("navi-ofm",e.target.checked?"an":"aus"); }catch(x){} useTiles(e.target.checked?"ofm":"esri"); toast(e.target.checked?"Moderne Karte (OpenFreeMap)":"Esri-Karte"); });
 $("bcrOnly").checked=bcrOnly();
 $("bcrOnly").addEventListener("change",e=>{ try{ localStorage.setItem("navi-nur-bcr",e.target.checked?"an":"aus"); }catch(x){}
   const t=mergeTours(); if(t){ tour=t; if(cur<0||cur>=t.stops.length) cur=0; } loadedInfo(); render(); if(tour){ routeTour(); checkTour(); }

@@ -2206,7 +2206,7 @@ function loadMaplibre(){ if(mlReady) return mlReady;
     sc.onload=()=>{ try{ window.mlLeafletInit(); res(); }catch(e){ rej(e); } }; sc.onerror=()=>rej(new Error("MapLibre nicht geladen")); document.head.append(sc);
     setTimeout(()=>rej(new Error("Zeit")),15000); });
   mlReady.catch(()=>{ mlReady=null; }); return mlReady; }
-const ofmWanted=()=>{ if(!IS_TEST) return false; try{ return localStorage.getItem("navi-ofm")!=="aus"; }catch(e){ return true; } };
+const ofmWanted=()=>{ try{ return localStorage.getItem("navi-ofm")!=="aus"; }catch(e){ return true; } };
 let tileKey="esri";
 function useOfm(){
   tileKey="ofm";
@@ -2450,7 +2450,7 @@ function hnMark(){ const drv=document.body.classList.contains("drive")||!!simTim
     if(vis!==f.on){ f.on=vis; if(vis) f.grp.addTo(footLayer); else footLayer.removeLayer(f.grp); } });
   stSign(drv&&near&&T===cur?s:null, mm); }
 // v=157 (Test, Draklin „Schild oben“): kurz vor dem Einbiegen in die Straße des Kunden oben ein großes grünes Straßenschild mit Hausnummer
-function stSign(s,mm){ if(!IS_TEST) return; let b=document.getElementById("stSign");
+function stSign(s,mm){ let b=document.getElementById("stSign");
   if(!b){ b=document.createElement("div"); b.id="stSign"; b.className="st-sign"; b.hidden=true; b.setAttribute("role","status"); b.innerHTML="<span></span><small></small>"; $("map").appendChild(b); }
   if(!s){ if(!b.hidden) b.hidden=true; return; }
   const name=mm?mm[1]:String(s.addr).split(",")[0], no=mm?mm[2]:"";
@@ -2662,7 +2662,7 @@ let stPill=null, stShown=-1;
 function updateHouseNo(){
   const s=tour&&cur>=0?tour.stops[cur]:null, drv=document.body.classList.contains("drive")||!!simTimer;
   if(!drv||!s||!s.ll||!s.addr){ if(stPill){ stPill.remove(); stPill=null; } stShown=-1; return; }
-  if(IS_TEST){ try{ const mk=markers.find(m=>m.options.si===cur), pe=mk&&mk.getElement(); const d=pe&&pe.firstElementChild; if(d&&!d.classList.contains("nonum")) d.classList.add("nonum"); }catch(e){} return; } // v=157: statt Marke am Haus ein Schild oben (stSign)
+  { try{ const mk=markers.find(m=>m.options.si===cur), pe=mk&&mk.getElement(); const d=pe&&pe.firstElementChild; if(d&&!d.classList.contains("nonum")) d.classList.add("nonum"); }catch(e){} return; } // v=157: statt Marke am Haus ein Schild oben (stSign)
   if(stShown!==cur){
     if(stPill){ stPill.remove(); stPill=null; }
     if(!carPos||apStop!==cur) return;
@@ -2826,8 +2826,8 @@ function checkArrival(){
   const dd=Math.min(dist(carPos,s.ll),s.park?dist(carPos,s.park):Infinity); // am Anfahrpunkt geparkt zählt als angekommen
   if(dd<=ANNOUNCE_M&&!s.said){ s.said=true; announced=cur; announce(cur); saveTour(); } // jedes Haus genau einmal ansagen, auch nach Neustart
   noteBan(dd);
-  if($("modeAuto").checked&&IS_TEST){
-    // v=153 (Test, Draklin): erst geliefert, dann abgehaken. 20 s Stehen bis 25 m vom Haus = geliefert (grüne Linie zeigt dann zum nächsten),
+  if($("modeAuto").checked){
+    // v=153 (Test, Draklin): erst geliefert, dann abgehaken. 15 s (v=160, vorher 20 s) Stehen bis 25 m vom Haus = geliefert (grüne Linie zeigt dann zum nächsten),
     // abgehakt wird beim Wegfahren (40 m weg vom Standplatz). Nur Vorbeifahren oder kurzes Halten (Kreuzung, Gegenverkehr) hakt nichts ab.
     // Nachbarhäuser (z. B. 20 und 22) innerhalb 25 m vom Standplatz gelten mit als geliefert.
     if(arr.i!==cur){ if(dd>r) return; arr={i:cur,min:dd,at:Date.now(),p:carPos.slice(),t0:Date.now(),ok:false,grp:[cur]}; }
@@ -2928,7 +2928,7 @@ async function startGps(){
   },err=>{
     $("gpsState").textContent=err.code===1?"GPS wurde nicht erlaubt. Bitte in den Browser-Einstellungen den Standort für diese Seite freigeben.":"Kein GPS-Signal. Ich versuche es weiter.";
     if(err.code===1){ stopGps(); toast("Standort im Browser gesperrt. Bitte in den Browser-Einstellungen für diese Seite erlauben."); }
-  },{enableHighAccuracy:true,maximumAge:IS_TEST?0:2000,timeout:20000}); // v=153 (Test): nur frische GPS-Werte
+  },{enableHighAccuracy:true,maximumAge:0,timeout:20000}); // v=153 (Test): nur frische GPS-Werte
   $("gps").textContent="■ GPS stoppen";
 }
 // Standort: bei jedem „Tour starten“ (und „GPS starten“) wird neu gefragt. Ab 8:30 Uhr fragt die App, ob GPS weiterlaufen soll,
@@ -3309,10 +3309,10 @@ async function updateApproach(){
     const m=[(sx.park[0]+to[0])/2,(sx.park[1]+to[1])/2];
     L.marker(m,{icon:L.divIcon({className:"",html:'<div class="walkman">🚶</div>',iconSize:[22,22],iconAnchor:[11,11]}),interactive:false,keyboard:false}).addTo(approachLayer); }
 }
-const STAND_MS=20000, STAND_R=25; // v=153 (Test): so lange und so nah muss man stehen, damit ein Kunde als geliefert gilt
+const STAND_MS=15000, STAND_R=25; // v=153 (Test): so lange und so nah muss man stehen, damit ein Kunde als geliefert gilt
 function apTarget(){ // Ziel der grünen Anfahrt: beim aktuellen Kunden angekommen (noch nicht abgehakt) → schon der Weg zum nächsten
   if(!tour||cur<0) return cur;
-  if(IS_TEST){ if(!(arr.i===cur&&arr.ok)) return cur; const last=arr.grp[arr.grp.length-1]; const n=tour.stops.findIndex((q,i)=>i>last&&!q.done); return n<0?cur:n; } // v=153: erst nach „geliefert“ zum nächsten
+  { if(!(arr.i===cur&&arr.ok)) return cur; const last=arr.grp[arr.grp.length-1]; const n=tour.stops.findIndex((q,i)=>i>last&&!q.done); return n<0?cur:n; } // v=153: erst nach „geliefert“ zum nächsten
   if(arr.i!==cur&&arrivedShown!==cur) return cur;
   if(backTo>=0&&backTo!==cur&&!tour.stops[backTo].done) return backTo;
   let n=tour.stops.findIndex((q,i)=>i>cur&&!q.done); if(n<0) n=tour.stops.findIndex((q,i)=>i!==cur&&!q.done); return n<0?cur:n; }
@@ -3339,7 +3339,7 @@ const D3Ctl=L.Control.extend({options:{position:"topleft"},onAdd(){ const b=L.Do
 if(IS_TEST) new D3Ctl().addTo(map);
 function d3Ui(){ const b=document.getElementById("d3Btn"); if(!b) return; const on=t3dPref(); b.textContent=on?"2D":"3D"; b.setAttribute("aria-label",on?"Flache Karte":"3D-Sicht"); }
 d3Ui();
-map.attributionControl.setPosition("topright"); if(IS_TEST) map.attributionControl.setPrefix(false); // v=152 (Test): nur die Kartenanbieter nennen, kein „Leaflet“ // Lizenzhinweis oben statt unten (unten stört er die Leiste)
+map.attributionControl.setPosition("topright"); map.attributionControl.setPrefix(false); // v=152 (Test): nur die Kartenanbieter nennen, kein „Leaflet“ // Lizenzhinweis oben statt unten (unten stört er die Leiste)
 const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
   const b=L.DomUtil.create("button","to-me"); b.type="button"; b.id="toMe"; b.hidden=true; b.textContent="◎ Zur aktuellen Position";
   L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ setFollow(true); map.invalidateSize({pan:false}); if(carPos){ const z=Math.max(map.getZoom(),16); map.setView(followPt(z),z); } };

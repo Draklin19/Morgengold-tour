@@ -2220,7 +2220,9 @@ function useOfm(){
     document.getElementById("mapErr").hidden=true;
     const gl=tileLayer.getMaplibreMap&&tileLayer.getMaplibreMap();
     const fail=()=>{ if(tileKey==="ofm"&&!ok){ tileKey="esri"; useTiles("esri"); } };
-    if(gl){ gl.on("data",e=>{ if(e.dataType==="source"&&e.tile) ok=true; }); gl.once("idle",()=>{ ok=true; }); gl.on("error",()=>{ bad++; if(bad>=4) fail(); }); }
+    if(gl){ const hideHn=()=>{ try{ (gl.getStyle().layers||[]).forEach(l=>{ if(l["source-layer"]==="housenumber"&&gl.getLayoutProperty(l.id,"visibility")!=="none") gl.setLayoutProperty(l.id,"visibility","none"); }); }catch(e){} };
+      gl.on("styledata",hideHn); hideHn(); // v=162: Hausnummern der Karte aus; nur die eigenen in der Straße des Kunden
+      gl.on("data",e=>{ if(e.dataType==="source"&&e.tile) ok=true; }); gl.once("idle",()=>{ ok=true; }); gl.on("error",()=>{ bad++; if(bad>=4) fail(); }); }
     setTimeout(fail,12000);
   }).catch(()=>{ if(tileKey==="ofm"){ tileKey="esri"; useTiles("esri"); } });
 }

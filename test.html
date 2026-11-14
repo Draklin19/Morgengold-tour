@@ -1860,6 +1860,36 @@ const TAGS=[{re:/^RKL/,k:"rkl",t:"Reklamation"},{re:/^PRO/,k:"pro",t:"Probe"},{r
 function tagsOf(tokens){ const out=[]; tokens.forEach(x=>{ if(!/^[A-Z0-9]{3,8}$/.test(x)) return; const T=TAGS.find(T=>T.re.test(x)); if(T&&!out.includes(T.k)) out.push(T.k); });
   return TAGS.map(T=>T.k).filter(k=>out.includes(k)); } // Reihenfolge: Reklamation, Probe, Trinkgeld
 function fillTags(el,tags){ el.textContent=""; (tags||[]).forEach(k=>{ const T=TAGS.find(T=>T.k===k), c=document.createElement("span"); c.className="tagchip "+k; c.textContent=T.t; el.append(c); }); }
+// v=151 (Test): Etiketten-PDF (ein Etikett je Tüte, 3 Spalten) als ganze Tour lesen, ohne .bcr.
+async function readPdfItems(data){ // Textstücke mit Seite, Lage und Schriftgröße
+  const pdf=await pdfjsLib.getDocument({data}).promise, out=[];
+  for(let p=1;p<=pdf.numPages;p++){ const page=await pdf.getPage(p), h=page.getViewport({scale:1}).height, tc=await page.getTextContent();
+    tc.items.forEach(it=>{ const s=(it.str||"").trim(); if(s) out.push({p,x:it.transform[4],y:h-it.transform[5],fs:Math.abs(it.transform[0]),s}); }); }
+  return out; }
+function parseEtiketten(items){
+  const head=items.filter(i=>i.p===1&&i.y<32).map(i=>i.s).join(" ");
+  const tm=head.match(/Tour:\s*(\S+)/), dm=head.match(/\b(Mo|Di|Mi|Do|Fr|Sa|So)\s+(\d\d\.\d\d\.\d\d)\b/), km=head.match(/([\d.,]+)\s*km/);
+  const nums=items.filter(i=>i.fs>=11&&/^\d+$/.test(i.s));
+  if(!tm||nums.length<2) throw new Error("Das sieht weder wie eine Ausfahrliste noch wie Etiketten aus.");
+  const by={};
+  nums.forEach(n=>{ const cx=n.x-19, inL=i=>i.p===n.p&&i.x>=cx-4&&i.x<cx+194&&i.y>=n.y-9&&i.y<n.y+112&&i!==n;
+    const L=items.filter(inL).sort((a,b)=>a.y-b.y||a.x-b.x);
+    const adr=L.find(i=>i.fs>7.5&&i.fs<8.5&&i.y<n.y-3&&/,/.test(i.s));
+    const arts=L.filter(i=>i.fs>8.5&&i.fs<10&&/^\d+\s+\S/.test(i.s)).map(i=>i.s.replace(/\s+/g," "));
+    const vb=L.map(i=>i.s.match(/^(\d+)\s+von\s+(\d+)$/)).find(Boolean);
+    const notes=L.filter(i=>i.fs>6.5&&i.fs<7.5&&!/^\d+\s+von\s+\d+$/.test(i.s)).map(i=>i.s);
+    const codes=L.filter(i=>i.fs<6.5&&i.fs>4&&/^[A-Z]{3,5}$/.test(i.s)).map(i=>i.s);
+    const e=by[n.s]||(by[n.s]={no:n.s,adr:"",arts:[],notes:[],bags:0,codes:[]});
+    if(adr&&adr.s.length>e.adr.length) e.adr=adr.s; e.arts.push(...arts); notes.forEach(t=>{ if(!e.notes.includes(t)) e.notes.push(t); });
+    e.bags=Math.max(e.bags,vb?+vb[2]:1); e.codes.push(...codes); });
+  const stops=Object.values(by).sort((a,b)=>a.no-b.no).map(e=>{ const k=e.adr.lastIndexOf(","); const addr=(k>0?e.adr.slice(0,k):e.adr).trim(), town=k>0?e.adr.slice(k+1).trim():"";
+    const notes=e.notes.length?[e.notes.join(" ")]:[]; if(e.bags>1) notes.unshift(`🛍 ${e.bags} Tüten`);
+    return {no:e.no,addr,town,notes,tags:tagsOf(e.codes),articles:e.arts.length?[e.arts]:[]}; });
+  // Ladeliste oben auf Seite 1: Menge und Artikel stehen als getrennte Stücke nebeneinander
+  const ld=items.filter(i=>i.p===1&&i.y>=32&&i.y<110&&i.fs>8.5&&i.fs<10).sort((a,b)=>a.y-b.y||a.x-b.x), load=[];
+  ld.forEach((i,k)=>{ if(/^\d+$/.test(i.s)&&ld[k+1]&&!/^\d+$/.test(ld[k+1].s)&&Math.abs(ld[k+1].y-i.y)<2) load.push(i.s+" "+ld[k+1].s); });
+  return {name:tm[1], date:dm?dm[2]:"", km:km?km[1]:"", zone:"", load:load.length?[load]:[], stops, etik:true};
+}
 function parseAusfahrliste(words){
   // Wörter zu Zeilen gruppieren
   words.sort((a,b)=>a.y-b.y||a.x-b.x);
@@ -1947,7 +1977,7 @@ function bcrVias(s,from){ if(!s||!s.via||!s.via.length||!s.ll) return [];
 const straightQ=pts=>pts.length>2?"&continue_straight=true":""; // an den Zwischenpunkten nicht wenden (v=110: in beiden Versionen)
 const depotLL=()=>{ try{ const d=JSON.parse(localStorage.getItem("navi-depot")||"null"); return d&&d.ll||null; }catch(e){ return null; } };
 function mergeTours(){
-  const old=tour&&tour.stops, P=bcrOnly()?null:pdfTour;
+  const old=tour&&tour.stops, P=bcrOnly()&&!(pdfTour&&pdfTour.etik)?null:pdfTour; // v=151: Etiketten gelten auch bei „nur .bcr“
   let t=null;
   if(bcrTour){
     t={name:bcrTour.name,time:bcrTour.time,stops:bcrTour.stops.map((s,i)=>({...s,name:"",notes:[],articles:[],town:s.town||"",exact:true}))};
@@ -1968,7 +1998,7 @@ function mergeTours(){
 function fillArts(ul,cols){ ul.textContent=""; cols.flatMap(artItems).forEach(it=>{ const li=document.createElement("li"); if(it.qty){const b=document.createElement("b");b.textContent=it.qty+"×";li.append(b);} li.append(it.name); ul.append(li); }); }
 // Adressen aus der Ausfahrliste in Koordinaten umwandeln (OpenStreetMap Nominatim, höchstens 1 Anfrage pro Sekunde).
 let geoRunning=false;
-async function geocodeOne(s){
+async function geocodeOne(s,ref){ // v=151: ref = Bezugspunkt (Kommissionierstelle bzw. Mitte der Tour); ohne PLZ nur in der Nähe suchen, nächster Treffer gewinnt
   const m=(s.town||"").match(/^(\d{5})\s+(.+)$/), plz=m?m[1]:"", ort=m?m[2]:s.town;
   // v=89: nur Treffer in derselben PLZ bzw. demselben Ort annehmen (sonst landet z. B. ein Tippfehler in einer Straße weit weg).
   // Wird die Straße dort nicht gefunden, gibt es die Ortsmitte als Notpunkt zurück: [lat, lon, 1] = ungefähr.
@@ -1980,10 +2010,13 @@ async function geocodeOne(s){
     return [a.city,a.town,a.village,a.municipality,a.hamlet,a.suburb].some(x=>x&&ortN(x)===want)||ortN(h.display_name).includes(want); };
   const ask1=async t=>{
     const u=new URL("https://nominatim.openstreetmap.org/search");
-    Object.entries({...t,format:"jsonv2",limit:"5",addressdetails:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
+    const near=!plz&&ref?{viewbox:[ref[1]-.55,ref[0]+.37,ref[1]+.55,ref[0]-.37].map(v=>v.toFixed(4)).join(","),bounded:"1"}:{};
+    Object.entries({...t,...near,format:"jsonv2",limit:"5",addressdetails:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
     const w=lastAsk+1100-Date.now(); if(w>0) await new Promise(ok=>setTimeout(ok,w)); lastAsk=Date.now(); // höchstens 1 Anfrage pro Sekunde, auch neben dem Hauspunkt-Abgleich
     const r=await fetch(u.toString()); if(!r.ok) throw new Error("Adresssuche nicht erreichbar ("+r.status+")");
-    const h=(await r.json()).find(fits); return h?[parseFloat(h.lat),parseFloat(h.lon)]:null; };
+    let hs=(await r.json()).filter(fits).map(h=>[parseFloat(h.lat),parseFloat(h.lon)]);
+    if(ref&&!plz){ hs=hs.filter(p=>dist(p,ref)<45000).sort((a,b)=>dist(a,ref)-dist(b,ref)); }
+    return hs[0]||null; };
   if(s.addr) for(const t of [{street:s.addr,postalcode:plz,city:ort},{q:`${s.addr}, ${plz} ${ort}`},{street:s.addr,postalcode:plz}]){ const p=await ask1(t); if(p) return p; }
   if(plz||ort){ const p=await ask1({postalcode:plz,city:ort})||(plz&&ort?await ask1({q:`${plz} ${ort}`}):null); if(p) return [p[0],p[1],1]; }
   return null;
@@ -1991,13 +2024,22 @@ async function geocodeOne(s){
 async function geocodeTour(){
   if(geoRunning||!tour) return; geoRunning=true; $("geoBtn").disabled=true;
   const todo=tour.stops.filter(s=>!s.ll&&s.addr); let done=0; const miss=[], rough=[];
+  // v=151: Bezugspunkt = Kommissionierstelle, sonst Mitte der schon gefundenen Stopps. Gefundene Punkte merkt sich das Handy (navi-geocache).
+  const GC="navi-geocache", gc=jget(GC), gk=s=>(s.addr+"|"+s.town).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/\s+/g,"");
+  const mid=()=>{ const f=tour.stops.filter(s=>s.ll&&!s.approx); if(!f.length) return null; const m=k=>f.map(s=>s.ll[k]).sort((a,b)=>a-b)[Math.floor(f.length/2)]; return [m(0),m(1)]; };
+  const put=(s,p)=>{ s.ll=p.slice(0,2); s.approx=p[2]===1; s.via=[]; s.geo=true; };
   try{
     for(const s of todo){
       $("geoState").textContent=`Suche Adresse ${++done} von ${todo.length} …`;
-      const p=await geocodeOne(s);
-      if(p){ s.ll=p.slice(0,2); s.approx=p[2]===1; s.via=[]; s.geo=true; if(s.approx) rough.push(tour.stops.indexOf(s)+1); } else miss.push(tour.stops.indexOf(s)+1);
+      const c=gc[gk(s)]; const p=c||await geocodeOne(s,depotLL()||mid());
+      if(p){ put(s,p); if(!c&&!s.approx){ gc[gk(s)]=p; const ks=Object.keys(gc); if(ks.length>3000) delete gc[ks[0]]; jset(GC,gc); } } else miss.push(tour.stops.indexOf(s)+1);
       render(); if(done===1||done===todo.length) fit();
     }
+    // zweiter Durchgang: Ausreißer weit weg von der Tour (z. B. falsches „Hausen“) nahe der Tourmitte neu suchen
+    const m=mid(); if(m) for(const s of todo){ if(!s.ll||dist(s.ll,m)<=35000) continue;
+      $("geoState").textContent=`Prüfe Stopp ${tour.stops.indexOf(s)+1} nochmal …`; const p=await geocodeOne(s,m);
+      if(p&&dist(p,m)<=35000){ put(s,p); if(!s.approx){ gc[gk(s)]=p; jset(GC,gc); } } else { s.approx=true; } render(); }
+    todo.forEach(s=>{ if(s.ll&&s.approx) rough.push(tour.stops.indexOf(s)+1); });
     $("geoState").textContent=(miss.length?`Fertig. Nicht gefunden: Stopp ${miss.join(", ")}. Diese Stopps fehlen auf der Karte, Google Maps findet sie trotzdem über die Adresse.`:rough.length?"Fertig.":"Fertig, alle Adressen gefunden. Die Punkte können einige Meter neben dem Haus liegen.")+(rough.length?` ⚠ Nur ungefähr (Ortsmitte): Stopp ${rough.join(", ")}. Bitte Adresse prüfen und Hauspunkt per langem Drücken setzen.`:"");
   }catch(x){ $("geoState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal versuchen."; }
   geoRunning=false; $("geoBtn").disabled=false; routeTour(); $("geoBox").hidden=!tour.stops.some(s=>!s.ll);
@@ -2110,7 +2152,7 @@ async function routeTour(){
   road.depot=!!dp; t.road=road; routeState(""); render();
 }
 function loadedInfo(){
-  const parts=[]; if(pdfTour) parts.push(`Ausfahrliste: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
+  const parts=[]; if(pdfTour) parts.push(`${pdfTour.etik?"Etiketten":"Ausfahrliste"}: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour&&!pdfTour.etik?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
   let t=parts.length?"Geladen · "+parts.join(" · "):"";
   if(pdfTour&&bcrTour&&pdfTour.stops.length!==bcrTour.stops.length) t+=" · Achtung: unterschiedliche Anzahl, verbunden über die Stopp-Nummer.";
   $("loaded").textContent=t;
@@ -3220,7 +3262,9 @@ async function loadFiles(files){
       const head=new Uint8Array(await f.slice(0,5).arrayBuffer());
       if(String.fromCharCode(...head)==="%PDF-"){
         if(!window.pdfjsLib) throw new Error("Der PDF-Leser konnte nicht geladen werden. Bitte Internetverbindung prüfen.");
-        pdfTour=parseAusfahrliste(await readPdfWords(new Uint8Array(await f.arrayBuffer())));
+        const buf=await f.arrayBuffer(); let ausf=true;
+        try{ pdfTour=parseAusfahrliste(await readPdfWords(new Uint8Array(buf.slice(0)))); }catch(x){ if(!IS_TEST||!/nicht wie eine Ausfahrliste/.test(x.message||"")) throw x; ausf=false; }
+        if(!ausf){ pdfTour=parseEtiketten(await readPdfItems(new Uint8Array(buf.slice(0)))); bcrTour=null; } // v=151: Etiketten = ganze Tour, alte .bcr weg
       } else {
         const text=await new Promise((ok,bad)=>{const rd=new FileReader();rd.onload=()=>ok(rd.result);rd.onerror=bad;rd.readAsText(f,"ISO-8859-1");});
         bcrTour=parseBcr(text); bcrTour.stops.forEach(s=>s.name=""); // Kundennamen gar nicht erst behalten
@@ -3230,8 +3274,9 @@ async function loadFiles(files){
   stopSim(); stopGps(); if(car)car.remove(); carPos=null;
   if(!(tour&&files.length===1&&((isPdfOnly(files)&&!hadPdf)||(!isPdfOnly(files)&&!hadBcr)))) curId=null; // neue Tour, außer es wurde nur die fehlende Datei ergänzt
   const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit();
-  if(bcrOnly()&&pdfTour&&!bcrTour) toast("Test-Version: Die Tour läuft nur über die .bcr. Bitte auch die Routendatei öffnen.");
-  if(!bcrOnly()&&pdfTour&&!bcrTour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
+  const etik=!!(pdfTour&&pdfTour.etik);
+  if(bcrOnly()&&!etik&&pdfTour&&!bcrTour) toast("Test-Version: Die Tour läuft nur über die .bcr. Bitte auch die Routendatei öffnen.");
+  if((!bcrOnly()||etik)&&pdfTour&&!bcrTour&&tour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
   else{ routeTour(); checkTour(); }
 }
 // Service Worker nur, damit sich die App installieren lässt. Das frühere Teilen-Ziel ist entfernt, Dateien öffnet man über „Tour öffnen“.

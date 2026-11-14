@@ -2433,17 +2433,22 @@ function hnMark(){ const drv=document.body.classList.contains("drive")||!!simTim
   const kn=mm?hnKey(mm[2]):"", ks=mm?hnKey(mm[1]):"";
   hnList.forEach(h=>{ const vis=near&&dist(h.at,s.ll)<=250&&(!ks||h.street===ks), /* v=148: nur Häuser in der Straße des Kunden */ on=vis&&!!kn&&h.num===kn&&(!h.street||!ks||h.street===ks);
     if(on!==h.k){ h.k=on; h.m.setIcon(hnIcon(h.txt,on)); h.m.setZIndexOffset(on?-100:-500); }
-    if(vis!==h.on){ h.on=vis; if(vis) h.m.addTo(hnLayer); else hnLayer.removeLayer(h.m); } }); }
+    if(vis!==h.on){ h.on=vis; if(vis) h.m.addTo(hnLayer); else hnLayer.removeLayer(h.m); } });
+  footList.forEach(f=>{ const vis=near&&!!s&&f.pts.some(q=>dist(q,s.ll)<=120);
+    if(vis!==f.on){ f.on=vis; if(vis) f.grp.addTo(footLayer); else footLayer.removeLayer(f.grp); } }); }
 map.on("zoomend",footShow);
+// v=154 (Test): Fußwege wie die Hausnummern nur kurz vor dem Einbiegen in die Straße des Kunden und nur nahe am Haus (120 m), sonst unsichtbar
+const footList=[];
 function drawFoot(w){
   const g=w.geometry.map(q=>[q.lat,q.lon]); if(g.length<2) return;
-  L.polyline(g,{color:"#fff",weight:6,opacity:.75,interactive:false,className:"foot-halo"}).addTo(footLayer);
-  L.polyline(g,{color:"#3d5a80",weight:3,dashArray:"3 7",lineCap:"round",interactive:false,className:"foot-line"}).addTo(footLayer);
+  const tgt=IS_TEST?L.layerGroup():footLayer; if(IS_TEST) footList.push({grp:tgt,pts:g,on:false});
+  L.polyline(g,{color:"#fff",weight:6,opacity:.75,interactive:false,className:"foot-halo"}).addTo(tgt);
+  L.polyline(g,{color:"#3d5a80",weight:3,dashArray:"3 7",lineCap:"round",interactive:false,className:"foot-line"}).addTo(tgt);
   let len=0; const seg=[]; for(let k=1;k<g.length;k++){ const d=dist(g[k-1],g[k]); seg.push(d); len+=d; }
   if(len<20) return;
   let h=len/2, k=0; while(k<seg.length-1&&h>seg[k]){ h-=seg[k]; k++; } const f=seg[k]?h/seg[k]:0;
   const mid=[g[k][0]+(g[k+1][0]-g[k][0])*f, g[k][1]+(g[k+1][1]-g[k][1])*f];
-  L.marker(mid,{icon:L.divIcon({className:"",html:'<div class="footman">🚶</div>',iconSize:[20,20],iconAnchor:[10,10]}),interactive:false,keyboard:false}).addTo(footLayer);
+  L.marker(mid,{icon:L.divIcon({className:"",html:'<div class="footman">🚶</div>',iconSize:[20,20],iconAnchor:[10,10]}),interactive:false,keyboard:false}).addTo(tgt);
 }
 async function loadFoot(i){
   if(footBusy||!tour) return; const s=tour.stops[i]; if(!s||!s.ll) return;
@@ -3440,7 +3445,7 @@ $("clear").addEventListener("click",async()=>{
   if(!await ask("Tour löschen?","Die aktuelle und alle gespeicherten Touren (bis zu 3) werden mit allen Adressen und Haken von diesem Handy entfernt. Eigene Hauspunkte bleiben, die lassen sich in den Einstellungen löschen.","Ja, löschen","Abbrechen")) return;
   $("confirmYes").click(); toast("Tour gelöscht"); });
 $("confirmNo").addEventListener("click",()=>{$("confirmBox").hidden=true;});
-$("confirmYes").addEventListener("click",()=>{setSideBar("");footLayer.clearLayers();footWays.clear();footDone.length=0;endPin();curId=null;try{localStorage.removeItem(TOUR_KEY);localStorage.removeItem(TOURS_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();lastTourUi();});
+$("confirmYes").addEventListener("click",()=>{setSideBar("");footLayer.clearLayers();footWays.clear();footDone.length=0;footList.length=0;endPin();curId=null;try{localStorage.removeItem(TOUR_KEY);localStorage.removeItem(TOURS_KEY);}catch(e){}if("caches" in window)caches.delete("geteilte-dateien").catch(()=>{});stopSim();stopGps();if(car)car.remove();carPos=null;tour=null;bcrTour=null;pdfTour=null;loadedInfo();$("confirmBox").hidden=true;render();lastTourUi();});
 // Alle abhaken / alle Haken weg (Liste vor der Fahrt)
 $("allChk").addEventListener("change",e=>{ if(!tour) return; const on=e.target.checked; tour.stops.forEach(s=>s.done=on); backTo=-1;
   cur=on?-1:0; render(); toast(on?"Alle Stopps abgehakt":"Alle Haken entfernt"); });

@@ -1783,25 +1783,35 @@ async function checkTour(){
 const ROUTERS=["https://routing.openstreetmap.de/routed-car/route/v1/driving/","https://router.project-osrm.org/route/v1/driving/"];
 let routeSeq=0;
 function routeState(t){ $("routeState").textContent=t; $("routeState").hidden=!t; }
-async function routeWith(base,pts){
-  const line=[]; let m=0, sec=0, firstSec=0;
-  for(let k=0;k<pts.length-1;k+=24){ // höchstens 25 Punkte pro Anfrage, Abschnitte überlappen um einen Stopp
+async function routeLegs(base,pts,straight){ // v=149: Route mit Einzelabschnitten (Linie, Meter, Sekunden je Abschnitt)
+  const legs=[];
+  for(let k=0;k<pts.length-1;k+=24){
     const part=pts.slice(k,k+25);
-    const r=await fetch(base+part.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=false"+straightQ(part));
+    const r=await fetch(base+part.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=false&geometries=geojson&steps=true"+(straight?straightQ(part):""));
     if(!r.ok) throw new Error("HTTP "+r.status);
     const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code||"keine Route");
-    const g=j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
-    line.push(...(line.length?g.slice(1):g)); m+=j.routes[0].distance; sec+=j.routes[0].duration; if(k===0) firstSec=((j.routes[0].legs||[])[0]||{}).duration||0;
+    (j.routes[0].legs||[]).forEach(l=>{ const line=[]; (l.steps||[]).forEach(st=>{ const g=((st.geometry||{}).coordinates||[]).map(c=>[c[1],c[0]]); line.push(...(line.length?g.slice(1):g)); }); legs.push({line,m:l.distance||0,sec:l.duration||0}); });
   }
-  return {line,km:m/1000,sec,firstSec};
+  if(legs.length!==pts.length-1) throw new Error("Abschnitte fehlen"); return legs;
 }
 async function routeTour(){
   if(!tour) return; const seq=++routeSeq, t=tour;
-  // v=110: Straßenroute in beiden Versionen über die Wegpunkte der .bcr; mit Kommissionierstelle beginnt sie dort (Kilometer und Zeit ab Abfahrt)
-  const dp=depotLL(), pts=[...(dp?[dp]:[]),...t.stops.filter(s=>s.ll).flatMap((s,i)=>i?[...bcrVias(s),s.ll]:[s.ll])]; if(pts.length<2) return;
+  // v=110: Straßenroute über die Wegpunkte der .bcr; mit Kommissionierstelle beginnt sie dort (Kilometer und Zeit ab Abfahrt).
+  // v=149: jeder Abschnitt (Stopp zu Stopp) wird zusätzlich direkt berechnet. Ist er mit den .bcr-Wegpunkten mehr als 15 % + 80 m länger
+  // (Wenden, Runde um den Block), gilt der direkte Weg. Sonst kamen z. B. 82,6 statt ca. 70 km heraus.
+  const dp=depotLL(), S=[...(dp?[dp]:[]),...t.stops.filter(s=>s.ll).map(s=>s.ll)], st=t.stops.filter(s=>s.ll); if(S.length<2) return;
+  const P=[S[0]], rng=[]; // rng[i] = [erster, letzter+1] Abschnitt in P für Stopp-Abschnitt i
+  for(let i=0;i<S.length-1;i++){ const a=P.length-1, v=(dp&&i===0)?[]:bcrVias(st[dp?i:i+1]); P.push(...v,S[i+1]); rng.push([a,P.length-1]); }
   routeState("Straßenroute wird berechnet …");
   let road=null, why=[];
-  for(const base of ROUTERS){ try{ road=await routeWith(base,pts); break; }catch(x){ why.push(new URL(base).host+": "+(x.message||x)); } }
+  for(const base of ROUTERS){ try{
+      const D=await routeLegs(base,S,false); let V=null; if(P.length>S.length){ try{ V=await routeLegs(base,P,true); }catch(e){} }
+      const line=[]; let m=0, sec=0, firstSec=0, kept=0;
+      D.forEach((d,i)=>{ let use=d; if(V){ const [a,b]=rng[i], seg=V.slice(a,b), vm=seg.reduce((x,y)=>x+y.m,0);
+          if(b-a>1&&vm<=d.m*1.15+80){ use={line:seg.reduce((x,y)=>x.concat(x.length?y.line.slice(1):y.line),[]),m:vm,sec:seg.reduce((x,y)=>x+y.sec,0)}; kept++; } }
+        line.push(...(line.length?use.line.slice(1):use.line)); m+=use.m; sec+=use.sec; if(i===0) firstSec=use.sec; });
+      road={line,km:m/1000,sec,firstSec,viaKept:kept}; break;
+    }catch(x){ why.push(new URL(base).host+": "+(x.message||x)); } }
   if(seq!==routeSeq||tour!==t) return;
   if(!road){ routeState("Straßenroute nicht verfügbar ("+why.join("; ")+"). Gezeigt wird nur die grobe Verbindung."); return; }
   road.depot=!!dp; t.road=road; routeState(""); render();

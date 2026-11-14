@@ -692,6 +692,9 @@ h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;letter-spaci
 /* Große, verblasste Hausnummer oben auf der Karte, wenn man dem Kunden nahe kommt */
 body:not(.drive):not(.sim) .st-wrap{display:none}
 .st-wrap{position:absolute;width:0;height:0}
+.st-sign{position:absolute;left:50%;top:12px;translate:-50% 0;z-index:900;max-width:min(78%,560px);background:#1f6f4a;color:#fff;border:3px solid #fff;border-radius:14px;padding:8px 18px 9px;box-shadow:0 4px 16px rgb(0 0 0 / .4);text-align:center;pointer-events:none;font:800 clamp(24px,7.5cqi,40px)/1.1 var(--font-display)}
+.st-sign small{display:block;font:700 clamp(15px,4.2cqi,22px)/1.2 var(--font-body);opacity:.92;margin-top:2px}
+.st-sign[hidden]{display:none}
 .st-pill{position:absolute;background:#1f6f4a;color:#fff;font:800 20px/1.15 var(--font-body);padding:7px 15px;border-radius:999px;border:2px solid #fff;box-shadow:0 2px 10px rgb(0 0 0 / .35);white-space:nowrap;pointer-events:none;translate:-50% calc(-100% - 22px)}
 .pin.nonum{color:transparent!important;font-size:0!important;width:14px!important;height:14px!important;min-width:0!important;padding:0!important} /* v=148 */
 .st-pill.l{translate:calc(-100% - 22px) -50%}
@@ -1011,6 +1014,9 @@ html.fahrer #bcrOnlyRow,html.fahrer #ofmRow,html.fahrer #t3dRow{display:none!imp
 body.drive .snd-btn{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--surface);color:var(--fg);font-size:1.45rem;box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;margin-top:10px!important;touch-action:none;-webkit-user-select:none;user-select:none}
 body.drive .snd-btn.off{background:#c0392b;color:#fff}
 body.drive .snd-btn.press{transform:scale(.92)}
+.d3-btn{display:none}
+body.drive .d3-btn,body.sim .d3-btn{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--surface);color:var(--fg);font:700 1rem var(--font-display);box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;margin-top:10px!important}
+html.fahrer .d3-btn{display:none!important} /* v=156: 3D/2D-Knopf nur Test */
 .snd-pop{position:fixed;inset:0;z-index:3000;background:transparent}
 .snd-pop[hidden]{display:none}
 .snd-box{position:absolute;background:var(--surface);color:var(--fg);border-radius:999px;padding:8px 14px;width:min(260px,calc(100vw - 90px));display:flex;align-items:center;gap:8px;box-shadow:0 2px 12px rgb(0 0 0 / .35);font-size:1.1rem}
@@ -2438,7 +2444,15 @@ function hnMark(){ const drv=document.body.classList.contains("drive")||!!simTim
     if(on!==h.k){ h.k=on; h.m.setIcon(hnIcon(h.txt,on)); h.m.setZIndexOffset(on?-100:-500); }
     if(vis!==h.on){ h.on=vis; if(vis) h.m.addTo(hnLayer); else hnLayer.removeLayer(h.m); } });
   footList.forEach(f=>{ const vis=near&&!!s&&f.pts.some(q=>dist(q,s.ll)<=120);
-    if(vis!==f.on){ f.on=vis; if(vis) f.grp.addTo(footLayer); else footLayer.removeLayer(f.grp); } }); }
+    if(vis!==f.on){ f.on=vis; if(vis) f.grp.addTo(footLayer); else footLayer.removeLayer(f.grp); } });
+  stSign(drv&&near&&T===cur?s:null, mm); }
+// v=157 (Test, Draklin „Schild oben“): kurz vor dem Einbiegen in die Straße des Kunden oben ein großes grünes Straßenschild mit Hausnummer
+function stSign(s,mm){ if(!IS_TEST) return; let b=document.getElementById("stSign");
+  if(!b){ b=document.createElement("div"); b.id="stSign"; b.className="st-sign"; b.hidden=true; b.setAttribute("role","status"); b.innerHTML="<span></span><small></small>"; $("map").appendChild(b); }
+  if(!s){ if(!b.hidden) b.hidden=true; return; }
+  const name=mm?mm[1]:String(s.addr).split(",")[0], no=mm?mm[2]:"";
+  if(b.firstChild.textContent!==name) b.firstChild.textContent=name; const sub=no?"Nr. "+no:""; if(b.lastChild.textContent!==sub) b.lastChild.textContent=sub; b.lastChild.hidden=!sub;
+  if(b.hidden) b.hidden=false; }
 map.on("zoomend",footShow);
 // v=154 (Test): Fußwege wie die Hausnummern nur kurz vor dem Einbiegen in die Straße des Kunden und nur nahe am Haus (120 m), sonst unsichtbar
 const footList=[];
@@ -2493,7 +2507,7 @@ const mapBox=document.getElementById("map"), mapIn=document.getElementById("mapI
 function rotMode(){ const b=document.body.classList; return b.contains("drive")||b.contains("sim"); }
 function rotOn(){ let pe=false; try{ pe=!!pinEdit; }catch(e){} return rotMode()&&follow&&!pe&&head!==null; }
 // v=155 (Test): 3D-Sicht beim Fahren: die gedrehte Karte wird zusätzlich nach hinten geneigt (wie Google). Nur solange sie in Fahrtrichtung zeigt.
-const TILT=50; const t3d=()=>{ if(!IS_TEST||!rotMode()) return false; try{ return localStorage.getItem("navi-3d")!=="aus"; }catch(e){ return true; } };
+const TILT=50; const t3dPref=()=>{ try{ return localStorage.getItem("navi-3d")!=="aus"; }catch(e){ return true; } }; const t3d=()=>IS_TEST&&rotMode()&&t3dPref();
 function sizeInner(){ const w=mapBox.clientWidth, h=mapBox.clientHeight;
   if(rotMode()&&w&&h){ const q=Math.ceil(Math.max(Math.hypot(w,h),t3d()?h*2.4:0)); /* v=155: bei 3D-Sicht größer, weil man weiter nach vorn sieht */ Object.assign(mapIn.style,{width:q+"px",height:q+"px",left:(w-q)/2+"px",top:(h-q)/2+"px"}); }
   else Object.assign(mapIn.style,{width:"",height:"",left:"",top:""}); }
@@ -2599,6 +2613,7 @@ let stPill=null, stShown=-1;
 function updateHouseNo(){
   const s=tour&&cur>=0?tour.stops[cur]:null, drv=document.body.classList.contains("drive")||!!simTimer;
   if(!drv||!s||!s.ll||!s.addr){ if(stPill){ stPill.remove(); stPill=null; } stShown=-1; return; }
+  if(IS_TEST){ try{ const mk=markers.find(m=>m.options.si===cur), pe=mk&&mk.getElement(); const d=pe&&pe.firstElementChild; if(d&&!d.classList.contains("nonum")) d.classList.add("nonum"); }catch(e){} return; } // v=157: statt Marke am Haus ein Schild oben (stSign)
   if(stShown!==cur){
     if(stPill){ stPill.remove(); stPill=null; }
     if(!carPos||apStop!==cur) return;
@@ -3269,6 +3284,12 @@ new DriveCtl().addTo(map);
 const SndCtl=L.Control.extend({options:{position:"topleft"},onAdd(){ const b=L.DomUtil.create("button","snd-btn"); b.type="button"; b.id="sndBtn";
   L.DomEvent.disableClickPropagation(b); return b; }});
 new SndCtl().addTo(map);
+// v=156 (Test): Knopf 3D/2D beim Fahren, zeigt an, wohin er umschaltet
+const D3Ctl=L.Control.extend({options:{position:"topleft"},onAdd(){ const b=L.DomUtil.create("button","d3-btn"); b.type="button"; b.id="d3Btn";
+  L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ const on=!t3dPref(); try{ localStorage.setItem("navi-3d",on?"an":"aus"); }catch(x){} $("t3dSw").checked=on; d3Ui(); sizeInner(); map.invalidateSize({animate:false}); applyRot(true); if(follow&&carPos) map.setView(followPt(),map.getZoom(),{animate:false}); toast(on?"3D-Sicht":"Flache Karte"); }; return b; }});
+if(IS_TEST) new D3Ctl().addTo(map);
+function d3Ui(){ const b=document.getElementById("d3Btn"); if(!b) return; const on=t3dPref(); b.textContent=on?"2D":"3D"; b.setAttribute("aria-label",on?"Flache Karte":"3D-Sicht"); }
+d3Ui();
 map.attributionControl.setPosition("topright"); if(IS_TEST) map.attributionControl.setPrefix(false); // v=152 (Test): nur die Kartenanbieter nennen, kein „Leaflet“ // Lizenzhinweis oben statt unten (unten stört er die Leiste)
 const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
   const b=L.DomUtil.create("button","to-me"); b.type="button"; b.id="toMe"; b.hidden=true; b.textContent="◎ Zur aktuellen Position";
@@ -3681,7 +3702,7 @@ $("restartBtn").addEventListener("click",async()=>{ if(!tour) return;
 
 $("restartTop").addEventListener("click",()=>$("restartBtn").click());
 $("t3dSw").checked=(()=>{ try{ return localStorage.getItem("navi-3d")!=="aus"; }catch(e){ return true; } })();
-$("t3dSw").addEventListener("change",e=>{ try{ localStorage.setItem("navi-3d",e.target.checked?"an":"aus"); }catch(x){} sizeInner(); map.invalidateSize({animate:false}); applyRot(true); toast(e.target.checked?"3D-Sicht an":"3D-Sicht aus"); });
+$("t3dSw").addEventListener("change",e=>{ try{ localStorage.setItem("navi-3d",e.target.checked?"an":"aus"); }catch(x){} sizeInner(); map.invalidateSize({animate:false}); applyRot(true); d3Ui(); toast(e.target.checked?"3D-Sicht an":"3D-Sicht aus"); });
 $("ofmSw").checked=ofmWanted();
 $("ofmSw").addEventListener("change",e=>{ try{ localStorage.setItem("navi-ofm",e.target.checked?"an":"aus"); }catch(x){} useTiles(e.target.checked?"ofm":"esri"); toast(e.target.checked?"Moderne Karte (OpenFreeMap)":"Esri-Karte"); });
 $("bcrOnly").checked=bcrOnly();

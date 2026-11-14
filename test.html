@@ -3235,7 +3235,7 @@ new DriveCtl().addTo(map);
 const SndCtl=L.Control.extend({options:{position:"topleft"},onAdd(){ const b=L.DomUtil.create("button","snd-btn"); b.type="button"; b.id="sndBtn";
   L.DomEvent.disableClickPropagation(b); return b; }});
 new SndCtl().addTo(map);
-map.attributionControl.setPosition("topright"); // Lizenzhinweis oben statt unten (unten stört er die Leiste)
+map.attributionControl.setPosition("topright"); if(IS_TEST) map.attributionControl.setPrefix(false); // v=152 (Test): nur die Kartenanbieter nennen, kein „Leaflet“ // Lizenzhinweis oben statt unten (unten stört er die Leiste)
 const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
   const b=L.DomUtil.create("button","to-me"); b.type="button"; b.id="toMe"; b.hidden=true; b.textContent="◎ Zur aktuellen Position";
   L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ setFollow(true); map.invalidateSize({pan:false}); if(carPos){ const z=Math.max(map.getZoom(),16); map.setView(followPt(z),z); } };

@@ -831,7 +831,8 @@ body.drive .side>*{zoom:var(--dz)} /* Schriftgröße der Tourleiste, 5 Stufen */
 body.drive #map{height:100%;min-height:0;border-radius:0;border:0}
 #map{position:relative;overflow:hidden}
 #mapIn{position:absolute;left:0;top:0;width:100%;height:100%;z-index:0;transform-origin:50% 50%;transition:transform 1s linear;border-radius:inherit}
-#mapIn .leaflet-marker-icon>*{rotate:var(--cr,0deg);transition:rotate .8s ease-out} /* Markierungen bleiben aufrecht, wenn die Karte gedreht ist */
+#mapIn .leaflet-marker-icon>*{rotate:var(--cr,0deg);transition:rotate .8s ease-out}
+#mapIn.tilt .leaflet-marker-icon>*{scale:1 1.5} /* v=155: 3D-Sicht: Markierungen strecken, damit sie trotz Neigung normal aussehen */ /* Markierungen bleiben aufrecht, wenn die Karte gedreht ist */
 #mapIn .leaflet-marker-icon>.me{transform-origin:50% 100%}
 .leaflet-ctl{position:absolute;inset:0;pointer-events:none;background:none!important;overflow:visible;z-index:1}
 #compass{position:absolute;left:10px;top:92px;z-index:1000;width:40px;height:40px;border-radius:50%;border:1px solid rgb(0 0 0 / .15);background:rgb(255 255 255 / .85);box-shadow:0 1px 4px rgb(0 0 0 / .25);display:grid;place-items:center;padding:0;cursor:pointer}
@@ -1004,7 +1005,7 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
-html.fahrer #bcrOnlyRow,html.fahrer #ofmRow{display:none!important}
+html.fahrer #bcrOnlyRow,html.fahrer #ofmRow,html.fahrer #t3dRow{display:none!important}
 /* v=106: Ton-Knopf beim Fahren */
 .snd-btn{display:none}
 body.drive .snd-btn{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--surface);color:var(--fg);font-size:1.45rem;box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;margin-top:10px!important;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -1342,6 +1343,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       <details class="set-row"><summary><span class="ic c-green">🔗</span><span class="t">Link zur Tour-Seite<small id="tourUrlSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="tourUrl" type="url" inputmode="url" placeholder="https://…"><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
         <p class="hint">Von dort lädst du Ausfahrliste und Routendatei. Oben erscheint dann „⬇ Tour herunterladen“.</p></div></details>
+      <label class="set-row r" id="t3dRow" for="t3dSw"><span class="ic c-green">🛣</span><span class="t">3D-Sicht beim Fahren<small>Karte schräg von hinten wie bei Google (nur Test-Version)</small></span><input type="checkbox" class="sw" id="t3dSw"></label>
       <label class="set-row r" id="ofmRow" for="ofmSw"><span class="ic c-green">🗺</span><span class="t">Moderne Karte (OpenFreeMap)<small>aus = Esri-Karte wie bisher (nur Test-Version)</small></span><input type="checkbox" class="sw" id="ofmSw"></label>
       <label class="set-row r" id="bcrOnlyRow" for="bcrOnly"><span class="ic c-green">🧭</span><span class="t">Tour nur aus der .bcr<small>Ausfahrliste wird ignoriert (nur Test-Version)</small></span><input type="checkbox" class="sw" id="bcrOnly"></label>
     </div>
@@ -2202,7 +2204,8 @@ function useOfm(){
   loadMaplibre().then(()=>{ if(tileKey!=="ofm") return;
     if(tileLayer) map.removeLayer(tileLayer);
     let ok=false, bad=0;
-    tileLayer=L.maplibreGL({style:OFM_STYLE,attribution:'<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> '+OSM_ATTR}).addTo(map);
+    const side=Math.max(screen.width||0,screen.height||0,innerWidth,innerHeight)*2.4*1.1; // v=155: bei 3D-Sicht ist die Karte sehr groß; Bildschärfe begrenzen, sonst zu viel Speicher fürs Handy
+    tileLayer=L.maplibreGL({style:OFM_STYLE,padding:.05,pixelRatio:Math.max(1,Math.min(devicePixelRatio||1,4096/side)),attribution:'<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> '+OSM_ATTR}).addTo(map);
     document.getElementById("mapErr").hidden=true;
     const gl=tileLayer.getMaplibreMap&&tileLayer.getMaplibreMap();
     const fail=()=>{ if(tileKey==="ofm"&&!ok){ tileKey="esri"; useTiles("esri"); } };
@@ -2489,13 +2492,16 @@ const mapBox=document.getElementById("map"), mapIn=document.getElementById("mapI
   c.addEventListener("click",()=>setFollow(false)); mapBox.append(c); }
 function rotMode(){ const b=document.body.classList; return b.contains("drive")||b.contains("sim"); }
 function rotOn(){ let pe=false; try{ pe=!!pinEdit; }catch(e){} return rotMode()&&follow&&!pe&&head!==null; }
+// v=155 (Test): 3D-Sicht beim Fahren: die gedrehte Karte wird zusätzlich nach hinten geneigt (wie Google). Nur solange sie in Fahrtrichtung zeigt.
+const TILT=50; const t3d=()=>{ if(!IS_TEST||!rotMode()) return false; try{ return localStorage.getItem("navi-3d")!=="aus"; }catch(e){ return true; } };
 function sizeInner(){ const w=mapBox.clientWidth, h=mapBox.clientHeight;
-  if(rotMode()&&w&&h){ const q=Math.ceil(Math.hypot(w,h)); Object.assign(mapIn.style,{width:q+"px",height:q+"px",left:(w-q)/2+"px",top:(h-q)/2+"px"}); }
+  if(rotMode()&&w&&h){ const q=Math.ceil(Math.max(Math.hypot(w,h),t3d()?h*2.4:0)); /* v=155: bei 3D-Sicht größer, weil man weiter nach vorn sieht */ Object.assign(mapIn.style,{width:q+"px",height:q+"px",left:(w-q)/2+"px",top:(h-q)/2+"px"}); }
   else Object.assign(mapIn.style,{width:"",height:"",left:"",top:""}); }
 function applyRot(now){ const t=rotOn()?head:0, d=((t-brg)%360+540)%360-180; brg+=d; // kürzester Drehweg
   if(Math.abs(brg)>=360&&!d){ brg=((brg%360)+360)%360; now=true; }
   if(now){ mapIn.style.transition="none"; requestAnimationFrame(()=>requestAnimationFrame(()=>{ mapIn.style.transition=""; })); }
-  brg=Math.round(brg); const r=brg%360?-brg:0; rotDeg=r; mapIn.style.transform=r?`rotate(${r}deg)`:""; mapIn.style.setProperty("--cr",(r?brg:0)+"deg");
+  brg=Math.round(brg); const r=brg%360?-brg:0; rotDeg=r; const tl=t3d()&&rotOn(); mapIn.classList.toggle("tilt",tl);
+  mapIn.style.transform=tl?`perspective(700px) rotateX(${TILT}deg) rotate(${r}deg)`:r?`rotate(${r}deg)`:""; mapIn.style.setProperty("--cr",(r?brg:0)+"deg");
   const c=document.getElementById("compass"); if(c){ c.hidden=!r; c.firstChild.style.transform=`rotate(${-brg}deg)`; } }
 function bearingDeg(a,b){ const c=Math.cos(a[0]*Math.PI/180); return (Math.atan2((b[1]-a[1])*c,b[0]-a[0])*180/Math.PI+360)%360; }
 let gpsSpeed=null;
@@ -2508,7 +2514,7 @@ function setHead(p,gh,speed,acc){ // Fahrtrichtung aus GPS (ab ca. 7 km/h) oder 
   applyRot(); }
 function followPt(z,p){ // Mittelpunkt beim Nachführen: mit Drehung etwas vor dem Auto, damit man mehr von der Straße voraus sieht
   p=p||disp||carPos; if(!p) return null; z=z??map.getZoom(); if(!rotOn()) return p;
-  const k=mapBox.clientHeight*.06, b=head*Math.PI/180; // v=112: Männchen fast mittig (vorher 22 % unter der Mitte)
+  const k=mapBox.clientHeight*(t3d()?.2:.06), b=head*Math.PI/180; /* v=155: bei 3D-Sicht steht das Männchen weiter unten */ // v=112: Männchen fast mittig (vorher 22 % unter der Mitte)
   return map.unproject(map.project(p,z).add(L.point(Math.sin(b)*k,-Math.cos(b)*k)),z); }
 // Flüssige Bewegung: GPS meldet etwa einmal pro Sekunde eine Position. Das Auto (und die Karte) gleitet in dieser Zeit
 // gleichmäßig von der alten zur neuen Position, statt zu springen. Die grüne Anfahrt wird dabei laufend hinter dem Auto abgeschnitten.
@@ -3674,6 +3680,8 @@ $("restartBtn").addEventListener("click",async()=>{ if(!tour) return;
   render(); fit(); toast("Tour beginnt wieder bei Stopp 1"); });
 
 $("restartTop").addEventListener("click",()=>$("restartBtn").click());
+$("t3dSw").checked=(()=>{ try{ return localStorage.getItem("navi-3d")!=="aus"; }catch(e){ return true; } })();
+$("t3dSw").addEventListener("change",e=>{ try{ localStorage.setItem("navi-3d",e.target.checked?"an":"aus"); }catch(x){} sizeInner(); map.invalidateSize({animate:false}); applyRot(true); toast(e.target.checked?"3D-Sicht an":"3D-Sicht aus"); });
 $("ofmSw").checked=ofmWanted();
 $("ofmSw").addEventListener("change",e=>{ try{ localStorage.setItem("navi-ofm",e.target.checked?"an":"aus"); }catch(x){} useTiles(e.target.checked?"ofm":"esri"); toast(e.target.checked?"Moderne Karte (OpenFreeMap)":"Esri-Karte"); });
 $("bcrOnly").checked=bcrOnly();

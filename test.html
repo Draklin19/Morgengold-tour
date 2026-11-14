@@ -835,7 +835,9 @@ body.drive #map{height:100%;min-height:0;border-radius:0;border:0}
 #map{position:relative;overflow:hidden}
 #mapIn{position:absolute;left:0;top:0;width:100%;height:100%;z-index:0;transform-origin:50% 50%;transition:transform 1s linear;border-radius:inherit}
 #mapIn .leaflet-marker-icon>*{rotate:var(--cr,0deg);transition:rotate .8s ease-out}
-#mapIn.tilt .leaflet-marker-icon>*{scale:1 1.5} /* v=155: 3D-Sicht: Markierungen strecken, damit sie trotz Neigung normal aussehen */ /* Markierungen bleiben aufrecht, wenn die Karte gedreht ist */
+#gl3d{position:absolute;inset:0;z-index:400;pointer-events:none;display:none;border-radius:inherit;overflow:hidden}
+body.r3d #gl3d{display:block}
+.car3d{width:46px;height:46px;filter:drop-shadow(0 6px 5px rgb(0 0 0 / .45))} /* v=155: 3D-Sicht: Markierungen strecken, damit sie trotz Neigung normal aussehen */ /* Markierungen bleiben aufrecht, wenn die Karte gedreht ist */
 #mapIn .leaflet-marker-icon>.me{transform-origin:50% 100%}
 .leaflet-ctl{position:absolute;inset:0;pointer-events:none;background:none!important;overflow:visible;z-index:1}
 #compass{position:absolute;left:10px;top:92px;z-index:1000;width:40px;height:40px;border-radius:50%;border:1px solid rgb(0 0 0 / .15);background:rgb(255 255 255 / .85);box-shadow:0 1px 4px rgb(0 0 0 / .25);display:grid;place-items:center;padding:0;cursor:pointer}
@@ -2507,7 +2509,7 @@ const mapBox=document.getElementById("map"), mapIn=document.getElementById("mapI
 function rotMode(){ const b=document.body.classList; return b.contains("drive")||b.contains("sim"); }
 function rotOn(){ let pe=false; try{ pe=!!pinEdit; }catch(e){} return rotMode()&&follow&&!pe&&head!==null; }
 // v=155 (Test): 3D-Sicht beim Fahren: die gedrehte Karte wird zusätzlich nach hinten geneigt (wie Google). Nur solange sie in Fahrtrichtung zeigt.
-const TILT=50; const t3dPref=()=>{ try{ return localStorage.getItem("navi-3d")!=="aus"; }catch(e){ return true; } }; const t3d=()=>IS_TEST&&rotMode()&&t3dPref();
+const TILT=50; const t3dPref=()=>{ try{ return localStorage.getItem("navi-3d")!=="aus"; }catch(e){ return true; } }; const t3d=()=>false; /* v=158: der Kipp-Trick ist ersetzt durch die echte 3D-Karte (gl3d) */
 function sizeInner(){ const w=mapBox.clientWidth, h=mapBox.clientHeight;
   if(rotMode()&&w&&h){ const q=Math.ceil(Math.max(Math.hypot(w,h),t3d()?h*2.4:0)); /* v=155: bei 3D-Sicht größer, weil man weiter nach vorn sieht */ Object.assign(mapIn.style,{width:q+"px",height:q+"px",left:(w-q)/2+"px",top:(h-q)/2+"px"}); }
   else Object.assign(mapIn.style,{width:"",height:"",left:"",top:""}); }
@@ -2517,6 +2519,47 @@ function applyRot(now){ const t=rotOn()?head:0, d=((t-brg)%360+540)%360-180; brg
   brg=Math.round(brg); const r=brg%360?-brg:0; rotDeg=r; const tl=t3d()&&rotOn(); mapIn.classList.toggle("tilt",tl);
   mapIn.style.transform=tl?`perspective(700px) rotateX(${TILT}deg) rotate(${r}deg)`:r?`rotate(${r}deg)`:""; mapIn.style.setProperty("--cr",(r?brg:0)+"deg");
   const c=document.getElementById("compass"); if(c){ c.hidden=!r; c.firstChild.style.transform=`rotate(${-brg}deg)`; } }
+// v=158 (Test): echte 3D-Fahransicht. Beim Fahren mit 3D liegt über der Leaflet-Karte eine MapLibre-Karte (OpenFreeMap), schräg von hinten,
+// mit Häusern in 3D. Sie zeigt grüne Anfahrt, restliche Tour, offene Kunden und einen 3D-Pfeil; alles andere (Schild, Leiste, Knöpfe) bleibt darüber.
+// Fingerbewegungen gehen weiter an die Leaflet-Karte: Verschieben = flach mit Norden oben, „Zur aktuellen Position“ = wieder 3D.
+let gl3b=null, gl3=null, gl3ok=false, gl3car=null, gl3raf=0, gl3sig="";
+const want3d=()=>IS_TEST&&t3dPref()&&rotMode()&&rotOn()&&!!(disp||carPos);
+const llq=a=>a.map(q=>[q[1],q[0]]);
+function gl3Make(){ if(gl3) return; const box=document.createElement("div"); box.id="gl3d"; mapIn.after(box);
+  try{ gl3=new maplibregl.Map({container:box,style:OFM_STYLE,interactive:false,attributionControl:false,pitch:60,zoom:16,center:[8.6,48.2],pixelRatio:devicePixelRatio||1,fadeDuration:0}); }
+  catch(e){ gl3=null; box.remove(); return; }
+  gl3.on("error",()=>{}); gl3.on("load",()=>{ try{
+    gl3.addSource("tour",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+    gl3.addSource("ap",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+    gl3.addSource("stops",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+    gl3.addLayer({id:"tour",type:"line",source:"tour",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#8f969c","line-width":5,"line-opacity":.55}});
+    gl3.addLayer({id:"ap-halo",type:"line",source:"ap",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#ffffff","line-width":13}});
+    gl3.addLayer({id:"ap",type:"line",source:"ap",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#1f9d55","line-width":9}});
+    gl3.addLayer({id:"stops",type:"circle",source:"stops",paint:{"circle-radius":["case",["get","t"],9,11],"circle-color":["case",["get","t"],"#1f6f4a","#1f6f5c"],"circle-stroke-color":"#fff","circle-stroke-width":2.5,"circle-pitch-alignment":"viewport"}});
+    gl3.addLayer({id:"stop-no",type:"symbol",source:"stops",filter:["!",["get","t"]],layout:{"text-field":["get","n"],"text-font":["Noto Sans Bold"],"text-size":12,"text-allow-overlap":true,"text-ignore-placement":true},paint:{"text-color":"#fff"}});
+    gl3ok=true; gl3sig=""; }catch(e){} });
+  const el=document.createElement("div"); el.className="car3d";
+  el.innerHTML='<svg viewBox="0 0 48 48" width="46" height="46"><path d="M24 3 L41 43 L24 34 L7 43 Z" fill="#1a73e8" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/><path d="M24 3 L24 34 L7 43 Z" fill="#000" opacity=".18"/></svg>';
+  gl3car=new maplibregl.Marker({element:el,rotationAlignment:"map",pitchAlignment:"map"}).setLngLat([8.6,48.2]).addTo(gl3); }
+function gl3Data(){ if(!gl3ok||!tour) return;
+  const sig=[cur,apStop,apLine&&apLine.length,apLine&&apLine[0]&&apLine[0][0],tour.road&&tour.road.line.length,tour.stops.filter(q=>q.done).length].join("|"); if(sig===gl3sig) return; gl3sig=sig;
+  const rl=tour.road&&tour.road.line||tour.line||[];
+  gl3.getSource("tour").setData({type:"Feature",geometry:{type:"LineString",coordinates:llq(rl.length>1?rl:[[0,0],[0,0]])}});
+  gl3.getSource("ap").setData(apLine&&apLine.length>1?{type:"Feature",geometry:{type:"LineString",coordinates:llq(apLine)}}:{type:"FeatureCollection",features:[]});
+  gl3.getSource("stops").setData({type:"FeatureCollection",features:tour.stops.map((q,i)=>!q.done&&q.ll?{type:"Feature",properties:{n:String(i+1),t:i===cur},geometry:{type:"Point",coordinates:[q.ll[1],q.ll[0]]}}:null).filter(Boolean)}); }
+function gl3Frame(){ gl3raf=0; if(!want3d()||!gl3){ return; }
+  const p=disp||carPos, h=mapBox.clientHeight;
+  const hb=head||0; if(gl3b==null) gl3b=hb; else { const d=((hb-gl3b)%360+540)%360-180; gl3b=(gl3b+d*.08+360)%360; }
+  gl3.jumpTo({center:[p[1],p[0]],bearing:gl3b,pitch:62,zoom:Math.min(19,map.getZoom()-.6),padding:{top:Math.round(h*.38),bottom:0,left:0,right:0}});
+  if(gl3car){ gl3car.setLngLat([p[1],p[0]]); gl3car.setRotation(gl3b); }
+  gl3Data(); gl3raf=requestAnimationFrame(gl3Frame); }
+function gl3Check(){ const on=want3d();
+  if(on&&!window.maplibregl){ loadMaplibre().then(gl3Check).catch(()=>{}); return; }
+  if(on&&!gl3) gl3Make();
+  const vis=on&&gl3ok; document.body.classList.toggle("r3d",vis);
+  if(on&&gl3){ gl3.resize(); if(!gl3raf) gl3raf=requestAnimationFrame(gl3Frame); }
+  else if(gl3raf){ cancelAnimationFrame(gl3raf); gl3raf=0; } }
+if(IS_TEST) setInterval(gl3Check,400);
 function bearingDeg(a,b){ const c=Math.cos(a[0]*Math.PI/180); return (Math.atan2((b[1]-a[1])*c,b[0]-a[0])*180/Math.PI+360)%360; }
 let gpsSpeed=null;
 function setHead(p,gh,speed,acc){ // Fahrtrichtung aus GPS (ab ca. 7 km/h) oder aus mindestens 12 m Bewegung
@@ -2558,7 +2601,7 @@ function declutter(){ // v=85: nur beim Fahren, nah dran (Zoom ab 16, unter 40 m
       lead.style.width=L+"px"; lead.style.transform=`rotate(${Math.atan2(oy,ox)}rad)`; m.setZIndexOffset(2500); }
     else if(lead){ pin.style.translate=""; lead.remove(); m.setZIndexOffset(m.options.zIndexOffset0||0); } }); }
 map.on("zoomend viewreset",declutter);
-function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<33&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
+function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<(IS_TEST?15:33)&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
   const f=Math.min(1,(now-animT0)/animDur); disp=[animFrom[0]+(animTo[0]-animFrom[0])*f, animFrom[1]+(animTo[1]-animFrom[1])*f];
   const sn=trimApproach(disp); if(car) car.setLatLng(sn||disp); // nahe der Route: Auto sitzt genau auf der Straße
   declutter();

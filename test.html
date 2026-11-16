@@ -3495,13 +3495,19 @@ $("pinCancel").addEventListener("click",endPin);
 var cmpLayer=L.layerGroup().addTo(map); let cmpRun=false;
 async function runCompare(){
   if(cmpRun||!tour) return; if(!bcrTour||!pdfTour){ $("cmpState").textContent="Dafür bitte Ausfahrliste (PDF) und .bcr zusammen öffnen."; return; }
-  cmpRun=true; $("cmpBtn").disabled=true; const t=tour, cache=jget("navi-vergleich2"); let n=0;
+  cmpRun=true; $("cmpBtn").disabled=true; const t=tour, cache=jget("navi-vergleich3"); let n=0;
+  // v=167: genau wie „nur Ausfahrliste“: Adresse mit PLZ und Ort aus der Liste (auch wenn die Tour nur aus der .bcr läuft),
+  // Suche rund um die Tour (Kommissionierstelle bzw. Mitte der .bcr-Punkte), Treffer über 35 km weg zählen nicht
+  const byNo={}; (pdfTour.stops||[]).forEach(q=>{ byNo[String(q.no)]=q; });
+  const pts=t.stops.map(s=>s.orig||s.ll).filter(Boolean), md=k=>pts.map(q=>q[k]).sort((a,b)=>a-b)[Math.floor(pts.length/2)];
+  const ref=depotLL()||(pts.length?[md(0),md(1)]:null), mid=pts.length?[md(0),md(1)]:ref;
   const todo=t.stops.filter(s=>s.addr&&(s.orig||s.ll));
   try{ for(const s of todo){
-      const k=addrKey(s); $("cmpState").textContent=`Suche Adresse ${++n} von ${todo.length} …`;
-      if(cache[k]===undefined){ const p=await geocodeOne(s); cache[k]=p||0; jset("navi-vergleich2",cache); }
+      const q=byNo[String(s.no)]||s, g={addr:q.addr||s.addr,town:q.town||s.town||""};
+      const k=addrKey(g); $("cmpState").textContent=`Suche Adresse ${++n} von ${todo.length} …`;
+      if(cache[k]===undefined){ let p=await geocodeOne(g,ref); if(p&&mid&&dist(p,mid)>35000) p=await geocodeOne(g,mid); if(p&&mid&&dist(p,mid)>35000) p=null; cache[k]=p||0; jset("navi-vergleich3",cache); }
       s.cmp=cache[k]&&cache[k][2]!==1?cache[k]:null; s.cmpRough=!!(cache[k]&&cache[k][2]===1); if(tour!==t) return; drawCompare(); } }
-  catch(x){ $("cmpState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal starten."; }
+  catch(x){ cmpRun=false; $("cmpBtn").disabled=false; drawCompare(false); $("cmpState").textContent=`Abgebrochen nach ${n-1} von ${todo.length}: `+(x.message||"Adresssuche fehlgeschlagen")+". Nochmal „Vergleich starten“ tippen, schon gefundene Adressen werden nicht neu gesucht."; return; }
   cmpRun=false; $("cmpBtn").disabled=false; drawCompare(true); }
 function drawCompare(done){
   cmpLayer.clearLayers(); if(!tour) return; const list=$("cmpList"); list.innerHTML=""; let ok=0,mid=0,bad=0,none=0; const ds=[];

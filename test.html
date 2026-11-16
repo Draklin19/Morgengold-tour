@@ -2403,9 +2403,16 @@ function render(){ setTimeout(()=>declutter(),0);
 }
 // Straßenseite: Hauspunkt aus der .bcr gegen die Fahrtrichtung der Straßenroute bei der Ankunft.
 // Liegt der Punkt fast auf der Straße (unter 4 m) oder weit weg (über 60 m), lieber nichts anzeigen als raten.
+// v=164 (Test): Kennt die Karte (OpenStreetMap) die Hausnummer des Kunden in seiner Straße, zählt für links/rechts diese Lage
+// statt des Punkts aus der Routendatei (der liegt manchmal auf der falschen Straßenseite). Eigene Hauspunkte haben Vorrang.
+function sideLL(s){ if(!IS_TEST||!s||!s.ll||s.fixed||!s.addr) return s&&s.ll;
+  const mm=String(s.addr).match(/^(.*?)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/); if(!mm) return s.ll;
+  const kn=hnKey(mm[2]), ks=hnKey(mm[1]); let b=null, bd=120;
+  hnList.forEach(h=>{ if(h.num===kn&&(!h.street||h.street===ks)){ const d=dist(h.at,s.ll); if(d<bd){ bd=d; b=h.at; } } });
+  return b||s.ll; }
 function sideOf(s,line){
   if(!s.exact||!s.ll||s.li<1) return "";
-  return sideOnLine(s.ll,line,s.li);
+  return sideOnLine(sideLL(s),line,s.li);
 }
 // Seite des Hauses ll zur Fahrtrichtung entlang line, gemessen an den Abschnitten vor Punkt li
 function sideOnLine(ll,line,li){
@@ -2836,15 +2843,15 @@ function trackSide(){
   if(!lastPos){ lastPos=carPos.slice(); return; }
   // v=114: Ab 150 m vor dem Haus zählt die echte Fahrtrichtung (GPS-Richtung beim Fahren), auch bei GPS bis 35 m Genauigkeit
   if(fin&&head!==null&&gpsSpeed>2&&gpsAcc<=35&&s.exact&&s.ll&&dist(carPos,s.ll)<=150){
-    const c0=Math.cos(s.ll[0]*Math.PI/180), hx=Math.sin(head*Math.PI/180), hy=Math.cos(head*Math.PI/180);
-    const px=(s.ll[1]-carPos[1])*111320*c0, py=(s.ll[0]-carPos[0])*110540, cr=hx*py-hy*px;
+    const H=sideLL(s), c0=Math.cos(H[0]*Math.PI/180), hx=Math.sin(head*Math.PI/180), hy=Math.cos(head*Math.PI/180);
+    const px=(H[1]-carPos[1])*111320*c0, py=(H[0]-carPos[0])*110540, cr=hx*py-hy*px;
     if(hx*px+hy*py>0&&Math.abs(cr)>=3&&Math.abs(cr)<=60) setLive(cur,cr>0?"links":"rechts","gps"); }
   // Erst ab 15 m echter Bewegung und genauem GPS werten, sonst dreht GPS-Schwanken im Stand die Seite hin und her.
   if(dist(lastPos,carPos)<15) return;
   if(gpsAcc>35){ lastPos=carPos.slice(); return; }
   const A=lastPos; lastPos=carPos.slice();
   if(!fin||!s.exact||!s.ll||dist(carPos,s.ll)>200) return;
-  const c=Math.cos(s.ll[0]*Math.PI/180), m=p=>[p[1]*111320*c,p[0]*110540], a=m(A), b=m(carPos), P=m(s.ll);
+  const c=Math.cos(s.ll[0]*Math.PI/180), m=p=>[p[1]*111320*c,p[0]*110540], a=m(A), b=m(carPos), P=m(sideLL(s));
   const dx=b[0]-a[0], dy=b[1]-a[1], L2=dx*dx+dy*dy, t=((P[0]-a[0])*dx+(P[1]-a[1])*dy)/L2;
   if(t<0) return; // Haus liegt schon hinter uns
   const d=Math.abs(dx*(P[1]-a[1])-dy*(P[0]-a[0]))/Math.sqrt(L2); if(d<3||d>60) return;
@@ -3348,7 +3355,7 @@ async function updateApproach(){
   if(turnStop!==stopNo){ turnSaid=new Set(); turnStop=stopNo; } turns=steps;
   if(line&&line.length>1&&tour.stops[stopNo].exact&&!(live.stop===stopNo&&live.src==="gps")){
     let k=line.length-1, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,to); if(d<bd){bd=d;k=j;} });
-    setLive(stopNo, sideOnLine(to,line,k), "anfahrt"); }
+    setLive(stopNo, sideOnLine(sideLL(tour.stops[stopNo]),line,k), "anfahrt"); }
   const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim(); // gleiche Farbe wie die Route
   apOff=off; apLine=(line&&line.length>1?line:[from,to]).map(q=>q.slice()); apRouted=!off&&!!(line&&line.length>1); apK=0; offN=0;
   apPoly=L.polyline(apLine,apRouted||(off&&line)?{color:rc,weight:apWeight(),opacity:.75,lineCap:"round",lineJoin:"round",smoothFactor:.3,pane:"apPane"}:{color:rc,weight:4,opacity:.6,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer);
@@ -3394,7 +3401,7 @@ const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
   return b; }});
 new MeCtl().addTo(map);
 document.addEventListener("visibilitychange",async()=>{ if(gpsWatch!==null&&document.visibilityState==="visible"&&navigator.wakeLock){ try{wakeLock=await navigator.wakeLock.request("screen");}catch(e){} } });
-function goTo(i){ if(!tour) return; cur=i; render(); if(i>=0) focusStop(i); else fit(); }
+function goTo(i){ if(!tour) return; cur=i; render(); if(rotMode()){ setFollow(true); return; } /* v=164: beim Fahren bleibt die Karte beim Auto */ if(i>=0) focusStop(i); else fit(); }
 $("nextDone").addEventListener("click",()=>{ if(!tour||cur<0) return; tour.stops[cur].done=true; goTo(nextOpen()); });
 $("prev").addEventListener("click",()=>{ if(!tour) return; goTo(cur<0?tour.stops.length-1:Math.max(0,cur-1)); });
 $("jumpForm").addEventListener("submit",e=>{ e.preventDefault(); if(!tour) return;
@@ -3442,12 +3449,7 @@ $("tourLink").addEventListener("click",e=>{
   if(/Android/i.test(navigator.userAgent))
     location.href="intent://"+u.replace(/^https:\/\//i,"")+"#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url="+encodeURIComponent(u)+";end";
   else if(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)){
-    // iPhone: in der Chrome-App öffnen, die speichert Downloads direkt im Ordner „Chrome“.
-    // Ohne Chrome bleibt die App sichtbar, dann nach 1,5 s die Seite wie bisher öffnen.
-    let gone=false; const hide=()=>{ if(document.hidden) gone=true; };
-    document.addEventListener("visibilitychange",hide,{once:true});
-    location.href="googlechromes://"+u.replace(/^https:\/\//i,"");
-    setTimeout(()=>{ document.removeEventListener("visibilitychange",hide); if(!gone&&!document.hidden) window.open(u,"_blank","noopener"); },1500); }
+    window.open(u,"_blank","noopener"); } // v=164: direkt in Safari; der Versuch mit der Chrome-App gab ohne Chrome „Adresse ungültig“
   else window.open(u,"_blank","noopener");
 });
 $("geoBtn").addEventListener("click",geocodeTour);

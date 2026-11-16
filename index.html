@@ -3346,7 +3346,7 @@ const MeCtl=L.Control.extend({options:{position:"bottomright"},onAdd(){
   return b; }});
 new MeCtl().addTo(map);
 document.addEventListener("visibilitychange",async()=>{ if(gpsWatch!==null&&document.visibilityState==="visible"&&navigator.wakeLock){ try{wakeLock=await navigator.wakeLock.request("screen");}catch(e){} } });
-function goTo(i){ if(!tour) return; cur=i; render(); if(i>=0) focusStop(i); else fit(); }
+function goTo(i){ if(!tour) return; cur=i; render(); if(rotMode()){ setFollow(true); return; } /* v=164: beim Fahren bleibt die Karte beim Auto */ if(i>=0) focusStop(i); else fit(); }
 $("nextDone").addEventListener("click",()=>{ if(!tour||cur<0) return; tour.stops[cur].done=true; goTo(nextOpen()); });
 $("prev").addEventListener("click",()=>{ if(!tour) return; goTo(cur<0?tour.stops.length-1:Math.max(0,cur-1)); });
 $("jumpForm").addEventListener("submit",e=>{ e.preventDefault(); if(!tour) return;
@@ -3394,12 +3394,7 @@ $("tourLink").addEventListener("click",e=>{
   if(/Android/i.test(navigator.userAgent))
     location.href="intent://"+u.replace(/^https:\/\//i,"")+"#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url="+encodeURIComponent(u)+";end";
   else if(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)){
-    // iPhone: in der Chrome-App öffnen, die speichert Downloads direkt im Ordner „Chrome“.
-    // Ohne Chrome bleibt die App sichtbar, dann nach 1,5 s die Seite wie bisher öffnen.
-    let gone=false; const hide=()=>{ if(document.hidden) gone=true; };
-    document.addEventListener("visibilitychange",hide,{once:true});
-    location.href="googlechromes://"+u.replace(/^https:\/\//i,"");
-    setTimeout(()=>{ document.removeEventListener("visibilitychange",hide); if(!gone&&!document.hidden) window.open(u,"_blank","noopener"); },1500); }
+    window.open(u,"_blank","noopener"); } // v=164: direkt in Safari; der Versuch mit der Chrome-App gab ohne Chrome „Adresse ungültig“
   else window.open(u,"_blank","noopener");
 });
 $("geoBtn").addEventListener("click",geocodeTour);

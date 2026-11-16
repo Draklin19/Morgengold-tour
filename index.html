@@ -1012,6 +1012,7 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
+#bcrOnlyRow{display:none!important}
 html.fahrer #bcrOnlyRow,html.fahrer #ofmRow{display:none!important}
 #t3dRow,.d3-btn{display:none!important} /* v=159: 3D wieder raus (Draklin) */
 /* v=106: Ton-Knopf beim Fahren */
@@ -1965,7 +1966,8 @@ function artItems(col){
 // Routendatei (Koordinaten, Strecke) und Ausfahrliste (Adressen, Hinweise, Artikel) zu einer Tour verbinden.
 let bcrTour=null, pdfTour=null;
 // v=108 (nur Test-Version): Schalter „Tour nur aus der .bcr“. Dann wird die Ausfahrliste ignoriert (keine Orte, Hinweise, Artikel).
-const bcrOnly=()=>{ if(!IS_TEST) return false; try{ return localStorage.getItem("navi-nur-bcr")!=="aus"; }catch(e){ return true; } };
+const bcrOnly=()=>false; // v=169: Schalter „nur .bcr“ abgeschaltet
+const LISTE_NUR=true; // v=169: Tour nur aus der Ausfahrliste, die .bcr wird für die Tour nicht mehr benutzt
 // v=109: Fahrweg wie in der .bcr: deren Wegpunkte (Mitten der Streckenabschnitte) gehen als Zwischenpunkte an den Routenserver,
 // so folgt die Straßenroute dem von Morgengold geplanten Weg. Punkte näher als 60 m zueinander oder zum Haus fallen weg, höchstens 23 je Abschnitt.
 // v=148: Fahrzeit-Faktor: der Routenserver schätzt nachts zu langsam. Start mit 0,7, danach lernt jedes Handy aus den eigenen fertigen Touren.
@@ -1992,7 +1994,7 @@ const depotLL=()=>{ try{ const d=JSON.parse(localStorage.getItem("navi-depot")||
 function mergeTours(){
   const old=tour&&tour.stops, P=bcrOnly()&&!(pdfTour&&pdfTour.etik)?null:pdfTour; // v=151: Etiketten gelten auch bei „nur .bcr“
   let t=null;
-  if(bcrTour){
+  if(bcrTour&&!LISTE_NUR){
     t={name:bcrTour.name,time:bcrTour.time,stops:bcrTour.stops.map((s,i)=>({...s,name:"",notes:[],articles:[],town:s.town||"",exact:true}))};
     if(P){
       t.name=P.name+(P.date?" · "+P.date:"");
@@ -2001,6 +2003,7 @@ function mergeTours(){
   } else if(P){
     t={name:P.name+(P.date?" · "+P.date:""),time:null,
        stops:P.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,tags:q.tags||[],articles:q.articles,ll:null,via:[],done:false}))};
+    if(bcrTour) t.stops.forEach(s=>{ const b=bcrTour.stops[(+s.no||0)-1]; if(b&&b.ll) s.bll=b.ll.slice(); }); // nur für den Vergleich (Test)
   }
   if(t){ t.load=P?P.load:[]; t.km=P?P.km:"";
     if(old&&old.length===t.stops.length&&tour) t.depotDone=!!tour.depotDone;
@@ -2027,7 +2030,7 @@ async function geocodeOne(s,ref){ // v=151: ref = Bezugspunkt (Kommissionierstel
     Object.entries({...t,...near,format:"jsonv2",limit:"5",addressdetails:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
     const w=lastAsk+1100-Date.now(); if(w>0) await new Promise(ok=>setTimeout(ok,w)); lastAsk=Date.now(); // höchstens 1 Anfrage pro Sekunde, auch neben dem Hauspunkt-Abgleich
     const r=await fetch(u.toString()); if(!r.ok) throw new Error("Adresssuche nicht erreichbar ("+r.status+")");
-    let hs=(await r.json()).filter(fits).map(h=>[parseFloat(h.lat),parseFloat(h.lon)]);
+    let hs=(await r.json()).filter(fits).map(h=>[parseFloat(h.lat),parseFloat(h.lon),0,(h.place_rank>=30||/^(house|building)$/.test(h.addresstype||"")||h.type==="house"||h.category==="building")?1:0]); // v=169: [3]=1 genau ein Haus
     if(ref&&!plz){ hs=hs.filter(p=>dist(p,ref)<45000).sort((a,b)=>dist(a,ref)-dist(b,ref)); }
     return hs[0]||null; };
   if(s.addr) for(const t of [{street:s.addr,postalcode:plz,city:ort},{q:`${s.addr}, ${plz} ${ort}`},{street:s.addr,postalcode:plz}]){ const p=await ask1(t); if(p) return p; }
@@ -2038,9 +2041,9 @@ async function geocodeTour(){
   if(geoRunning||!tour) return; geoRunning=true; $("geoBtn").disabled=true;
   const todo=tour.stops.filter(s=>!s.ll&&s.addr); let done=0; const miss=[], rough=[];
   // v=151: Bezugspunkt = Kommissionierstelle, sonst Mitte der schon gefundenen Stopps. Gefundene Punkte merkt sich das Handy (navi-geocache).
-  const GC="navi-geocache", gc=jget(GC), gk=s=>(s.addr+"|"+s.town).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/\s+/g,"");
+  const GC="navi-geocache2", gc=jget(GC), gk=s=>(s.addr+"|"+s.town).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/\s+/g,"");
   const mid=()=>{ const f=tour.stops.filter(s=>s.ll&&!s.approx); if(!f.length) return null; const m=k=>f.map(s=>s.ll[k]).sort((a,b)=>a-b)[Math.floor(f.length/2)]; return [m(0),m(1)]; };
-  const put=(s,p)=>{ s.ll=p.slice(0,2); s.approx=p[2]===1; s.via=[]; s.geo=true; };
+  const put=(s,p)=>{ s.ll=p.slice(0,2); s.approx=p[2]===1; s.exact=p[3]===1; s.via=[]; s.geo=true; }; // v=169: Hausseite nur, wenn die Adresssuche genau das Haus trifft
   try{
     for(const s of todo){
       $("geoState").textContent=`Suche Adresse ${++done} von ${todo.length} …`;
@@ -2111,7 +2114,7 @@ async function checkOne(s){
   return h&&h.address&&h.address.house_number?[+h.lat,+h.lon]:0; // 0: OpenStreetMap kennt das Haus nicht genau
 }
 async function checkTour(){
-  if(bcrOnly()) return; // nur .bcr: keine Prüfung über die Adressen der Ausfahrliste
+  if(bcrOnly()||LISTE_NUR) return; // nur .bcr: keine Prüfung über die Adressen der Ausfahrliste
   if(!IS_TEST) return; // v=91: Fahrer-Version ohne Hauspunkt-Prüfung (nur Ausfahrliste + .bcr), nur der Chef sieht sie in test.html
   if(!tour||!bcrTour||!pdfTour) return; const seq=++checkSeq, t=tour, cache=jget(OSM_KEY);
   for(const s of t.stops){
@@ -2165,11 +2168,11 @@ async function routeTour(){
   road.depot=!!dp; t.road=road; routeState(""); render();
 }
 function loadedInfo(){
-  const parts=[]; if(pdfTour) parts.push(`${pdfTour.etik?"Etiketten":"Ausfahrliste"}: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour&&!pdfTour.etik?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`);
+  const parts=[]; if(pdfTour) parts.push(`${pdfTour.etik?"Etiketten":"Ausfahrliste"}: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour&&!pdfTour.etik?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`+(LISTE_NUR?(IS_TEST?" (nur für den Vergleich)":" (wird nicht benutzt)"):""));
   let t=parts.length?"Geladen · "+parts.join(" · "):"";
-  if(pdfTour&&bcrTour&&pdfTour.stops.length!==bcrTour.stops.length) t+=" · Achtung: unterschiedliche Anzahl, verbunden über die Stopp-Nummer.";
+  if(!LISTE_NUR&&pdfTour&&bcrTour&&pdfTour.stops.length!==bcrTour.stops.length) t+=" · Achtung: unterschiedliche Anzahl, verbunden über die Stopp-Nummer.";
   $("loaded").textContent=t;
-  $("geoBox").hidden=!(pdfTour&&!bcrTour&&tour&&tour.stops.some(s=>!s.ll));
+  $("geoBox").hidden=!(pdfTour&&(LISTE_NUR||!bcrTour)&&tour&&tour.stops.some(s=>!s.ll));
 }
 const map=L.map("mapIn",{zoomControl:true,attributionControl:true});
 map.createPane("apPane").style.zIndex=450; // Anfahrt liegt immer über der restlichen Route
@@ -3400,8 +3403,8 @@ async function loadFiles(files){
   if(!(tour&&files.length===1&&((isPdfOnly(files)&&!hadPdf)||(!isPdfOnly(files)&&!hadBcr)))) curId=null; // neue Tour, außer es wurde nur die fehlende Datei ergänzt
   const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit();
   const etik=!!(pdfTour&&pdfTour.etik);
-  if(bcrOnly()&&!etik&&pdfTour&&!bcrTour) toast("Test-Version: Die Tour läuft nur über die .bcr. Bitte auch die Routendatei öffnen.");
-  if((!bcrOnly()||etik)&&pdfTour&&!bcrTour&&tour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
+  if(LISTE_NUR&&bcrTour&&!pdfTour) toast("Bitte die Ausfahrliste (PDF) öffnen. Die Routendatei (.bcr) wird nicht mehr gebraucht.");
+  if(pdfTour&&(LISTE_NUR||!bcrTour)&&tour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
   else{ routeTour(); checkTour(); }
 }
 // Service Worker nur, damit sich die App installieren lässt. Das frühere Teilen-Ziel ist entfernt, Dateien öffnet man über „Tour öffnen“.
@@ -3813,7 +3816,7 @@ function saveTour(){ try{
   let a=loadTours(); const day=tourDay(), title=tourTitle(), key=title+"|"+day;
   let d=curId&&a.find(x=>x.id===curId) || a.find(x=>x.key===key);
   if(!d){ d={id:"t"+Date.now()}; a.unshift(d); }
-  curId=d.id; Object.assign(d,{key,day,title,t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),said:tour.stops.map(s=>!!s.said),at:tour.stops.map(s=>s.at||0),dep:tour.stops.map(s=>s.dep||0),drive:document.body.classList.contains("drive"),ll:tour.stops.map(s=>s.ll),depotDone:!!tour.depotDone});
+  curId=d.id; Object.assign(d,{key,day,title,t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),ex:tour.stops.map(s=>!!s.exact),said:tour.stops.map(s=>!!s.said),at:tour.stops.map(s=>s.at||0),dep:tour.stops.map(s=>s.dep||0),drive:document.body.classList.contains("drive"),ll:tour.stops.map(s=>s.ll),depotDone:!!tour.depotDone});
   a=[d,...a.filter(x=>x!==d)].slice(0,MAX_TOURS); // zuletzt benutzte vorne, die 4. fällt weg
   storeTours(a);
 }catch(e){} }
@@ -3821,7 +3824,7 @@ function saveTour(){ try{
 // Sonst bleibt die Karte leer, und der Knopf „Letzte Tour laden“ bietet die Tour an (höchstens 18 Stunden alt).
 function restoreTour(d){
   bcrTour=d.bcr; pdfTour=d.pdf; const t=mergeTours(); if(!t) return false;
-  t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; s.at=(d.at||[])[i]||0; s.dep=(d.dep||[])[i]||0; if(!s.ll&&d.ll&&d.ll[i]) s.ll=d.ll[i]; }); t.depotDone=!!d.depotDone; tour=t; cur=typeof d.cur==="number"?d.cur:0; curId=d.id;
+  t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; s.at=(d.at||[])[i]||0; s.dep=(d.dep||[])[i]||0; if(!s.ll&&d.ll&&d.ll[i]){ s.ll=d.ll[i]; if(d.ex) s.exact=!!d.ex[i]; } }); t.depotDone=!!d.depotDone; tour=t; cur=typeof d.cur==="number"?d.cur:0; curId=d.id;
   $("lastTour").hidden=true; loadedInfo(); render(); fit(); routeTour(); checkTour(); return true; }
 const WD=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
 function dayLabel(day){ const m=String(day||"").match(/(\d{4})-(\d\d)-(\d\d)/); if(!m) return "";

@@ -806,6 +806,7 @@ body.drive .footman{transform:scale(.7);opacity:.55;filter:grayscale(1)}
 @media (prefers-color-scheme: dark){.stop .pwarn{color:#ffd28a}}
 #mapIn .leaflet-popup{rotate:var(--cr,0deg);transform-origin:50% calc(100% + 0px)} /* v=161: Menü beim Fahren aufrecht */
 .sperr{font-size:26px;line-height:1;filter:drop-shadow(0 1px 2px rgb(0 0 0 / .55));cursor:pointer}
+.cmp-list li.sidediff b{color:#d63b2f}
 .posbox{display:grid;gap:6px;min-width:12em}.posbox b{font-size:.9rem}.posbox .btn{width:100%;text-align:left}
 details.mode summary{cursor:pointer;font-weight:600}
 .loaded{font-size:.85rem;color:var(--muted);margin:0}
@@ -3504,6 +3505,10 @@ async function runCompare(){
   cmpRun=false; $("cmpBtn").disabled=false; drawCompare(true); }
 function drawCompare(done){
   cmpLayer.clearLayers(); if(!tour) return; const list=$("cmpList"); list.innerHTML=""; let ok=0,mid=0,bad=0,none=0; const ds=[];
+  // v=166 (Test): Hausseite links/rechts zur Straßenroute, einmal mit dem Punkt aus der .bcr, einmal nur mit der Ausfahrliste (Adresssuche)
+  const RL=(tour.road&&tour.road.line&&tour.road.line.length>1)?tour.road.line:(tour.line||[]); let sSame=0,sDiff=0,sOpen=0;
+  const sideAt=(pt,ref)=>{ if(RL.length<2) return ""; let k=1,bd=1e9; for(let j=0;j<RL.length;j++){ const d=dist(RL[j],ref); if(d<bd){ bd=d; k=j; } } return sideOnLine(pt,RL,Math.min(RL.length-1,Math.max(1,k+1))); };
+  const SL={links:"L",rechts:"R","":"?"};
   tour.stops.forEach((s,i)=>{ const b=s.orig||s.ll; if(s.cmp===undefined||!b) return;
     const li=document.createElement("li"); let d=null, cls="none";
     if(s.cmp){ d=Math.round(dist(s.cmp,b)); ds.push(d); cls=d<=25?"ok":d<=80?"mid":"bad"; if(cls==="ok")ok++; else if(cls==="mid")mid++; else bad++;
@@ -3511,10 +3516,11 @@ function drawCompare(done){
       L.marker(s.cmp,{icon:L.divIcon({className:"",html:'<div class="cmpq"></div>',iconSize:[14,14],iconAnchor:[7,7]}),interactive:false}).addTo(cmpLayer);
       if(d>25) L.marker(s.cmp,{icon:L.divIcon({className:"",html:`<div class="cmplbl">${i+1}: ${d} m</div>`,iconSize:[0,0],iconAnchor:[-10,8]}),interactive:false}).addTo(cmpLayer); }
     else none++;
-    li.className=cls; li.innerHTML=`<span>${i+1}</span><span></span><b>${d===null?(s.cmpRough?"nur Ortsmitte":"nicht gefunden"):d+" m"}</b>`; li.children[1].textContent=s.addr; list.append(li); });
+    let sd=""; if(s.cmp){ const sb=sideAt(b,b), sc=sideAt(s.cmp,b); if(!sb||!sc){ sOpen++; sd=` · Seite ${SL[sb]}/${SL[sc]}`; } else if(sb===sc){ sSame++; sd=` · Seite ${SL[sb]} ✓`; } else { sDiff++; sd=` · Seite .bcr ${SL[sb]}, Liste ${SL[sc]} ✗`; li.classList.add("sidediff"); } }
+    li.className=cls+(sd.includes("✗")?" sidediff":""); li.innerHTML=`<span>${i+1}</span><span></span><b>${d===null?(s.cmpRough?"nur Ortsmitte":"nicht gefunden"):d+" m"}${sd}</b>`; li.children[1].textContent=s.addr; list.append(li); });
   list.hidden=!list.children.length; $("cmpOff").hidden=!ds.length&&!none;
   if(done||ds.length){ ds.sort((a,b)=>a-b); const med=ds.length?ds[Math.floor(ds.length/2)]:0;
-    $("cmpState").textContent=(done?"Fertig. ":"")+`Grün bis 25 m: ${ok} · Gelb 25–80 m: ${mid} · Rot über 80 m: ${bad}`+(none?` · nicht gefunden: ${none}`:"")+(ds.length?` · typischer Abstand ${med} m`:""); } }
+    $("cmpState").textContent=(done?"Fertig. ":"")+`Grün bis 25 m: ${ok} · Gelb 25–80 m: ${mid} · Rot über 80 m: ${bad}`+(none?` · nicht gefunden: ${none}`:"")+(ds.length?` · typischer Abstand ${med} m`:"")+(sSame+sDiff+sOpen?` · Hausseite gleich: ${sSame} · anders: ${sDiff} · unklar: ${sOpen}`:""); } }
 $("cmpBtn").addEventListener("click",()=>{ runCompare(); fit(); });
 $("cmpOff").addEventListener("click",()=>{ cmpLayer.clearLayers(); $("cmpList").hidden=true; $("cmpOff").hidden=true; $("cmpState").textContent=""; if(tour) tour.stops.forEach(s=>delete s.cmp); });
 $("codeSwitch").addEventListener("click",()=>{ if(window.gateShow) gateShow(); else{ try{ localStorage.removeItem("navi-zugang"); }catch(e){} location.replace("./"); } }); // v=137: Code-Abfrage mit „← Zurück“, alter Code bleibt bis ein neuer stimmt // v=84: Code wechseln in der App (Startbildschirm-App hat eigenen Speicher, getrennt vom Browser)

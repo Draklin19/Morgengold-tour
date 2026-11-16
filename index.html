@@ -795,8 +795,10 @@ body.drive .foot-halo{display:none}
 body.drive .foot-line{stroke:#8a9099;stroke-width:1.5px;stroke-opacity:.55}
 body.drive .footman{transform:scale(.7);opacity:.55;filter:grayscale(1)}
 .walkman{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;background:#fff;border:2px solid var(--route);box-shadow:0 1px 3px rgb(0 0 0 / .35)}
-.hn{position:absolute;translate:-50% -50%;background:#fff;color:#3c4640;font:700 12px/1 var(--font-body);padding:3px 6px;border-radius:9px;border:1px solid #b9c2b9;white-space:nowrap;pointer-events:none;box-shadow:0 1px 2px rgb(0 0 0 / .2)} /* v=130: Hausnummern aus OpenStreetMap */
-.hn.k{background:#1f6f4a;color:#fff;border-color:#fff;font-size:13px;translate:-50% 16px} /* unter den Kunden-Pin, nicht dahinter */
+.hn{position:absolute;translate:-50% -50%;color:#4a4f4b;font:800 14px/1 var(--font-body);white-space:nowrap;pointer-events:none;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff,0 0 4px #fff} /* v=165: ohne Feld und Rand, fetter (Draklin) */ /* v=130: Hausnummern aus OpenStreetMap */
+.hn.k{color:#1f6f4a;font-weight:900;font-size:24px;text-shadow:0 0 2px #fff,0 0 3px #fff,0 0 4px #fff,0 0 5px #fff,0 0 6px #fff}
+.pin.hidepin{display:none!important} /* v=165: Kunde nur als grüne Hausnummer */
+.st-lab{position:absolute;translate:-50% -50%;white-space:nowrap;pointer-events:none;color:#fff;font:900 17px/1 var(--font-body);letter-spacing:.3px;transition:none!important;text-shadow:0 0 2px #14532d,0 0 2px #14532d,0 0 3px #14532d,0 0 4px #14532d,1px 1px 2px #14532d} /* v=165: Straßenname auf der grünen Linie */ /* unter den Kunden-Pin, nicht dahinter */
 .footman{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;line-height:1;background:#fff;border:1.5px solid #3d5a80;box-shadow:0 1px 2px rgb(0 0 0 / .3)}
 .osmpin{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:700 12px var(--font-body);background:#f59e0b;color:#1f1300;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0 / .4)}
 .stop .pwarn{display:block;font-size:.82rem;color:#7a4b00;background:color-mix(in srgb,#f59e0b 22%,transparent);border-radius:4px;padding:1px 5px;margin-top:2px}
@@ -2218,7 +2220,9 @@ function useOfm(){
     document.getElementById("mapErr").hidden=true;
     const gl=tileLayer.getMaplibreMap&&tileLayer.getMaplibreMap();
     const fail=()=>{ if(tileKey==="ofm"&&!ok){ tileKey="esri"; useTiles("esri"); } };
-    if(gl){ gl.on("data",e=>{ if(e.dataType==="source"&&e.tile) ok=true; }); gl.once("idle",()=>{ ok=true; }); gl.on("error",()=>{ bad++; if(bad>=4) fail(); }); }
+    if(gl){ const hideHn=()=>{ try{ (gl.getStyle().layers||[]).forEach(l=>{ if(l["source-layer"]==="housenumber"&&gl.getLayoutProperty(l.id,"visibility")!=="none") gl.setLayoutProperty(l.id,"visibility","none"); }); }catch(e){} };
+      gl.on("styledata",hideHn); hideHn(); // v=162: Hausnummern der Karte aus; nur die eigenen in der Straße des Kunden
+      gl.on("data",e=>{ if(e.dataType==="source"&&e.tile) ok=true; }); gl.once("idle",()=>{ ok=true; }); gl.on("error",()=>{ bad++; if(bad>=4) fail(); }); }
     setTimeout(fail,12000);
   }).catch(()=>{ if(tileKey==="ofm"){ tileKey="esri"; useTiles("esri"); } });
 }
@@ -2448,9 +2452,26 @@ function hnMark(){ const drv=document.body.classList.contains("drive")||!!simTim
     if(vis!==h.on){ h.on=vis; if(vis) h.m.addTo(hnLayer); else hnLayer.removeLayer(h.m); } });
   footList.forEach(f=>{ const vis=near&&!!s&&f.pts.some(q=>dist(q,s.ll)<=120);
     if(vis!==f.on){ f.on=vis; if(vis) f.grp.addTo(footLayer); else footLayer.removeLayer(f.grp); } });
-  stSign(drv&&near&&T===cur?s:null, mm); }
+  hnHit=drv&&T===cur&&hnList.some(h=>h.k&&h.on); pinHide();
+  stLabel(drv&&near&&T===cur?s:null, mm); } // v=165: statt Schild oben steht der Straßenname fett auf der grünen Linie
+let hnHit=false, stLab=null;
+function pinHide(){ try{ markers.forEach(m=>{ const e=m.getElement(), d=e&&e.firstElementChild; if(d) d.classList.toggle("hidepin",hnHit&&m.options.si===cur); }); }catch(e){} }
+function stLabel(s,mm){ const L=apLine;
+  if(!s||!mm||!L||L.length<2||!s.ll){ if(stLab){ stLab.remove(); stLab=null; } return; }
+  let k=L.length-1, bd=1e9; L.forEach((q,j)=>{ const d=dist(q,s.ll); if(d<bd){ bd=d; k=j; } });
+  const lt=turns.length?turns[turns.length-1].ll:null; let j0=Math.max(0,k-1);
+  if(lt){ let b2=1e9; for(let j=0;j<=k;j++){ const d=dist(L[j],lt); if(d<b2){ b2=d; j0=j; } } }
+  if(j0>=k) j0=Math.max(0,k-1); if(k<1){ if(stLab){ stLab.remove(); stLab=null; } return; }
+  let tot=0; for(let j=j0+1;j<=k;j++) tot+=dist(L[j-1],L[j]);
+  let half=tot/2, a=L[j0], b=L[Math.min(k,j0+1)], p=a.slice();
+  for(let j=j0+1;j<=k;j++){ const d=dist(L[j-1],L[j]); a=L[j-1]; b=L[j]; if(half<=d||j===k){ const t=d?Math.min(1,half/d):0; p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]; break; } half-=d; }
+  let ang=bearingDeg(a,b)-90; const scr=((ang-(rotOn()?brg:0))%360+540)%360-180; if(scr>90) ang-=180; else if(scr<=-90) ang+=180;
+  const name=String(mm[1]).trim();
+  if(!stLab){ stLab=L_marker(p); }
+  stLab.setLatLng(p); const el=stLab.getElement(), d=el&&el.firstElementChild; if(d){ if(d.textContent!==name) d.textContent=name; d.style.rotate=Math.round(((ang%360)+540)%360-180)+"deg"; } }
+function L_marker(p){ return L.marker(p,{icon:L.divIcon({className:"",html:'<div class="st-lab"></div>',iconSize:[0,0]}),interactive:false,keyboard:false,zIndexOffset:900}).addTo(map); }
 // v=157 (Test, Draklin „Schild oben“): kurz vor dem Einbiegen in die Straße des Kunden oben ein großes grünes Straßenschild mit Hausnummer
-function stSign(s,mm){ let b=document.getElementById("stSign");
+function stSign(s,mm){ return; let b=document.getElementById("stSign");
   if(!b){ b=document.createElement("div"); b.id="stSign"; b.className="st-sign"; b.hidden=true; b.setAttribute("role","status"); b.innerHTML="<span></span><small></small>"; $("map").appendChild(b); }
   if(!s){ if(!b.hidden) b.hidden=true; return; }
   const name=mm?mm[1]:String(s.addr).split(",")[0], no=mm?mm[2]:"";
@@ -2662,7 +2683,7 @@ let stPill=null, stShown=-1;
 function updateHouseNo(){
   const s=tour&&cur>=0?tour.stops[cur]:null, drv=document.body.classList.contains("drive")||!!simTimer;
   if(!drv||!s||!s.ll||!s.addr){ if(stPill){ stPill.remove(); stPill=null; } stShown=-1; return; }
-  { try{ const mk=markers.find(m=>m.options.si===cur), pe=mk&&mk.getElement(); const d=pe&&pe.firstElementChild; if(d&&!d.classList.contains("nonum")) d.classList.add("nonum"); }catch(e){} return; } // v=157: statt Marke am Haus ein Schild oben (stSign)
+  { try{ const mk=markers.find(m=>m.options.si===cur), pe=mk&&mk.getElement(); const d=pe&&pe.firstElementChild; if(d&&!d.classList.contains("nonum")) d.classList.add("nonum"); if(d) d.classList.toggle("hidepin",hnHit); }catch(e){} return; } // v=157: statt Marke am Haus ein Schild oben (stSign)
   if(stShown!==cur){
     if(stPill){ stPill.remove(); stPill=null; }
     if(!carPos||apStop!==cur) return;

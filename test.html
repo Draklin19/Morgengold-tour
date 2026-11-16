@@ -2030,7 +2030,7 @@ async function geocodeOne(s,ref){ // v=151: ref = Bezugspunkt (Kommissionierstel
     Object.entries({...t,...near,format:"jsonv2",limit:"5",addressdetails:"1",countrycodes:"de","accept-language":"de"}).forEach(([k,v])=>{ if(v) u.searchParams.set(k,v); });
     const w=lastAsk+1100-Date.now(); if(w>0) await new Promise(ok=>setTimeout(ok,w)); lastAsk=Date.now(); // höchstens 1 Anfrage pro Sekunde, auch neben dem Hauspunkt-Abgleich
     const r=await fetch(u.toString()); if(!r.ok) throw new Error("Adresssuche nicht erreichbar ("+r.status+")");
-    let hs=(await r.json()).filter(fits).map(h=>[parseFloat(h.lat),parseFloat(h.lon)]);
+    let hs=(await r.json()).filter(fits).map(h=>[parseFloat(h.lat),parseFloat(h.lon),0,(h.place_rank>=30||/^(house|building)$/.test(h.addresstype||"")||h.type==="house"||h.category==="building")?1:0]); // v=168: [3]=1 genau ein Haus
     if(ref&&!plz){ hs=hs.filter(p=>dist(p,ref)<45000).sort((a,b)=>dist(a,ref)-dist(b,ref)); }
     return hs[0]||null; };
   if(s.addr) for(const t of [{street:s.addr,postalcode:plz,city:ort},{q:`${s.addr}, ${plz} ${ort}`},{street:s.addr,postalcode:plz}]){ const p=await ask1(t); if(p) return p; }
@@ -3495,7 +3495,7 @@ $("pinCancel").addEventListener("click",endPin);
 var cmpLayer=L.layerGroup().addTo(map); let cmpRun=false;
 async function runCompare(){
   if(cmpRun||!tour) return; if(!bcrTour||!pdfTour){ $("cmpState").textContent="Dafür bitte Ausfahrliste (PDF) und .bcr zusammen öffnen."; return; }
-  cmpRun=true; $("cmpBtn").disabled=true; const t=tour, cache=jget("navi-vergleich3"); let n=0;
+  cmpRun=true; $("cmpBtn").disabled=true; const t=tour, cache=jget("navi-vergleich4"); let n=0;
   // v=167: genau wie „nur Ausfahrliste“: Adresse mit PLZ und Ort aus der Liste (auch wenn die Tour nur aus der .bcr läuft),
   // Suche rund um die Tour (Kommissionierstelle bzw. Mitte der .bcr-Punkte), Treffer über 35 km weg zählen nicht
   const byNo={}; (pdfTour.stops||[]).forEach(q=>{ byNo[String(q.no)]=q; });
@@ -3505,8 +3505,8 @@ async function runCompare(){
   try{ for(const s of todo){
       const q=byNo[String(s.no)]||s, g={addr:q.addr||s.addr,town:q.town||s.town||""};
       const k=addrKey(g); $("cmpState").textContent=`Suche Adresse ${++n} von ${todo.length} …`;
-      if(cache[k]===undefined){ let p=await geocodeOne(g,ref); if(p&&mid&&dist(p,mid)>35000) p=await geocodeOne(g,mid); if(p&&mid&&dist(p,mid)>35000) p=null; cache[k]=p||0; jset("navi-vergleich3",cache); }
-      s.cmp=cache[k]&&cache[k][2]!==1?cache[k]:null; s.cmpRough=!!(cache[k]&&cache[k][2]===1); if(tour!==t) return; drawCompare(); } }
+      if(cache[k]===undefined){ let p=await geocodeOne(g,ref); if(p&&mid&&dist(p,mid)>35000) p=await geocodeOne(g,mid); if(p&&mid&&dist(p,mid)>35000) p=null; cache[k]=p||0; jset("navi-vergleich4",cache); }
+      s.cmp=cache[k]&&cache[k][2]!==1?cache[k].slice(0,2):null; s.cmpRough=!!(cache[k]&&cache[k][2]===1); s.cmpExact=!!(cache[k]&&cache[k][3]===1); if(tour!==t) return; drawCompare(); } }
   catch(x){ cmpRun=false; $("cmpBtn").disabled=false; drawCompare(false); $("cmpState").textContent=`Abgebrochen nach ${n-1} von ${todo.length}: `+(x.message||"Adresssuche fehlgeschlagen")+". Nochmal „Vergleich starten“ tippen, schon gefundene Adressen werden nicht neu gesucht."; return; }
   cmpRun=false; $("cmpBtn").disabled=false; drawCompare(true); }
 function drawCompare(done){
@@ -3514,7 +3514,7 @@ function drawCompare(done){
   // v=166 (Test): Hausseite links/rechts zur Straßenroute, einmal mit dem Punkt aus der .bcr, einmal nur mit der Ausfahrliste (Adresssuche)
   const RL=(tour.road&&tour.road.line&&tour.road.line.length>1)?tour.road.line:(tour.line||[]); let sSame=0,sDiff=0,sOpen=0;
   const sideAt=(pt,ref)=>{ if(RL.length<2) return ""; let k=1,bd=1e9; for(let j=0;j<RL.length;j++){ const d=dist(RL[j],ref); if(d<bd){ bd=d; k=j; } } return sideOnLine(pt,RL,Math.min(RL.length-1,Math.max(1,k+1))); };
-  const SL={links:"L",rechts:"R","":"?"};
+  const SL={links:"L",rechts:"R","":"?"}; let nEx=0,nSt=0;
   tour.stops.forEach((s,i)=>{ const b=s.orig||s.ll; if(s.cmp===undefined||!b) return;
     const li=document.createElement("li"); let d=null, cls="none";
     if(s.cmp){ d=Math.round(dist(s.cmp,b)); ds.push(d); cls=d<=25?"ok":d<=80?"mid":"bad"; if(cls==="ok")ok++; else if(cls==="mid")mid++; else bad++;
@@ -3523,10 +3523,13 @@ function drawCompare(done){
       if(d>25) L.marker(s.cmp,{icon:L.divIcon({className:"",html:`<div class="cmplbl">${i+1}: ${d} m</div>`,iconSize:[0,0],iconAnchor:[-10,8]}),interactive:false}).addTo(cmpLayer); }
     else none++;
     let sd=""; if(s.cmp){ const sb=sideAt(b,b), sc=sideAt(s.cmp,b); if(!sb||!sc){ sOpen++; sd=` · Seite ${SL[sb]}/${SL[sc]}`; } else if(sb===sc){ sSame++; sd=` · Seite ${SL[sb]} ✓`; } else { sDiff++; sd=` · Seite .bcr ${SL[sb]}, Liste ${SL[sc]} ✗`; li.classList.add("sidediff"); } }
-    li.className=cls+(sd.includes("✗")?" sidediff":""); li.innerHTML=`<span>${i+1}</span><span></span><b>${d===null?(s.cmpRough?"nur Ortsmitte":"nicht gefunden"):d+" m"}${sd}</b>`; li.children[1].textContent=s.addr; list.append(li); });
+    if(s.cmp){ if(s.cmpExact) nEx++; else nSt++; }
+    li.className=cls+(sd.includes("✗")?" sidediff":""); li.innerHTML=`<span>${i+1}</span><span></span><b>${d===null?(s.cmpRough?"nur Ortsmitte":"nicht gefunden"):d+" m"}${sd}${s.cmp?(s.cmpExact?" · Liste: Haus":" · Liste: nur Straße"):""}</b>`; li.children[1].textContent=s.addr;
+    li.style.cursor="pointer"; li.addEventListener("click",()=>{ const pts=[b]; if(s.cmp) pts.push(s.cmp); setFollow(false); if(pts.length>1) fitVis(L.latLngBounds(pts).pad(1.2),{maxZoom:19}); else map.setView(b,18); const mp=document.getElementById("map"); if(mp) mp.scrollIntoView({behavior:"smooth",block:"center"}); });
+    list.append(li); });
   list.hidden=!list.children.length; $("cmpOff").hidden=!ds.length&&!none;
   if(done||ds.length){ ds.sort((a,b)=>a-b); const med=ds.length?ds[Math.floor(ds.length/2)]:0;
-    $("cmpState").textContent=(done?"Fertig. ":"")+`Grün bis 25 m: ${ok} · Gelb 25–80 m: ${mid} · Rot über 80 m: ${bad}`+(none?` · nicht gefunden: ${none}`:"")+(ds.length?` · typischer Abstand ${med} m`:"")+(sSame+sDiff+sOpen?` · Hausseite gleich: ${sSame} · anders: ${sDiff} · unklar: ${sOpen}`:""); } }
+    $("cmpState").textContent=(done?"Fertig. ":"")+`Grün bis 25 m: ${ok} · Gelb 25–80 m: ${mid} · Rot über 80 m: ${bad}`+(none?` · nicht gefunden: ${none}`:"")+(ds.length?` · typischer Abstand ${med} m`:"")+(sSame+sDiff+sOpen?` · Hausseite gleich: ${sSame} · anders: ${sDiff} · unklar: ${sOpen}`:"")+(nEx+nSt?` · Liste trifft genau ein Haus: ${nEx}, nur die Straße: ${nSt}. Zeile antippen = beide Punkte auf der Karte (Quadrat = Liste).`:""); } }
 $("cmpBtn").addEventListener("click",()=>{ runCompare(); fit(); });
 $("cmpOff").addEventListener("click",()=>{ cmpLayer.clearLayers(); $("cmpList").hidden=true; $("cmpOff").hidden=true; $("cmpState").textContent=""; if(tour) tour.stops.forEach(s=>delete s.cmp); });
 $("codeSwitch").addEventListener("click",()=>{ if(window.gateShow) gateShow(); else{ try{ localStorage.removeItem("navi-zugang"); }catch(e){} location.replace("./"); } }); // v=137: Code-Abfrage mit „← Zurück“, alter Code bleibt bis ein neuer stimmt // v=84: Code wechseln in der App (Startbildschirm-App hat eigenen Speicher, getrennt vom Browser)

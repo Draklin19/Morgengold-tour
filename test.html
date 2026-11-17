@@ -1015,7 +1015,7 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-row .chev{color:var(--muted);font-size:1.3rem}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
-#bcrOnlyRow{display:none!important}
+#bcrOnlyRow,#cmpBox{display:none!important}
 html.fahrer #bcrOnlyRow,html.fahrer #ofmRow,html.fahrer #corrShare{display:none!important}
 #t3dRow,.d3-btn{display:none!important} /* v=159: 3D wieder raus (Draklin) */
 /* v=106: Ton-Knopf beim Fahren */
@@ -1326,7 +1326,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
   </section>
   <section class="pg-plan" id="pgPlan"><h2>Schichtplan</h2><div class="plan-empty"><span aria-hidden="true">📅</span><p>Hier kommt bald der Schichtplan hin.</p></div></section>
   <div class="actions cta">
-    <label class="btn primary big" for="file">📂 Tour öffnen <small>Ausfahrliste PDF / .bcr</small></label>
+    <label class="btn primary big" for="file">📂 Tour öffnen <small>Ausfahrliste (PDF)</small></label>
     <input type="file" id="file" multiple><!-- kein accept: Android kennt .bcr nicht und graut die Datei sonst aus; Typ wird am Inhalt erkannt -->
     <input type="file" id="fileAll" multiple><label class="file-all" for="fileAll" id="fileAllLbl" hidden>Datei nicht dabei? Alle Dateien zeigen</label>
     <div class="last-tours" id="lastTour" hidden></div>
@@ -1357,7 +1357,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
         <p class="hint" id="depotHint"></p></div></details>
       <details class="set-row"><summary><span class="ic c-green">🔗</span><span class="t">Link zur Tour-Seite<small id="tourUrlSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="tourUrl" type="url" inputmode="url" placeholder="https://…"><button class="btn" id="tourUrlSave" type="button">Speichern</button></div>
-        <p class="hint">Von dort lädst du Ausfahrliste und Routendatei. Oben erscheint dann „⬇ Tour herunterladen“.</p></div></details>
+        <p class="hint">Von dort lädst du die Ausfahrliste. Oben erscheint dann „⬇ Tour herunterladen“.</p></div></details>
       <label class="set-row r" id="t3dRow" for="t3dSw"><span class="ic c-green">🛣</span><span class="t">3D-Sicht beim Fahren<small>Karte schräg von hinten wie bei Google (nur Test-Version)</small></span><input type="checkbox" class="sw" id="t3dSw"></label>
       <label class="set-row r" id="ofmRow" for="ofmSw"><span class="ic c-green">🗺</span><span class="t">Moderne Karte (OpenFreeMap)<small>aus = Esri-Karte wie bisher (nur Test-Version)</small></span><input type="checkbox" class="sw" id="ofmSw"></label>
       <label class="set-row r" id="bcrOnlyRow" for="bcrOnly"><span class="ic c-green">🧭</span><span class="t">Tour nur aus der .bcr<small>Ausfahrliste wird ignoriert (nur Test-Version)</small></span><input type="checkbox" class="sw" id="bcrOnly"></label>
@@ -1420,7 +1420,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <button class="btn" id="confirmNo" type="button">Abbrechen</button>
   </div>
 
-  <p class="privacy">🔒 Alles bleibt auf deinem Handy: Ausfahrliste und Routendatei werden nur hier gelesen, nichts wird hochgeladen, Kundennamen werden nicht angezeigt. Die letzten 3 Touren bleiben auf diesem Handy gespeichert, bis eine neuere Tour sie ersetzt oder du „Tour löschen“ tippst.</p>
+  <p class="privacy">🔒 Alles bleibt auf deinem Handy: die Ausfahrliste wird nur hier gelesen, nichts wird hochgeladen, Kundennamen werden nicht angezeigt. Die letzten 3 Touren bleiben auf diesem Handy gespeichert, bis eine neuere Tour sie ersetzt oder du „Tour löschen“ tippst.</p>
   <p class="loaded" id="loaded"></p>
   <p class="loaded" id="routeState" hidden></p>
   <div class="geo" id="geoBox" hidden>
@@ -2080,7 +2080,7 @@ function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s
   map.closePopup(); corrUi(); render(); routeTour(); toast(`Hauspunkt für Stopp ${i+1} gespeichert`); }
 function resetPos(i){ const s=tour.stops[i], k=addrKey(s), c=jget(CORR_KEY); delete c[k]; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); delete nm[k]; jset(CORR_NAME_KEY,nm); const og=jget(CORR_ORIG_KEY); delete og[k]; jset(CORR_ORIG_KEY,og);
   if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; s.said=false;
-  map.closePopup(); corrUi(); render(); routeTour(); checkTour(); toast(`Stopp ${i+1}: Punkt aus der Routendatei`); }
+  map.closePopup(); corrUi(); render(); routeTour(); checkTour(); toast(`Stopp ${i+1}: eigener Hauspunkt gelöscht`); }
 function corrUi(){ const c=jget(CORR_KEY), nm=jget(CORR_NAME_KEY), ks=Object.keys(c); $("corrInfo").textContent=ks.length+" gespeichert";
   const ul=$("corrList"); if(!ul) return; ul.innerHTML="";
   ks.map(k=>[k,nm[k]||k.replace(/([a-zäöü])(\d)/,"$1 $2").replace("|"," · ")]).sort((a,b)=>a[1].localeCompare(b[1],"de")).forEach(([k,label])=>{ // ältere Punkte ohne gespeicherten Namen: Kurzform aus dem Schlüssel
@@ -2171,7 +2171,7 @@ async function routeTour(){
   road.depot=!!dp; t.road=road; routeState(""); render();
 }
 function loadedInfo(){
-  const parts=[]; if(pdfTour) parts.push(`${pdfTour.etik?"Etiketten":"Ausfahrliste"}: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour&&!pdfTour.etik?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`+(LISTE_NUR?(IS_TEST?" (nur für den Vergleich)":" (wird nicht benutzt)"):""));
+  const parts=[]; if(pdfTour) parts.push(`${pdfTour.etik?"Etiketten":"Ausfahrliste"}: ${pdfTour.stops.length} Stopps`+(bcrOnly()&&bcrTour&&!pdfTour.etik?" (wird ignoriert, nur .bcr)":"")); if(bcrTour) parts.push(`Routendatei: ${bcrTour.stops.length} Stopps`+(LISTE_NUR?" (wird nicht benutzt)":""));
   let t=parts.length?"Geladen · "+parts.join(" · "):"";
   if(!LISTE_NUR&&pdfTour&&bcrTour&&pdfTour.stops.length!==bcrTour.stops.length) t+=" · Achtung: unterschiedliche Anzahl, verbunden über die Stopp-Nummer.";
   $("loaded").textContent=t;
@@ -2326,7 +2326,7 @@ function render(){ setTimeout(()=>declutter(),0);
     $("routeName").textContent="Keine Tour geladen";
     ["sStops","sDone"].forEach(i=>$(i).textContent="0"); $("sTime").textContent="–"; $("sKm").textContent="–";
     $("nextCard").hidden=true;
-    list.innerHTML='<li class="empty">Öffne die Ausfahrliste (PDF) und die Routendatei (.bcr), um die Stopps zu sehen.</li>'; $("loadBox").hidden=true;
+    list.innerHTML='<li class="empty">Öffne die Ausfahrliste (PDF), um die Stopps zu sehen.</li>'; $("loadBox").hidden=true;
     map.setView([48.166,8.627],13); return;
   }
   $("routeName").innerHTML=""; $("routeName").append(tour.name);
@@ -2949,7 +2949,7 @@ $("sim").addEventListener("click",()=>{
   if(simTimer){stopSim();return;}
   stopGps(); speakPrime(); announced=-1; follow=true;
   if(!tour||cur<0){toast("Keine offenen Stopps.");return;}
-  if(!tour.line||tour.line.length<2){toast("Für die Simulation die Routendatei (.bcr) öffnen.");return;}
+  if(!tour.line||tour.line.length<2){toast("Für die Simulation zuerst die Ausfahrliste öffnen.");return;}
   const line=tour.line; simIdx=cur>0?Math.max(0,tour.stops[cur-1].li):0; carPos=line[simIdx].slice(); disp=null;
   if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[34,42],iconAnchor:[17,42]}),zIndexOffset:2000});
   car.setLatLng(carPos).addTo(map); $("sim").textContent="■ Simulation stoppen"; document.body.classList.add("sim"); gpsAcc=0; head=null; headFrom=null;
@@ -3457,7 +3457,7 @@ async function loadFiles(files){
   if(!(tour&&files.length===1&&((isPdfOnly(files)&&!hadPdf)||(!isPdfOnly(files)&&!hadBcr)))) curId=null; // neue Tour, außer es wurde nur die fehlende Datei ergänzt
   const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit();
   const etik=!!(pdfTour&&pdfTour.etik);
-  if(LISTE_NUR&&bcrTour&&!pdfTour) toast("Bitte die Ausfahrliste (PDF) öffnen. Die Routendatei (.bcr) wird nicht mehr gebraucht.");
+  if(LISTE_NUR&&bcrTour&&!pdfTour) toast("Bitte die Ausfahrliste (PDF) öffnen.");
   if(pdfTour&&(LISTE_NUR||!bcrTour)&&tour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
   else{ routeTour(); checkTour(); }
 }
@@ -3478,7 +3478,7 @@ $("tourLink").addEventListener("click",e=>{
 $("geoBtn").addEventListener("click",geocodeTour);
 corrUi();
 $("corrClear").addEventListener("click",async()=>{
-  if(!await ask("Eigene Hauspunkte löschen?","Alle selbst gesetzten Hauspunkte und gemerkten Adressen werden von diesem Handy entfernt. Danach gelten wieder die Punkte aus der Routendatei.","Löschen","Abbrechen")) return;
+  if(!await ask("Eigene Hauspunkte löschen?","Alle selbst gesetzten Hauspunkte und gemerkten Adressen werden von diesem Handy entfernt. Danach gelten wieder die Punkte aus der Adresssuche.","Löschen","Abbrechen")) return;
   try{ localStorage.removeItem(CORR_KEY); localStorage.removeItem(OSM_KEY); localStorage.removeItem(CORR_NAME_KEY); localStorage.removeItem(CORR_ORIG_KEY); }catch(e){}
   if(tour) tour.stops.forEach(s=>{ if(s.fixed){ if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; } s.warn=false; s.osm=null; });
   corrUi(); if(tour){ render(); routeTour(); checkTour(); } toast("Eigene Hauspunkte gelöscht"); });

@@ -2020,10 +2020,12 @@ async function geocodeOne(s,ref){ // v=151: ref = Bezugspunkt (Kommissionierstel
   // Wird die Straße dort nicht gefunden, gibt es die Ortsmitte als Notpunkt zurück: [lat, lon, 1] = ungefähr.
   const ortN=x=>(x||"").toLowerCase().replace(/\s+(b\.|bei|a\.|am|an der|im|ob der)\s.*$/,"").replace(/[^a-zäöüß]/g,"");
   const want=ortN(ort);
+  // v=172: Ort muss immer passen, nicht nur die PLZ. Sonst landet z. B. „Hauptstraße 5, 78628 Göllsdorf“ in der Hauptstraße von Rottweil (gleiche PLZ).
   const fits=h=>{ const a=h.address||{};
-    if(plz&&a.postcode) return a.postcode===plz;
-    if(!want) return !plz;
-    return [a.city,a.town,a.village,a.municipality,a.hamlet,a.suburb].some(x=>x&&ortN(x)===want)||ortN(h.display_name).includes(want); };
+    if(plz&&a.postcode&&a.postcode!==plz) return false;
+    if(!want) return !plz||!!a.postcode;
+    const ws=[want,ortN(String(ort||"").split(/\s*-\s*/).pop())].filter(x=>x&&x.length>2); // v=173: „Köln-Ehrenfeld“ passt auch zum Stadtteil Ehrenfeld (nicht zu irgendwo in Köln)
+    return [a.city,a.town,a.village,a.municipality,a.hamlet,a.suburb,a.city_district,a.borough,a.quarter,a.neighbourhood,a.isolated_dwelling].some(x=>x&&ws.includes(ortN(x)))||(h.display_name||"").split(",").some(x=>ws.includes(ortN(x.trim()))); };
   const ask1=async t=>{
     const u=new URL("https://nominatim.openstreetmap.org/search");
     const near=!plz&&ref?{viewbox:[ref[1]-.55,ref[0]+.37,ref[1]+.55,ref[0]-.37].map(v=>v.toFixed(4)).join(","),bounded:"1"}:{};
@@ -2041,7 +2043,7 @@ async function geocodeTour(){
   if(geoRunning||!tour) return; geoRunning=true; $("geoBtn").disabled=true;
   const todo=tour.stops.filter(s=>!s.ll&&s.addr); let done=0; const miss=[], rough=[];
   // v=151: Bezugspunkt = Kommissionierstelle, sonst Mitte der schon gefundenen Stopps. Gefundene Punkte merkt sich das Handy (navi-geocache).
-  const GC="navi-geocache2", gc=jget(GC), gk=s=>(s.addr+"|"+s.town).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/\s+/g,"");
+  const GC="navi-geocache3", gc=jget(GC), gk=s=>(s.addr+"|"+s.town).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/\s+/g,"");
   const mid=()=>{ const f=tour.stops.filter(s=>s.ll&&!s.approx); if(!f.length) return null; const m=k=>f.map(s=>s.ll[k]).sort((a,b)=>a-b)[Math.floor(f.length/2)]; return [m(0),m(1)]; };
   const put=(s,p)=>{ s.ll=p.slice(0,2); s.approx=p[2]===1; s.exact=p[3]===1; s.via=[]; s.geo=true; }; // v=169: Hausseite nur, wenn die Adresssuche genau das Haus trifft
   try{
@@ -2049,7 +2051,7 @@ async function geocodeTour(){
       $("geoState").textContent=`Suche Adresse ${++done} von ${todo.length} …`;
       const c=gc[gk(s)]; const p=c||await geocodeOne(s,depotLL()||mid());
       if(p){ put(s,p); if(!c&&!s.approx){ gc[gk(s)]=p; const ks=Object.keys(gc); if(ks.length>3000) delete gc[ks[0]]; jset(GC,gc); } } else miss.push(tour.stops.indexOf(s)+1);
-      render(); if(done===1||done===todo.length) fit();
+      render(); if(done===1||done===todo.length) fit(); if(done%5===0) try{ saveTour(); }catch(e){}
     }
     // zweiter Durchgang: Ausreißer weit weg von der Tour (z. B. falsches „Hausen“) nahe der Tourmitte neu suchen
     const m=mid(); if(m) for(const s of todo){ if(!s.ll||dist(s.ll,m)<=35000) continue;
@@ -2058,7 +2060,7 @@ async function geocodeTour(){
     todo.forEach(s=>{ if(s.ll&&s.approx) rough.push(tour.stops.indexOf(s)+1); });
     $("geoState").textContent=(miss.length?`Fertig. Nicht gefunden: Stopp ${miss.join(", ")}. Diese Stopps fehlen auf der Karte, Google Maps findet sie trotzdem über die Adresse.`:rough.length?"Fertig.":"Fertig, alle Adressen gefunden. Die Punkte können einige Meter neben dem Haus liegen.")+(rough.length?` ⚠ Nur ungefähr (Ortsmitte): Stopp ${rough.join(", ")}. Bitte Adresse prüfen und Hauspunkt per langem Drücken setzen.`:"");
   }catch(x){ $("geoState").textContent=(x.message||"Adresssuche fehlgeschlagen")+". Bitte Internetverbindung prüfen und nochmal versuchen."; }
-  geoRunning=false; $("geoBtn").disabled=false; routeTour(); $("geoBox").hidden=!tour.stops.some(s=>!s.ll);
+  geoRunning=false; $("geoBtn").disabled=false; try{ saveTour(); }catch(e){} routeTour(); // v=172: gefundene Punkte gleich speichern $("geoBox").hidden=!tour.stops.some(s=>!s.ll);
 }
 // Eigene Hauspunkte: pro Adresse nur auf diesem Handy gespeichert (localStorage navi-korrektur) und bei jeder Tour
 // mit derselben Adresse benutzt, für Karte, Google-Link, Haus links/rechts und Ansage.
@@ -2662,7 +2664,7 @@ function apWeight(){ // Linie so breit wie eine normale Straße auf der Karte (c
 map.on("zoomend",()=>{ if(apPoly&&apRouted) apPoly.setStyle({weight:apWeight()}); });
 function fitVis(b,opt){ // fitBounds nur auf den sichtbaren Teil der (beim Fahren größeren) Karte
   const px=Math.max(0,(mapIn.offsetWidth-mapBox.clientWidth)/2), py=Math.max(0,(mapIn.offsetHeight-mapBox.clientHeight)/2);
-  map.fitBounds(b,Object.assign({},opt||{},px||py?{paddingTopLeft:[px,py],paddingBottomRight:[px,py]}:{})); }
+  try{ map.fitBounds(b,Object.assign({},opt||{},px||py?{paddingTopLeft:[px,py],paddingBottomRight:[px,py]}:{})); }catch(e){} } // v=172: unsichtbare Karte (z. B. Hauptseite) darf das Laden nicht abbrechen
 { const m2c=map.mouseEventToContainerPoint.bind(map); // Tippen und Zoomen auf der gedrehten Karte an die richtige Stelle umrechnen
   map.mouseEventToContainerPoint=function(e){ if(!(brg%360)) return m2c(e);
     const a=brg*Math.PI/180, r=mapBox.getBoundingClientRect(), x=e.clientX-(r.left+r.width/2), y=e.clientY-(r.top+r.height/2), c=Math.cos(a), s=Math.sin(a);
@@ -3825,7 +3827,9 @@ function saveTour(){ try{
 function restoreTour(d){
   bcrTour=d.bcr; pdfTour=d.pdf; const t=mergeTours(); if(!t) return false;
   t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; s.at=(d.at||[])[i]||0; s.dep=(d.dep||[])[i]||0; if(!s.ll&&d.ll&&d.ll[i]){ s.ll=d.ll[i]; if(d.ex) s.exact=!!d.ex[i]; } }); t.depotDone=!!d.depotDone; tour=t; cur=typeof d.cur==="number"?d.cur:0; curId=d.id;
-  $("lastTour").hidden=true; loadedInfo(); render(); fit(); routeTour(); checkTour(); return true; }
+  $("lastTour").hidden=true; loadedInfo(); render(); fit(); routeTour(); checkTour();
+  if(pdfTour&&LISTE_NUR&&t.stops.some(s=>!s.ll&&s.addr)) setTimeout(geocodeTour,300); // v=172: nach dem Neuladen fehlende Adressen weiter suchen
+  return true; }
 const WD=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
 function dayLabel(day){ const m=String(day||"").match(/(\d{4})-(\d\d)-(\d\d)/); if(!m) return "";
   const d=new Date(+m[1],+m[2]-1,+m[3]); return `${WD[d.getDay()]}, ${m[3]}.${m[2]}.`; }

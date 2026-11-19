@@ -2027,7 +2027,8 @@ async function geocodeOne(s,ref){ // v=151: ref = Bezugspunkt (Kommissionierstel
   const fits=h=>{ const a=h.address||{};
     if(plz&&a.postcode&&a.postcode!==plz) return false;
     if(!want) return !plz||!!a.postcode;
-    return [a.city,a.town,a.village,a.municipality,a.hamlet,a.suburb,a.city_district,a.borough,a.quarter,a.neighbourhood,a.isolated_dwelling].some(x=>x&&ortN(x)===want)||(h.display_name||"").split(",").some(x=>ortN(x.trim())===want); };
+    const ws=[want,ortN(String(ort||"").split(/\s*-\s*/).pop())].filter(x=>x&&x.length>2); // v=173: „Köln-Ehrenfeld“ passt auch zum Stadtteil Ehrenfeld (nicht zu irgendwo in Köln)
+    return [a.city,a.town,a.village,a.municipality,a.hamlet,a.suburb,a.city_district,a.borough,a.quarter,a.neighbourhood,a.isolated_dwelling].some(x=>x&&ws.includes(ortN(x)))||(h.display_name||"").split(",").some(x=>ws.includes(ortN(x.trim()))); };
   const ask1=async t=>{
     const u=new URL("https://nominatim.openstreetmap.org/search");
     const near=!plz&&ref?{viewbox:[ref[1]-.55,ref[0]+.37,ref[1]+.55,ref[0]-.37].map(v=>v.toFixed(4)).join(","),bounded:"1"}:{};
@@ -2162,9 +2163,13 @@ async function routeTour(){
   for(const base of ROUTERS){ try{
       const D=await routeLegs(base,S,false); let V=null; if(P.length>S.length){ try{ V=await routeLegs(base,P,true); }catch(e){} }
       const line=[]; let m=0, sec=0, firstSec=0, kept=0;
-      D.forEach((d,i)=>{ let use=d; if(V){ const [a,b]=rng[i], seg=V.slice(a,b), vm=seg.reduce((x,y)=>x+y.m,0);
+      for(let i=0;i<D.length;i++){ const d=D[i]; let use=d; if(V){ const [a,b]=rng[i], seg=V.slice(a,b), vm=seg.reduce((x,y)=>x+y.m,0);
           if(b-a>1&&vm<=d.m*1.15+80){ use={line:seg.reduce((x,y)=>x.concat(x.length?y.line.slice(1):y.line),[]),m:vm,sec:seg.reduce((x,y)=>x+y.sec,0)}; kept++; } }
-        line.push(...(line.length?use.line.slice(1):use.line)); m+=use.m; sec+=use.sec; if(i===0) firstSec=use.sec; });
+        const hit=sperrHit(use.line,S[i]); // v=173 (Test): auch die Übersicht fährt um Sperrungen herum (Kilometer und Zeit stimmen dann)
+        if(hit){ routeState("Umleitung um Sperrung wird berechnet …"); const alt=await sperrAround(S[i],S[i+1],hit,pts=>routeSteps(base,pts,null).catch(()=>null),use.line).catch(()=>null);
+          if(seq!==routeSeq||tour!==t) return;
+          if(alt){ const am=alt.legs.reduce((x,y)=>x+y,0); use={line:alt.line,m:am,sec:use.m>0?use.sec*am/use.m:am/8}; } }
+        line.push(...(line.length?use.line.slice(1):use.line)); m+=use.m; sec+=use.sec; if(i===0) firstSec=use.sec; }
       road={line,km:m/1000,sec,firstSec,viaKept:kept}; break;
     }catch(x){ why.push(new URL(base).host+": "+(x.message||x)); } }
   if(seq!==routeSeq||tour!==t) return;
@@ -2557,7 +2562,7 @@ async function sperrAdd(p){ map.closePopup();
   const hit=await sperrSnap(p); // v=171: Sperrung immer auf die nächste befahrbare Straße setzen, nie frei (z. B. auf ein Gebäude)
   if(!hit){ toast("Keine Straße in der Nähe gefunden. Bitte direkt auf die Straße lange drücken."); return; }
   if(sperren.some(q=>dist(q.ll,hit.ll)<15)){ toast("Hier ist schon gesperrt"); return; }
-  sperren.push({ll:hit.ll,name:hit.name,at:Date.now()}); sperrSave(); sperrDraw(); toast("⛔ Gesperrt"+(hit.name?": "+hit.name:"")); sperrReroute(); }
+  sperren.push({ll:hit.ll,name:hit.name,at:Date.now()}); sperrSave(); sperrDraw(); toast("⛔ Gesperrt"+(hit.name?": "+hit.name:"")); sperrReroute(); routeTour(); }
 // v=171: nächste Straße für Autos: zuerst OpenStreetMap-Straßen (Overpass) im Umkreis von 120 m, Punkt genau auf die Straßenlinie;
 // sonst der Routing-Server (nearest). Fuß- und Radwege zählen nicht.
 const SP_HW="^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road)(_link)?$";
@@ -2573,7 +2578,7 @@ async function sperrSnap(p){
   return null; }
 function segP(p,a,b){ const kx=Math.cos(p[0]*Math.PI/180)*111320, ky=111320, ax=(a[1]-p[1])*kx, ay=(a[0]-p[0])*ky, dx=(b[1]-a[1])*kx, dy=(b[0]-a[0])*ky, l=dx*dx+dy*dy;
   const t=l?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/l)):0; return [a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])]; }
-function sperrDel(i){ map.closePopup(); sperren.splice(i,1); sperrSave(); sperrDraw(); toast("Sperrung entfernt"); sperrReroute(); }
+function sperrDel(i){ map.closePopup(); sperren.splice(i,1); sperrSave(); sperrDraw(); toast("Sperrung entfernt"); sperrReroute(); routeTour(); }
 function sperrReroute(n){ sperrWarned=-1; if(!tour||!(document.body.classList.contains("drive")||simTimer)) return; if(apBusy){ if((n||0)<20) setTimeout(()=>sperrReroute((n||0)+1),700); return; } apStop=-1; apAt=0; updateApproach(); } // v=171: läuft gerade eine Berechnung, kurz danach nochmal
 sperrDraw();
 function segD(p,a,b){ const kx=Math.cos(p[0]*Math.PI/180)*111320, ky=111320, ax=(a[1]-p[1])*kx, ay=(a[0]-p[0])*ky, dx=(b[1]-a[1])*kx, dy=(b[0]-a[0])*ky, l=dx*dx+dy*dy;

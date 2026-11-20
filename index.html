@@ -2448,8 +2448,8 @@ function hnMark(){ const drv=document.body.classList.contains("drive")||!!simTim
   const T=tour&&cur>=0?(apStop>=0&&tour.stops[apStop]?apStop:cur):-1, s=T>=0?tour.stops[T]:null;
   let near=false; if(s&&s.ll){ if(!drv) near=true; else if(carPos){ // v=148: erst kurz vor dem Einbiegen in die Straße des Kunden (bzw. in ihr)
       if(apStop===T&&apRouted&&apLine&&T===cur){ const lt=turns.length?turns[turns.length-1].ll:null, r=apRest();
-        near=onFinalStreet()||(!!lt&&r!=null&&dist(carPos,lt)<=80&&r<=HN_AHEAD+dist(lt,s.ll)); }
-      else near=dist(carPos,s.ll)<=150; } }
+        near=onFinalStreet(); } // v=174: erst wenn man wirklich in der Straße des Kunden ist (vorher schon 80 m vor dem Abbiegen)
+      else near=dist(carPos,s.ll)<=40; } } // ohne berechnete Linie (z. B. GPS weg): nur direkt am Haus
   const mm=s&&s.addr&&s.ll?s.addr.match(/^(.*?)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/):null;
   const kn=mm?hnKey(mm[2]):"", ks=mm?hnKey(mm[1]):"";
   hnList.forEach(h=>{ const vis=near&&dist(h.at,s.ll)<=250&&(!ks||h.street===ks), /* v=148: nur Häuser in der Straße des Kunden */ on=vis&&!!kn&&h.num===kn&&(!h.street||!ks||h.street===ks);
@@ -2612,6 +2612,7 @@ let apLine=null, apPoly=null, apK=0, apRouted=false;
 function moveCar(p,dur,noPan){
   const now=performance.now(); animPan=!noPan;
   if(!disp||dist(disp,p)>300){ disp=p.slice(); animFrom=disp.slice(); } else animFrom=disp.slice(); // großer Sprung (GPS neu): direkt hin
+  if(dist(animFrom,p)<0.7&&!raf){ disp=p.slice(); animTo=p.slice(); return; } // v=174: im Stand nichts neu zeichnen (Akku)
   animTo=p.slice(); animT0=now; animDur=Math.max(100,dur*1.15); // v=112: etwas länger als der Abstand der GPS-Meldungen, so gleitet es ohne Halt bis zur nächsten
   if(!raf) raf=requestAnimationFrame(carFrame); }
 let lastDraw=0; // v=112: bis ca. 30 Bilder pro Sekunde (vorher 15, das ruckelte sichtbar)
@@ -2633,7 +2634,7 @@ function declutter(){ // v=85: nur beim Fahren, nah dran (Zoom ab 16, unter 40 m
       lead.style.width=L+"px"; lead.style.transform=`rotate(${Math.atan2(oy,ox)}rad)`; m.setZIndexOffset(2500); }
     else if(lead){ pin.style.translate=""; lead.remove(); m.setZIndexOffset(m.options.zIndexOffset0||0); } }); }
 map.on("zoomend viewreset",declutter);
-function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<(IS_TEST?15:33)&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
+function carFrame(now){ raf=0; if(!animTo) return; if(now-lastDraw<66&&now-animT0<animDur){ raf=requestAnimationFrame(carFrame); return; } lastDraw=now;
   const f=Math.min(1,(now-animT0)/animDur); disp=[animFrom[0]+(animTo[0]-animFrom[0])*f, animFrom[1]+(animTo[1]-animFrom[1])*f];
   const sn=trimApproach(disp); if(car) car.setLatLng(sn||disp); // nahe der Route: Auto sitzt genau auf der Straße
   declutter();
@@ -2656,8 +2657,9 @@ function offRoute(){
     if(dist(a,c)>3&&Math.abs(((head-bearingDeg(a,c))%360+540)%360-180)>120) bad=true; } // falsche Richtung: wenden
   offN=bad?offN+1:0; return offN>=2; }
 function trimApproach(p){ // schon Gefahrenes verschwindet direkt hinter dem Auto; liefert den Punkt auf der Straße
-  if(!apPoly||!apLine||apLine.length<2||!p) return null; const b=nearOnAp(p); if(!b||b.d>60) return null;
-  apK=b.k; apPoly.setLatLngs([b.pt,...apLine.slice(b.k+1)]); return apRouted&&b.d<25?b.pt:null; }
+  if(!apPoly||!apLine||apLine.length<2||!p) return null; const b=nearOnAp(p), sr=snapR(); if(!b||b.d>Math.max(60,sr)) return null;
+  apK=b.k; apPoly.setLatLngs([b.pt,...apLine.slice(b.k+1)]); return apRouted&&b.d<sr?b.pt:null; }
+const snapR=()=>Math.max(30,Math.min(80,gpsAcc||0)); // v=174: Auto bis 30 m neben der grünen Linie (bei ungenauem GPS bis zur Genauigkeit, höchstens 80 m) auf die Linie setzen
 function apWeight(){ // Linie so breit wie eine normale Straße auf der Karte (ca. 8 m), je nach Zoomstufe
   const lat=(disp||carPos||[48.17])[0], mpp=156543.03*Math.cos(lat*Math.PI/180)/Math.pow(2,map.getZoom());
   return Math.round(Math.max(5,Math.min(30,8/mpp))); }

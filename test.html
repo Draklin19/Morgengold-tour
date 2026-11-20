@@ -823,6 +823,8 @@ body.drive #listTools,body.no-tour #listTools{display:none}
 #lastTour[hidden]{display:none}
 .last-tours{display:flex;flex-direction:column;gap:8px}
 footer{font-size:.8rem;color:var(--muted)}
+.map-rev{margin-left:8px;background:#fff;color:#1d2a22;box-shadow:0 2px 8px rgb(0 0 0 / .35),inset 0 0 0 2px #1f6f4a}.map-rev.on{background:#1f6f4a;color:#fff}
+.rev-tag{font-size:.8rem;background:#1f6f4a;color:#fff;border-radius:8px;padding:2px 8px;margin-left:6px;font-weight:700;vertical-align:middle}
 .map-start{font:700 1.05rem var(--font-body);padding:12px 18px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer}
 .leaflet-bottom.leaflet-right{left:0;right:0;display:flex;justify-content:center;pointer-events:none} /* v=77: „Zur aktuellen Position“ mittig */
 .leaflet-bottom.leaflet-right .to-me{float:none;margin-right:0;pointer-events:auto}
@@ -1826,9 +1828,9 @@ function sampleBcr(){
   const pts=[[48.1683,8.6264,"Hauptstraße 12"],[48.1662,8.6302,"Hochbrücktorstraße 4"],[48.1631,8.6338,"Königstraße 27"],[48.1597,8.6281,"Neckartal 8/1"],[48.1590,8.6203,"Saline 3"],[48.1648,8.6167,"Stadionstraße 15"],[48.1709,8.6195,"Tuttlinger Straße 40"],[48.1745,8.6290,"Berner Feld 60"]];
   const m=([la,lo])=>[Math.round(lo*Math.PI/180*R),Math.round(Math.log(Math.tan(Math.PI/4+la*Math.PI/360))*R)];
   let s="[CLIENT]\nROUTENAME=Beispieltour Rottweil\nTIME=1980.0\n[COORDINATES]\n";
-  pts.forEach((p,i)=>{s+=`STATION${i+1}=${m(p).join(",")}\n`;});
+  pts.forEach((p,i)=>{s+=`STATION${nr(i)}=${m(p).join(",")}\n`;});
   s+="[DESCRIPTION]\n";
-  pts.forEach((p,i)=>{s+=`STATION${i+1}=${i+1},Beispielkunde ${String.fromCharCode(65+i)},,${p[2]}\n`;});
+  pts.forEach((p,i)=>{s+=`STATION${nr(i)}=${nr(i)},Beispielkunde ${String.fromCharCode(65+i)},,${p[2]}\n`;});
   return s;
 }
 
@@ -1996,6 +1998,8 @@ function bcrVias(s,from){ if(!s||!s.via||!s.via.length||!s.ll) return [];
   if(out.length>23){ const st=out.length/23; return Array.from({length:23},(_,i)=>out[Math.floor(i*st)]); } return out; }
 const straightQ=pts=>pts.length>2?"&continue_straight=true":""; // an den Zwischenpunkten nicht wenden (v=110: in beiden Versionen)
 const depotLL=()=>{ try{ const d=JSON.parse(localStorage.getItem("navi-depot")||"null"); return d&&d.ll||null; }catch(e){ return null; } };
+let tourRev=false; // v=177 (Test): Tour rückwärts fahren, Nummern bleiben wie in der Ausfahrliste
+const nr=i=>{ const q=tour&&tour.stops[i]; return q&&q.no?q.no:i+1; };
 function mergeTours(){
   const old=tour&&tour.stops, P=bcrOnly()&&!(pdfTour&&pdfTour.etik)?null:pdfTour; // v=151: Etiketten gelten auch bei „nur .bcr“
   let t=null;
@@ -2010,7 +2014,8 @@ function mergeTours(){
        stops:P.stops.map(q=>({no:q.no,name:"",addr:q.addr,town:q.town,notes:q.notes,tags:q.tags||[],articles:q.articles,ll:null,via:[],done:false}))};
     if(bcrTour) t.stops.forEach(s=>{ const b=bcrTour.stops[(+s.no||0)-1]; if(b&&b.ll) s.bll=b.ll.slice(); }); // nur für den Vergleich (Test)
   }
-  if(t){ t.load=P?P.load:[]; t.km=P?P.km:"";
+  if(t&&tourRev&&IS_TEST) t.stops.reverse();
+  if(t){ t.load=P?P.load:[]; t.km=P?P.km:""; t.rev=tourRev&&IS_TEST;
     if(old&&old.length===t.stops.length&&tour) t.depotDone=!!tour.depotDone;
     if(old&&old.length===t.stops.length) t.stops.forEach((s,i)=>{ s.done=old[i].done; s.at=old[i].at||0; s.dep=old[i].dep||0; });
     applyCorr(t); try{ pickDepot(t); }catch(e){} }
@@ -2081,10 +2086,10 @@ function applyCorr(t){ if(typeof cmpLayer!=="undefined"&&cmpLayer){ cmpLayer.cle
 function setPos(i,p){ const s=tour.stops[i], k=addrKey(s); if(!s.fixed) s.orig=s.ll;
   s.ll=p.slice(); s.exact=true; s.fixed=true; s.warn=false; s.approx=false; s.said=false;
   if(k){ const c=jget(CORR_KEY); c[k]=s.ll; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); nm[k]=corrName(s); jset(CORR_NAME_KEY,nm); if(s.orig){ const og=jget(CORR_ORIG_KEY); og[k]=s.orig; jset(CORR_ORIG_KEY,og); } }
-  map.closePopup(); corrUi(); render(); routeTour(); toast(`Hauspunkt für Stopp ${i+1} gespeichert`); }
+  map.closePopup(); corrUi(); render(); routeTour(); toast(`Hauspunkt für Stopp ${nr(i)} gespeichert`); }
 function resetPos(i){ const s=tour.stops[i], k=addrKey(s), c=jget(CORR_KEY); delete c[k]; jset(CORR_KEY,c); const nm=jget(CORR_NAME_KEY); delete nm[k]; jset(CORR_NAME_KEY,nm); const og=jget(CORR_ORIG_KEY); delete og[k]; jset(CORR_ORIG_KEY,og);
   if(s.orig) s.ll=s.orig; s.fixed=false; s.orig=null; s.said=false;
-  map.closePopup(); corrUi(); render(); routeTour(); checkTour(); toast(`Stopp ${i+1}: eigener Hauspunkt gelöscht`); }
+  map.closePopup(); corrUi(); render(); routeTour(); checkTour(); toast(`Stopp ${nr(i)}: eigener Hauspunkt gelöscht`); }
 function corrUi(){ const c=jget(CORR_KEY), nm=jget(CORR_NAME_KEY), ks=Object.keys(c); $("corrInfo").textContent=ks.length+" gespeichert";
   const ul=$("corrList"); if(!ul) return; ul.innerHTML="";
   ks.map(k=>[k,nm[k]||k.replace(/([a-zäöü])(\d)/,"$1 $2").replace("|"," · ")]).sort((a,b)=>a[1].localeCompare(b[1],"de")).forEach(([k,label])=>{ // ältere Punkte ohne gespeicherten Namen: Kurzform aus dem Schlüssel
@@ -2374,13 +2379,13 @@ function render(){ setTimeout(()=>declutter(),0);
     const warn=IS_TEST&&s.warn&&!s.fixed&&s.osm;
     const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn||s.approx?" warn":"");
     if(warn&&!s.done){ L.polyline([s.ll,s.osm],{color:"#f59e0b",weight:2,dashArray:"4 6"}).addTo(layer);
-      L.marker(s.osm,{icon:L.divIcon({className:"",html:'<div class="osmpin">?</div>',iconSize:[20,20],iconAnchor:[10,10]}),title:`Stopp ${i+1} laut OpenStreetMap`}).addTo(layer)
-        .on("click",async()=>{ if(await ask(`Hauspunkt für Stopp ${i+1} übernehmen?`,`Der orange Punkt ist die Stelle, die OpenStreetMap für ${s.addr} kennt. Er wird nur auf diesem Handy für diese Adresse gespeichert. Liegt das Haus woanders: lange auf das richtige Haus drücken.`,"Übernehmen","Abbrechen")) setPos(i,s.osm); }); }
-    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:i===lastIdx?`<div class="${cls} goal" data-n="${i+1}">🏁</div>`:`<div class="${cls}">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0,zIndexOffset0:i===nextIdx?1000:0,si:i}).addTo(layer);
+      L.marker(s.osm,{icon:L.divIcon({className:"",html:'<div class="osmpin">?</div>',iconSize:[20,20],iconAnchor:[10,10]}),title:`Stopp ${nr(i)} laut OpenStreetMap`}).addTo(layer)
+        .on("click",async()=>{ if(await ask(`Hauspunkt für Stopp ${nr(i)} übernehmen?`,`Der orange Punkt ist die Stelle, die OpenStreetMap für ${s.addr} kennt. Er wird nur auf diesem Handy für diese Adresse gespeichert. Liegt das Haus woanders: lange auf das richtige Haus drücken.`,"Übernehmen","Abbrechen")) setPos(i,s.osm); }); }
+    if(s.ll){ const m=L.marker(s.ll,{icon:L.divIcon({className:"",html:i===lastIdx?`<div class="${cls} goal" data-n="${nr(i)}">🏁</div>`:`<div class="${cls}">${nr(i)}</div>`,iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:i===nextIdx?1000:0,zIndexOffset0:i===nextIdx?1000:0,si:i}).addTo(layer);
     m.on("click",()=>pick(i)); markers.push(m); }
     const li=document.createElement("li");
     li.className="stop"+(s.done?" is-done":"")+(i===nextIdx?" is-next":"")+(i===nearPrev?" near-prev":"")+(i===nearNext?" near-next":"")+(s.tags&&s.tags.length?" tag-"+s.tags[0]:""); li.tabIndex=0; li.dataset.i=i;
-    li.innerHTML=`<span class="n">${i+1}</span><span class="t"><span class="name"></span><br><span class="addr"></span></span><span class="town"></span><span class="tm">${s.at?hhmm(s.at):""}</span><input type="checkbox" aria-label="Stopp ${i+1} erledigt">`;
+    li.innerHTML=`<span class="n">${nr(i)}</span><span class="t"><span class="name"></span><br><span class="addr"></span></span><span class="town"></span><span class="tm">${s.at?hhmm(s.at):""}</span><input type="checkbox" aria-label="Stopp ${nr(i)} erledigt">`;
     fillTown(li.querySelector(".town"),s.town);
     if(s.name){li.querySelector(".name").textContent=s.name; fillAddr(li.querySelector(".addr"),s.addr);}
     else{fillAddr(li.querySelector(".name"),s.addr); li.querySelector("br").remove(); li.querySelector(".addr").remove();}
@@ -2545,8 +2550,8 @@ map.on("contextmenu",e=>{ const p=[e.latlng.lat,e.latlng.lng], c=[];
   if(!c.length&&!box.children.length) return;
   if(c.length){ const b=document.createElement("b"); b.textContent="Hauspunkt hier setzen für:"; box.append(b); }
   c.forEach(i=>{ const s=tour.stops[i], x=document.createElement("button"); x.type="button"; x.className="btn";
-    x.textContent=`Stopp ${i+1} · ${s.addr||""}`; x.addEventListener("click",()=>setPos(i,p)); box.append(x);
-    if(s.fixed){ const r=document.createElement("button"); r.type="button"; r.className="btn"; r.textContent=`Stopp ${i+1}: eigenen Punkt entfernen`; r.addEventListener("click",()=>resetPos(i)); box.append(r); } });
+    x.textContent=`Stopp ${nr(i)} · ${s.addr||""}`; x.addEventListener("click",()=>setPos(i,p)); box.append(x);
+    if(s.fixed){ const r=document.createElement("button"); r.type="button"; r.className="btn"; r.textContent=`Stopp ${nr(i)}: eigenen Punkt entfernen`; r.addEventListener("click",()=>resetPos(i)); box.append(r); } });
   L.popup({closeButton:true}).setLatLng(e.latlng).setContent(box).openOn(map); });
 // v=161 (Test): Straße sperren. Lange auf die Straße drücken → „Straße hier sperren“. Die Sperrung bleibt nur auf diesem Handy (navi-sperren).
 // Führt die grüne Anfahrt durch eine Sperrung, fragt die App andere Wege an (Alternativen, dann Umwege über Punkte rund um die Sperrung)
@@ -2659,7 +2664,7 @@ function gl3Data(){ if(!gl3ok||!tour) return;
   const rl=tour.road&&tour.road.line||tour.line||[];
   gl3.getSource("tour").setData({type:"Feature",geometry:{type:"LineString",coordinates:llq(rl.length>1?rl:[[0,0],[0,0]])}});
   gl3.getSource("ap").setData(apLine&&apLine.length>1?{type:"Feature",geometry:{type:"LineString",coordinates:llq(apLine)}}:{type:"FeatureCollection",features:[]});
-  gl3.getSource("stops").setData({type:"FeatureCollection",features:tour.stops.map((q,i)=>!q.done&&q.ll?{type:"Feature",properties:{n:String(i+1),t:i===cur},geometry:{type:"Point",coordinates:[q.ll[1],q.ll[0]]}}:null).filter(Boolean)}); }
+  gl3.getSource("stops").setData({type:"FeatureCollection",features:tour.stops.map((q,i)=>!q.done&&q.ll?{type:"Feature",properties:{n:String(nr(i)),t:i===cur},geometry:{type:"Point",coordinates:[q.ll[1],q.ll[0]]}}:null).filter(Boolean)}); }
 function gl3Frame(){ gl3raf=0; if(!want3d()||!gl3){ return; }
   const p=disp||carPos, h=mapBox.clientHeight;
   const hb=head||0; if(gl3b==null) gl3b=hb; else { const d=((hb-gl3b)%360+540)%360-180; gl3b=(gl3b+d*.08+360)%360; }
@@ -2877,7 +2882,7 @@ try{ soundOff=localStorage.getItem("navi-ton")==="aus"; const v=parseFloat(local
 function speakPrime(){ if(voiceOn&&"speechSynthesis" in window){ const u=new SpeechSynthesisUtterance(""); speechSynthesis.speak(u); } } // iPhone gibt Ton erst nach einem Antippen frei
 function announce(i){
   const s=tour.stops[i], m=(s.addr||"").match(/^(.*?)\s+(\d+\s*[a-zA-Z]?(?:\s*[\/-]\s*\d+[a-zA-Z]?)?)$/);
-  let t=m?`Gleich ${m[1]} ${m[2].replace(/\s*\/\s*/," Strich ")}`:`Gleich Stopp ${i+1}`;
+  let t=m?`Gleich ${m[1]} ${m[2].replace(/\s*\/\s*/," Strich ")}`:`Gleich Stopp ${nr(i)}`;
   const sd=effSide(i); if(sd) t+=`, Haus ${sd}`; saidSide=sd;
   say(t+".");
 }
@@ -2924,7 +2929,7 @@ function noteBan(dd){ const b=$("noteBan"); if(!b) return; const s=tour&&cur>=0?
   const tg=s?(s.tags||[]).map(t=>({pro:"🟡 Probe",rkl:"🔴 Reklamation",trk:"🟢 Trinkgeld"})[t]).filter(Boolean):[], nt=s?(s.notes||[]).filter(Boolean):[];
   const show=!!s&&(nt.length||tg.length)&&dd<=ANNOUNCE_M+50&&noteHid!==cur&&document.body.classList.contains("drive");
   if(!show){ b.hidden=true; noteFor=-1; return; }
-  if(noteFor!==cur){ noteFor=cur; b.textContent=`Stopp ${cur+1}: `+[...tg,...nt].join("\n"); }
+  if(noteFor!==cur){ noteFor=cur; b.textContent=`Stopp ${nr(cur)}: `+[...tg,...nt].join("\n"); }
   const mb=$("mapBar"); if(mb) b.style.setProperty("--nb",(mb.offsetHeight+18)+"px"); b.hidden=false; }
 $("noteBan").addEventListener("click",()=>{ noteHid=cur; $("noteBan").hidden=true; });
 function checkArrival(){
@@ -2953,7 +2958,7 @@ function checkArrival(){
       else { clearTimeout(arr.tm); arr.tm=setTimeout(checkArrival,1000); // im Stand meldet das Handy selten, daher selbst nachsehen
         if(Date.now()-arr.t0>=STAND_MS){ arr.ok=true; arr.sp=carPos.slice(); arr.grp=[cur];
           for(let i=cur+1;i<tour.stops.length;i++){ const q=tour.stops[i]; if(q.done) continue; if(q.ll&&dist(q.ll,carPos)<=STAND_R) arr.grp.push(i); else break; }
-          const nx=apTarget(); toast(nx>=0&&nx!==cur?`Stopp ${arr.grp.map(i=>i+1).join(", ")} geliefert, weiter zu Stopp ${nx+1}`:`Stopp ${cur+1} geliefert`); updateApproach(); render(); } }
+          const nx=apTarget(); toast(nx>=0&&nx!==cur?`Stopp ${arr.grp.map(i=>nr(i)).join(", ")} geliefert, weiter zu Stopp ${nx+1}`:`Stopp ${nr(cur)} geliefert`); updateApproach(); render(); } }
       if(dd>r+15){ clearTimeout(arr.tm); arr.i=-1; } // nur vorbeigefahren
       return; }
     if(gpsAcc<=25&&dist(carPos,arr.sp)>40){ clearTimeout(arr.tm); const g=arr.grp, at=arr.at; arr.i=-1;
@@ -2976,7 +2981,7 @@ function checkArrival(){
       if(!s.done){ s.done=true; if(!s.at) s.at=arr.at; if(left){ s.dep=Date.now(); learnStand(s); } else { depW={s,r}; tickP=carPos.slice(); setTimeout(checkArrival,500); } /* Nachbarhaus gleich als angekommen merken: fährt man weg, wird es beim Wegfahren abgehakt */ advanceAfterDone(); render(); if(cur<0) tourFinished(); } }
     return; }
   if(dd>r){ if(arrivedShown===cur) arrivedShown=-1; return; }
-  if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${cur+1}. Bitte manuell abhaken.`); updateApproach(); }
+  if(arrivedShown!==cur){ arrivedShown=cur; toast(`Angekommen bei Stopp ${nr(cur)}. Bitte manuell abhaken.`); updateApproach(); }
 }
 let simAp=null, simEnd=null, simK=0;
 function simArrive(){ // nur Simulation: am Ende der grünen Linie den Kunden im Hintergrund abhaken und zum nächsten weiter
@@ -3035,6 +3040,11 @@ document.getElementById("recBtn").addEventListener("click",async()=>{ if(!rec||!
   const file=new File([JSON.stringify(rec)],name,{type:"application/json"});
   try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
   const a=document.createElement("a"); a.href=URL.createObjectURL(file); a.download=name; document.body.append(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000); });
+function revToggle(){ if(!tour) return; tourRev=!tourRev; tour.rev=tourRev; tour.stops.reverse(); tour.road=null; backTo=-1;
+  try{ clearApproach(); }catch(e){} cur=tour.stops.findIndex(q=>!q.done); saveTour(); render(); routeTour(); fit(); revUi();
+  toast(tourRev?`⇅ Rückwärts: Start bei Stopp ${nr(0)}, Ende bei ${nr(tour.stops.length-1)}`:"Reihenfolge wieder wie in der Ausfahrliste"); }
+function revUi(){ const b=document.getElementById("revBtn"); if(b){ b.classList.toggle("on",!!(tour&&tour.rev)); b.textContent=tour&&tour.rev?"⇅ Rückwärts ✓":"⇅ Rückwärts"; }
+  const h=document.getElementById("stopsH"); if(h){ h.textContent="Alle Stopps"; if(tour&&tour.rev&&tour.stops.length){ const g=document.createElement("span"); g.className="rev-tag"; g.textContent=`⇅ ${nr(0)} → ${nr(tour.stops.length-1)}`; h.append(g); } } }
 function stopGps(){ try{ recSave(); }catch(e){} if(gpsWatch!==null) navigator.geolocation.clearWatch(gpsWatch); gpsWatch=null; $("gps").textContent="📍 GPS starten"; try{wakeLock&&wakeLock.release();}catch(e){} wakeLock=null; }
 $("gps").addEventListener("click",()=>{
   if(gpsWatch!==null){stopGps();$("gpsState").hidden=true;return;}
@@ -3054,7 +3064,7 @@ async function startGps(){
     if(!disp) car.setLatLng(carPos); car.addTo(map); gpsSpeed=pos.coords.speed; setHead(carPos,pos.coords.heading,pos.coords.speed,gpsAcc);
     { const t=performance.now(), dt=lastFixAt?t-lastFixAt:1000; lastFixAt=t; moveCar(carPos,Math.min(2000,Math.max(300,dt)),firstFix&&document.body.classList.contains("drive")); }
     const acc=Math.round(pos.coords.accuracy);
-    $("gpsState").textContent=`GPS aktiv, Genauigkeit ca. ${acc} m`+(tour&&cur>=0&&tour.stops[cur].ll?` · noch ${Math.round(dist(carPos,tour.stops[cur].ll))} m bis Stopp ${cur+1}`:"");
+    $("gpsState").textContent=`GPS aktiv, Genauigkeit ca. ${acc} m`+(tour&&cur>=0&&tour.stops[cur].ll?` · noch ${Math.round(dist(carPos,tour.stops[cur].ll))} m bis Stopp ${nr(cur)}`:"");
     const driving=document.body.classList.contains("drive");
     if(driving&&firstFix&&tour&&cur>=0&&tour.stops[cur].ll){ fitVis(L.latLngBounds([carPos,tour.stops[cur].ll]).pad(.25),{maxZoom:17}); } // Tour ab dem eigenen Standort zeigen
     // Karte folgt der Position flüssig (moveCar), außer man schaut sich gerade woanders um
@@ -3173,9 +3183,9 @@ async function rechAdd(files){
   const st=$("rechState"); let added=0, flagged=0;
   try{ st.textContent="Texterkennung wird geladen …"; const w=await ocrWorker();
     for(const [i,f] of [...files].entries()){
-      st.textContent=`Lese Bild ${i+1} von ${files.length} …`;
+      st.textContent=`Lese Bild ${nr(i)} von ${files.length} …`;
       const cv=await imgPrep(f), a=rechParse((await w.recognize(cv)).data);
-      st.textContent=`Lese Bild ${i+1} von ${files.length}: Zahlen einzeln prüfen …`;
+      st.textContent=`Lese Bild ${nr(i)} von ${files.length}: Zahlen einzeln prüfen …`;
       let b=await rechCells(w,cv,a); if(b.length<a.length*.8) b=rechParse((await w.recognize(f)).data); // v=142: spaltenweise; klappt das nicht, wie bisher das ganze Bild nochmal
       for(const r of rechMerge(a,b)){ const k=rechRows.findIndex(q=>q.d===r.d&&q.tour===r.tour);
         if(k<0){ rechRows.push(r); added++; } else if(Object.keys(rechRows[k].bad||{}).length&&!Object.keys(r.bad).length) rechRows[k]=r; } }
@@ -3465,6 +3475,7 @@ function startTour(){ try{ homeDone=false; }catch(e){}
 const DriveCtl=L.Control.extend({options:{position:"topright"},onAdd(){
   const d=L.DomUtil.create("div"); L.DomEvent.disableClickPropagation(d);
   const a=L.DomUtil.create("button","map-start",d); a.type="button"; a.textContent="▶ Tour starten"; a.id="tourStart"; a.onclick=startTour;
+  if(IS_TEST){ const r=L.DomUtil.create("button","map-start map-rev",d); r.type="button"; r.textContent="⇅ Rückwärts"; r.id="revBtn"; r.onclick=()=>revToggle(); } // v=177 (Test)
   const b=L.DomUtil.create("button","map-exit",d); b.type="button"; b.textContent="✕ Beenden"; b.id="tourExit"; b.onclick=leaveDrive;
   return d; }});
 new DriveCtl().addTo(map);
@@ -3492,7 +3503,7 @@ $("jumpForm").addEventListener("submit",e=>{ e.preventDefault(); if(!tour) retur
   if(i<0){$("err").textContent=`Stopp Nr. ${v} gibt es in dieser Tour nicht.`;$("err").hidden=false;return;}
   // Ab hier starten: alle Stopps davor gelten als erledigt
   $("err").hidden=true; $("jumpNo").value=""; tour.stops.forEach((s,k)=>{ if(k<i) s.done=true; }); backTo=-1; goTo(i);
-  toast(i>0?`Stopps 1–${i} abgehakt, Start bei ${i+1}`:"Start bei Stopp 1"); });
+  toast(i>0?`Stopps 1–${i} abgehakt, Start bei ${nr(i)}`:"Start bei Stopp 1"); });
 ["file","fileAll"].forEach(id=>$(id).addEventListener("change",e=>{ const files=[...e.target.files]; e.target.value=""; loadFiles(files); }));
 async function loadFiles(files){
   if(!files.length) return;
@@ -3515,7 +3526,7 @@ async function loadFiles(files){
   }
   stopSim(); stopGps(); if(car)car.remove(); carPos=null;
   if(!(tour&&files.length===1&&((isPdfOnly(files)&&!hadPdf)||(!isPdfOnly(files)&&!hadBcr)))) curId=null; // neue Tour, außer es wurde nur die fehlende Datei ergänzt
-  const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit();
+  if(curId===null) tourRev=false; const t=mergeTours(); if(t){ tour=t; cur=0; } loadedInfo(); render(); fit(); revUi();
   const etik=!!(pdfTour&&pdfTour.etik);
   if(LISTE_NUR&&bcrTour&&!pdfTour) toast("Bitte die Ausfahrliste (PDF) öffnen.");
   if(pdfTour&&(LISTE_NUR||!bcrTour)&&tour&&tour.stops.some(s=>!s.ll)) geocodeTour(); // Adressen automatisch auf die Karte bringen, danach Route
@@ -3549,7 +3560,7 @@ function startPin(i){ if(!tour) return; const s=tour.stops[i]; endPin();
   const m=L.marker(at,{draggable:true,autoPan:true,zIndexOffset:3000,icon:L.divIcon({className:"",html:'<div class="dragpin">📍</div>',iconSize:[38,38],iconAnchor:[19,36]})}).addTo(map);
   const tap=e=>m.setLatLng(e.latlng); map.on("click",tap);
   pinEdit={i,m,tap}; setFollow(false); applyRot(true);
-  $("pinTxt").textContent=`Stopp ${i+1}: Pin auf das richtige Haus ziehen`; $("pinBar").hidden=false;
+  $("pinTxt").textContent=`Stopp ${nr(i)}: Pin auf das richtige Haus ziehen`; $("pinBar").hidden=false;
   if(!document.body.classList.contains("drive")) $("map").scrollIntoView({behavior:"smooth",block:"center"});
   map.setView(at,Math.max(map.getZoom(),18)); if(navigator.vibrate) try{navigator.vibrate(30);}catch(e){} }
 function endPin(){ if(!pinEdit) return; map.off("click",pinEdit.tap); pinEdit.m.remove(); pinEdit=null; $("pinBar").hidden=true; }
@@ -3583,11 +3594,11 @@ function drawCompare(done){
     if(s.cmp){ d=Math.round(dist(s.cmp,b)); ds.push(d); cls=d<=25?"ok":d<=80?"mid":"bad"; if(cls==="ok")ok++; else if(cls==="mid")mid++; else bad++;
       L.polyline([b,s.cmp],{color:d<=25?"#2e9e5b":d<=80?"#e0a100":"#d63b2f",weight:3,dashArray:"5 5",interactive:false}).addTo(cmpLayer);
       L.marker(s.cmp,{icon:L.divIcon({className:"",html:'<div class="cmpq"></div>',iconSize:[14,14],iconAnchor:[7,7]}),interactive:false}).addTo(cmpLayer);
-      if(d>25) L.marker(s.cmp,{icon:L.divIcon({className:"",html:`<div class="cmplbl">${i+1}: ${d} m</div>`,iconSize:[0,0],iconAnchor:[-10,8]}),interactive:false}).addTo(cmpLayer); }
+      if(d>25) L.marker(s.cmp,{icon:L.divIcon({className:"",html:`<div class="cmplbl">${nr(i)}: ${d} m</div>`,iconSize:[0,0],iconAnchor:[-10,8]}),interactive:false}).addTo(cmpLayer); }
     else none++;
     let sd=""; if(s.cmp){ const sb=sideAt(b,b), sc=sideAt(s.cmp,b); if(!sb||!sc){ sOpen++; sd=` · Seite ${SL[sb]}/${SL[sc]}`; } else if(sb===sc){ sSame++; sd=` · Seite ${SL[sb]} ✓`; } else { sDiff++; sd=` · Seite .bcr ${SL[sb]}, Liste ${SL[sc]} ✗`; li.classList.add("sidediff"); } }
     if(s.cmp){ if(s.cmpExact) nEx++; else nSt++; }
-    li.className=cls+(sd.includes("✗")?" sidediff":""); li.innerHTML=`<span>${i+1}</span><span></span><b>${d===null?(s.cmpRough?"nur Ortsmitte":"nicht gefunden"):d+" m"}${sd}${s.cmp?(s.cmpExact?" · Liste: Haus":" · Liste: nur Straße"):""}</b>`; li.children[1].textContent=s.addr;
+    li.className=cls+(sd.includes("✗")?" sidediff":""); li.innerHTML=`<span>${nr(i)}</span><span></span><b>${d===null?(s.cmpRough?"nur Ortsmitte":"nicht gefunden"):d+" m"}${sd}${s.cmp?(s.cmpExact?" · Liste: Haus":" · Liste: nur Straße"):""}</b>`; li.children[1].textContent=s.addr;
     li.style.cursor="pointer"; li.addEventListener("click",()=>{ const pts=[b]; if(s.cmp) pts.push(s.cmp); setFollow(false); if(pts.length>1) fitVis(L.latLngBounds(pts).pad(1.2),{maxZoom:19}); else map.setView(b,18); const mp=document.getElementById("map"); if(mp) mp.scrollIntoView({behavior:"smooth",block:"center"}); });
     list.append(li); });
   list.hidden=!list.children.length; $("cmpOff").hidden=!ds.length&&!none;
@@ -3616,7 +3627,7 @@ $("pinSave").addEventListener("click",()=>{ if(!pinEdit) return; const {i,m}=pin
       if(d.touched.size>1) toast(`${d.touched.size} Stopps ${d.on?"abgehakt":"wieder offen"}`); }
     if(swipe&&e.type==="pointerup"){ const dx=e.clientX-swipe.x, dy=e.clientY-swipe.y;
       if(Math.abs(dx)>60&&Math.abs(dy)<40){ const i=+swipe.li.dataset.i, on=dx>0; tour.stops[i].done=on;
-        if(on&&i===cur) cur=nextOpen(); swallow(); render(); toast(on?`Stopp ${i+1} abgehakt`:`Haken bei Stopp ${i+1} entfernt`); } }
+        if(on&&i===cur) cur=nextOpen(); swallow(); render(); toast(on?`Stopp ${nr(i)} abgehakt`:`Haken bei Stopp ${nr(i)} entfernt`); } }
     swipe=null; };
   list.addEventListener("pointerup",end); list.addEventListener("pointercancel",end);
   ["pointerup","pointercancel"].forEach(t=>window.addEventListener(t,()=>{ clearTimeout(hold); hold=null; if(held){ held=false; swallow(); } })); // Finger kann nach dem Scrollen zur Karte woanders losgelassen werden
@@ -3696,7 +3707,7 @@ function reportSummary(){ // Zusammenfassung für Datei und Mail
 function mailReport(){ // Mail-Programm mit fertigem Bericht öffnen: nur Stopp-Nummern und Zeiten, keine Adressen oder Namen
   if(!tour) return; let to=""; try{ to=localStorage.getItem(MAIL_KEY)||""; }catch(e){}
   const day=dayLabel(tourDay())||tourDay(), L=[`Tourbericht ${tourTitle()} · ${day}`,""];
-  tour.stops.forEach((s,i)=>{ const d=standOf(s); L.push(`Stopp ${i+1}: ${s.done?"erledigt":"offen"}${s.at?" · an "+hhmm(s.at):""}${s.dep?" · ab "+hhmm(s.dep):""}${d!=null?" · "+mmss(d)+" Min.":""}${(s.tags||[]).includes("pro")?" · Probe":""}${(s.tags||[]).includes("rkl")?" · Reklamation":""}`); });
+  tour.stops.forEach((s,i)=>{ const d=standOf(s); L.push(`Stopp ${nr(i)}: ${s.done?"erledigt":"offen"}${s.at?" · an "+hhmm(s.at):""}${s.dep?" · ab "+hhmm(s.dep):""}${d!=null?" · "+mmss(d)+" Min.":""}${(s.tags||[]).includes("pro")?" · Probe":""}${(s.tags||[]).includes("rkl")?" · Reklamation":""}`); });
   L.push(""); reportSummary().forEach(r=>L.push(r.join(": "))); L.push("Bericht erstellt: "+hhmm(Date.now()));
   location.href=`mailto:${encodeURIComponent(to).replace(/%40/g,"@")}?subject=${encodeURIComponent("Tourbericht "+tourTitle()+" "+day)}&body=${encodeURIComponent(L.join("\n"))}`; }
 async function tourFinished(){ // letzter Stopp erledigt: einmal fragen, ob der Bericht an den Chef geht
@@ -3876,7 +3887,7 @@ $("backChip").addEventListener("click",()=>$("prev").click()); // wie „Zurück
 function depotCur(){ try{ return JSON.parse(localStorage.getItem("navi-depot")||"null"); }catch(e){ return null; } }
 function dpOpen(){ const d=depotCur(); return !!(tour&&d&&d.ll&&!tour.depotDone&&!tour.stops.some(q=>q.done)); } // v=176: Bäcker noch nicht abgehakt
 function depotTick(on){ if(!tour) return; tour.depotDone=!!on; saveTour(); try{ clearApproach(); }catch(e){} render(); updateChip();
-  if(on) toast("🥐 Bäcker abgehakt, weiter zu Stopp "+(cur>=0?cur+1:1)); else toast("🥐 Bäcker wird angefahren");
+  if(on) toast("🥐 Bäcker abgehakt, weiter zu Stopp "+(cur>=0?nr(cur):1)); else toast("🥐 Bäcker wird angefahren");
   if(document.body.classList.contains("drive")||simTimer){ apStop=-1; apAt=0; updateApproach(); } }
 function updateChip(){ const b=$("stopChip"); b.hidden=!tour||cur<0; $("gmChip").hidden=b.hidden; $("backChip").hidden=!tour;
   if(!b.hidden){ if(dpOpen()) b.innerHTML='<span class="chip-bk"><span>🥐</span><small>Bäcker</small></span>'; else b.textContent=String(tour.stops[cur].no||cur+1); } }
@@ -3981,16 +3992,16 @@ function saveTour(){ try{
   let a=loadTours(); const day=tourDay(), title=tourTitle(), key=title+"|"+day;
   let d=curId&&a.find(x=>x.id===curId) || a.find(x=>x.key===key);
   if(!d){ d={id:"t"+Date.now()}; a.unshift(d); }
-  curId=d.id; Object.assign(d,{key,day,title,t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,done:tour.stops.map(s=>s.done),ex:tour.stops.map(s=>!!s.exact),said:tour.stops.map(s=>!!s.said),at:tour.stops.map(s=>s.at||0),dep:tour.stops.map(s=>s.dep||0),drive:document.body.classList.contains("drive"),ll:tour.stops.map(s=>s.ll),depotDone:!!tour.depotDone});
+  curId=d.id; Object.assign(d,{key,day,title,t:Date.now(),bcr:bcrTour,pdf:pdfTour,cur,rev:!!tour.rev,done:tour.stops.map(s=>s.done),ex:tour.stops.map(s=>!!s.exact),said:tour.stops.map(s=>!!s.said),at:tour.stops.map(s=>s.at||0),dep:tour.stops.map(s=>s.dep||0),drive:document.body.classList.contains("drive"),ll:tour.stops.map(s=>s.ll),depotDone:!!tour.depotDone});
   a=[d,...a.filter(x=>x!==d)].slice(0,MAX_TOURS); // zuletzt benutzte vorne, die 4. fällt weg
   storeTours(a);
 }catch(e){} }
 // Gespeicherte Tour: Wurde die App vor weniger als 10 Minuten benutzt (z. B. iPhone hat die Seite neu geladen), geht es direkt weiter.
 // Sonst bleibt die Karte leer, und der Knopf „Letzte Tour laden“ bietet die Tour an (höchstens 18 Stunden alt).
 function restoreTour(d){
-  bcrTour=d.bcr; pdfTour=d.pdf; const t=mergeTours(); if(!t) return false;
+  bcrTour=d.bcr; pdfTour=d.pdf; tourRev=!!d.rev; const t=mergeTours(); if(!t) return false;
   t.stops.forEach((s,i)=>{ s.done=!!(d.done||[])[i]; s.said=!!(d.said||[])[i]; s.at=(d.at||[])[i]||0; s.dep=(d.dep||[])[i]||0; if(!s.ll&&d.ll&&d.ll[i]){ s.ll=d.ll[i]; if(d.ex) s.exact=!!d.ex[i]; } }); t.depotDone=!!d.depotDone; tour=t; cur=typeof d.cur==="number"?d.cur:0; curId=d.id;
-  $("lastTour").hidden=true; loadedInfo(); render(); fit(); routeTour(); checkTour();
+  $("lastTour").hidden=true; loadedInfo(); render(); fit(); routeTour(); checkTour(); revUi();
   if(pdfTour&&LISTE_NUR&&t.stops.some(s=>!s.ll&&s.addr)) setTimeout(geocodeTour,300); // v=172: nach dem Neuladen fehlende Adressen weiter suchen
   return true; }
 const WD=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
@@ -4011,7 +4022,7 @@ function lastTourUi(){ const box=$("lastTour"), a=tour?[]:loadTours(); box.inner
   const sameDay=d&&new Date(d.t).toDateString()===new Date().toDateString(), open=d&&(d.done||[]).some(x=>!x)||(d&&!(d.done||[]).length);
   if(d&&(Date.now()-d.t<10*60e3||(sameDay&&open))&&restoreTour(d)){
     if(d.drive&&tour&&cur>=0) setTimeout(async()=>{
-      if(await ask("Fahrt fortsetzen?","Die App wurde neu gestartet. Mit „Fortsetzen“ geht es im Fahrmodus bei Stopp "+(cur+1)+" weiter. Dafür wird wieder dein Standort verwendet, er bleibt auf dem Handy. GPS schaltet sich spätestens um 10 Uhr automatisch aus.","Fortsetzen","Nein")){ stopSim(); enterDrive(); }
+      if(await ask("Fahrt fortsetzen?","Die App wurde neu gestartet. Mit „Fortsetzen“ geht es im Fahrmodus bei Stopp "+nr(cur)+" weiter. Dafür wird wieder dein Standort verwendet, er bleibt auf dem Handy. GPS schaltet sich spätestens um 10 Uhr automatisch aus.","Fortsetzen","Nein")){ stopSim(); enterDrive(); }
       else saveTour(); },400);
     return; }
   render(); fit(); lastTourUi(); // Karte bleibt leer, bis eine Tour geöffnet oder eine gespeicherte Tour geladen wird

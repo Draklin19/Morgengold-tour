@@ -737,6 +737,8 @@ body.drive #sideBar.links,body.drive #sideBar.rechts,body.sim #sideBar.links,bod
 .stop .n{font:600 .9rem var(--font-mono);color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
 .stop .t{min-width:0}
 .stop .name{font-weight:600;overflow-wrap:anywhere}
+.stop.depot .n{font-size:1.2rem;text-align:center}.stop.depot .dsub{display:block;font-size:.72rem;color:var(--muted)} /* v=176: Bäcker als erste Zeile */
+.chip-bk{display:flex;flex-direction:column;align-items:center;line-height:1}.chip-bk span{font-size:.62em;line-height:1}.chip-bk small{font-size:.3em;font-weight:800;margin-top:3px;line-height:1}
 .stop .addr{color:var(--muted);font-size:.88rem;overflow-wrap:anywhere}
 .stop.is-next{background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
 .stop.is-done .name,.stop.is-done .addr{text-decoration:line-through;color:var(--done)}
@@ -2356,6 +2358,11 @@ function render(){ setTimeout(()=>declutter(),0);
   { let d=null; try{ d=JSON.parse(localStorage.getItem("navi-depot")||"null"); }catch(e){} // Kommissionierstelle als Start-Symbol
     if(d&&d.ll) L.marker(d.ll,{icon:L.divIcon({className:"",html:'<div class="kompin"><span class="km-fig">🧑‍🍳</span><span class="km-bag">🥐</span></div>',iconSize:[44,40],iconAnchor:[22,20]}),interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer); }
   { let h=null; try{ h=JSON.parse(localStorage.getItem("navi-heim")||"null"); }catch(e){} if(h&&h.ll) L.marker(h.ll,{icon:L.divIcon({className:"",html:'<div class="depotpin">🏠</div>',iconSize:[34,22],iconAnchor:[17,11]}),interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer); } // v=122: Zuhause
+  { const d=depotCur(); if(d&&d.ll){ const open=dpOpen(), li=document.createElement("li"); // v=176: Bäcker (Kommissionierstelle) als erste Zeile, abhaken wie ein Kunde
+      li.className="stop depot"+(open?(cur>=0?" is-next":""):" is-done"); li.innerHTML='<span class="n">🥐</span><span class="t"><span class="name">Bäcker</span><span class="dsub">Kommissionierstelle</span></span><span class="town"></span><span class="tm"></span><input type="checkbox" aria-label="Bäcker erledigt">';
+      li.querySelector(".town").textContent=String(d.addr||"").split(",").pop().replace(/\d{5}/,"").trim();
+      const cb=li.querySelector("input"); cb.checked=!open; cb.addEventListener("click",e=>e.stopPropagation()); cb.addEventListener("change",()=>depotTick(cb.checked));
+      li.addEventListener("click",()=>{ if(d.ll) map.setView(d.ll,16); }); list.append(li); } }
   tour.stops.forEach((s,i)=>{
     const warn=IS_TEST&&s.warn&&!s.fixed&&s.osm;
     const cls="pin"+(s.done?" done":"")+(i===nextIdx?" next":"")+(warn||s.approx?" warn":"");
@@ -3673,7 +3680,7 @@ function needDepot(){ return !!(tour&&cur>=0&&!tour.depotDone&&depot&&depot.ll&&
 function depotBan(){} // v=124: kein Banner mehr; die Kommissionierstelle wird über den Standort erkannt und abgehakt
 function depotNav(){ if(!needDepot()){ depotBan(false); return false; }
   if(!carPos) return true;
-  if(dist(carPos,depot.ll)<120){ tour.depotDone=true; saveTour(); depotBan(false); clearApproach(); toast(IS_TEST?"Kommissionierstelle erreicht ✓ Ab hier zählen die Kilometer.":"Kommissionierstelle erreicht ✓"); say(IS_TEST?"Kommissionierstelle erreicht. Ab hier zählen die Kilometer.":"Kommissionierstelle erreicht."); return false; }
+  if(dist(carPos,depot.ll)<120){ tour.depotDone=true; saveTour(); depotBan(false); clearApproach(); try{ render(); updateChip(); }catch(e){} toast(IS_TEST?"Kommissionierstelle erreicht ✓ Ab hier zählen die Kilometer.":"Kommissionierstelle erreicht ✓"); say(IS_TEST?"Kommissionierstelle erreicht. Ab hier zählen die Kilometer.":"Kommissionierstelle erreicht."); return false; }
   depotBan(true); navTo(depot.ll,-3); return true; }
 async function roadDist(a,b){ for(const base of ROUTERS){ try{ const r=await routeSteps(base,[a,b],null); return r.legs.reduce((x,y)=>x+y,0); }catch(e){} } return dist(a,b)*1.3; }
 let km=null, kmBusy=false;
@@ -3719,9 +3726,15 @@ $("backChip").addEventListener("click",()=>$("prev").click()); // wie „Zurück
  // gleicher Link wie „Mit Google Maps hinfahren“
 // Nummernfeld unten links neben der Restzeit: zeigt die Tütennummer des Stopps, den man gerade anfährt.
 // Kurz tippen hakt ihn ab (ein paar Sekunden rückgängig machbar), lange drücken öffnet ein Auswahlrad mit allen Stopps.
+function depotCur(){ try{ return JSON.parse(localStorage.getItem("navi-depot")||"null"); }catch(e){ return null; } }
+function dpOpen(){ const d=depotCur(); return !!(tour&&d&&d.ll&&!tour.depotDone&&!tour.stops.some(q=>q.done)); } // v=176: Bäcker noch nicht abgehakt
+function depotTick(on){ if(!tour) return; tour.depotDone=!!on; saveTour(); try{ clearApproach(); }catch(e){} render(); updateChip();
+  if(on) toast("🥐 Bäcker abgehakt, weiter zu Stopp "+(cur>=0?cur+1:1)); else toast("🥐 Bäcker wird angefahren");
+  if(document.body.classList.contains("drive")||simTimer){ apStop=-1; apAt=0; updateApproach(); } }
 function updateChip(){ const b=$("stopChip"); b.hidden=!tour||cur<0; $("gmChip").hidden=b.hidden; $("backChip").hidden=!tour;
-  if(!b.hidden) b.textContent=String(tour.stops[cur].no||cur+1); }
-function chipDone(){ if(!tour||cur<0) return; const i=cur, s=tour.stops[i]; s.done=true; if(arr.i===i) arr.i=-1; goTo(nextOpen());
+  if(!b.hidden){ if(dpOpen()) b.innerHTML='<span class="chip-bk"><span>🥐</span><small>Bäcker</small></span>'; else b.textContent=String(tour.stops[cur].no||cur+1); } }
+function chipDone(){ if(!tour||cur<0) return; if(dpOpen()){ depotTick(true); return; } // v=176: erst der Bäcker
+  const i=cur, s=tour.stops[i]; s.done=true; if(arr.i===i) arr.i=-1; goTo(nextOpen());
   toast(`Stopp ${s.no||i+1} abgehakt`); if(cur<0) tourFinished(); }
 let wheelSel=-1;
 function wheelInfo(d,s){ let det=d.querySelector(".wheel-det");
@@ -3730,7 +3743,8 @@ function wheelInfo(d,s){ let det=d.querySelector(".wheel-det");
     (s.notes||[]).forEach(n=>{ const p=document.createElement("p"); p.textContent=n; det.append(p); });
     if(!det.childNodes.length) det.textContent="Keine Hinweise"; d.append(det); }
   d.firstChild.scrollIntoView({block:"center",behavior:"smooth"}); } // Kopfzeile bleibt im gelben Rahmen, Hinweise darunter
-function openWheel(){ if(!tour) return; const l=$("wheelList"); l.innerHTML="";
+function openWheel(){ if(!tour) return; const l=$("wheelList"); l.innerHTML=""; const dpo=dpOpen(), dpc=depotCur();
+  if(dpc&&dpc.ll){ const d=document.createElement("div"); d.className="wheel-it"+(dpo?"":" done"); d.dataset.i=-3; d.innerHTML='<div class="wheel-hd"><b>🥐</b><span>Bäcker (Kommissionierstelle)</span></div>'; l.appendChild(d); } // v=176
   tour.stops.forEach((s,i)=>{ const d=document.createElement("div"); d.className="wheel-it"+(s.done?" done":""); d.dataset.i=i;
     const hd=document.createElement("div"); hd.className="wheel-hd";
     const b=document.createElement("b"); b.textContent=s.no||i+1; const t=document.createElement("span"); t.textContent=s.addr||""; hd.append(b,t); d.append(hd);
@@ -3742,12 +3756,12 @@ function openWheel(){ if(!tour) return; const l=$("wheelList"); l.innerHTML="";
     const up=e=>{ clearTimeout(tm); d.classList.remove("hold"); if(e.type==="pointerup"&&down&&!long) wheelInfo(d,s); down=false; };
     d.addEventListener("pointerup",up); d.addEventListener("pointercancel",up); d.addEventListener("contextmenu",e=>e.preventDefault());
     l.appendChild(d); });
-  $("wheel").hidden=false; const c=l.children[Math.max(0,cur)]; if(c) l.scrollTop=c.offsetTop-l.clientHeight/2+25; wheelSel=Math.max(0,cur); }
+  $("wheel").hidden=false; const off=dpc&&dpc.ll?1:0, c=dpo?l.children[0]:l.children[Math.max(0,cur)+off]; if(c) l.scrollTop=c.offsetTop-l.clientHeight/2+25; wheelSel=dpo?-3:Math.max(0,cur); }
 $("wheelList").addEventListener("scroll",()=>{ const l=$("wheelList"), mid=l.scrollTop+l.clientHeight/2; let best=-1, bd=1e9;
   [...l.children].forEach(c=>{ const d=Math.abs(c.offsetTop+25-mid); if(d<bd){bd=d;best=+c.dataset.i;} }); wheelSel=best; },{passive:true});
 $("wheelNo").addEventListener("click",()=>{ $("wheel").hidden=true; });
 $("wheel").addEventListener("click",e=>{ if(e.target.id==="wheel") $("wheel").hidden=true; });
-$("wheelGo").addEventListener("click",()=>{ $("wheel").hidden=true; if(!tour||wheelSel<0) return; const s=tour.stops[wheelSel];
+$("wheelGo").addEventListener("click",()=>{ $("wheel").hidden=true; if(tour&&wheelSel===-3){ if(!tour.stops.some(q=>q.done)) depotTick(false); else toast("Es sind schon Kunden erledigt"); return; } if(!tour||wheelSel<0) return; const s=tour.stops[wheelSel];
   if(s.done){ s.done=false; } markJump(wheelSel); goTo(wheelSel); toast(`Stopp ${s.no||wheelSel+1} wird angefahren`); });
 { const b=$("stopChip"); let tm=0, long=false, sx=0, sy=0;
   b.addEventListener("pointerdown",e=>{ long=false; sx=e.clientX; sy=e.clientY; b.classList.add("press"); clearTimeout(tm);

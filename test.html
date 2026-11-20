@@ -1016,7 +1016,7 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 .set-foot{font-size:.8rem;color:var(--muted);text-align:center;margin:14px 6px 4px}
 html.fahrer #pdBox{display:none!important}
 #bcrOnlyRow,#cmpBox{display:none!important}
-html.fahrer #bcrOnlyRow,html.fahrer #ofmRow,html.fahrer #corrShare{display:none!important}
+html.fahrer #recBtn,html.fahrer #bcrOnlyRow,html.fahrer #ofmRow,html.fahrer #corrShare{display:none!important}
 #t3dRow,.d3-btn{display:none!important} /* v=159: 3D wieder raus (Draklin) */
 /* v=106: Ton-Knopf beim Fahren */
 .snd-btn{display:none}
@@ -1492,7 +1492,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       </details>
       <details class="mode more">
         <summary>📄 Bericht &amp; Tour neu starten</summary>
-        <div class="opts tools"><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button><button class="btn" id="mailBtn" type="button">📧 Bericht per Mail</button><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button></div>
+        <div class="opts tools"><button class="btn" id="reportBtn" type="button">📄 Bericht speichern</button><button class="btn" id="recBtn" type="button">🎥 Fahrt-Aufzeichnung teilen</button><button class="btn" id="mailBtn" type="button">📧 Bericht per Mail</button><button class="btn" id="restartBtn" type="button">↺ Tour neu starten</button></div>
         <p class="hint">„Tour neu starten“ nimmt alle Haken und Zeiten dieser Tour zurück.</p>
       </details>
     </div>
@@ -3007,7 +3007,28 @@ let gpsWatch=null, wakeLock=null, gpsWallFix=0;
 setInterval(()=>{ const b=$("gpsBan"); if(!b) return;
   const on=gpsWatch!==null&&document.body.classList.contains("drive")&&!simTimer&&document.visibilityState==="visible"&&Date.now()-gpsStartedAt>20000&&(Date.now()-gpsWallFix>20000||gpsAcc>100);
   b.hidden=!on; const nb=$("netBan"); if(nb) nb.hidden=on||!apOff||!document.body.classList.contains("drive"); },3000);
-function stopGps(){ if(gpsWatch!==null) navigator.geolocation.clearWatch(gpsWatch); gpsWatch=null; $("gps").textContent="📍 GPS starten"; try{wakeLock&&wakeLock.release();}catch(e){} wakeLock=null; }
+// v=175 (Test): Fahrt-Aufzeichnung. Beim Fahren merkt sich das Handy jede GPS-Meldung (Zeit, Position, Genauigkeit, Tempo, Richtung,
+// aktueller Stopp, Anzahl erledigt) in localStorage navi-fahrt. Nur auf dem Handy; „Fahrt-Aufzeichnung teilen“ gibt sie als Datei weiter,
+// damit eine echte Fahrt nachgespielt werden kann. Keine Kundennamen, nur Straße, Ort und Punkt je Stopp.
+const REC_KEY="navi-fahrt"; let rec=null, recN=0;
+try{ rec=JSON.parse(localStorage.getItem(REC_KEY)||"null"); }catch(e){ rec=null; }
+function recSave(){ if(!rec) return; try{ localStorage.setItem(REC_KEY,JSON.stringify(rec)); }catch(e){ if(rec.fixes.length>500){ rec.fixes=rec.fixes.filter((_,i)=>i%2===0); try{ localStorage.setItem(REC_KEY,JSON.stringify(rec)); }catch(x){} } } recUi(); }
+function recFix(pos){ if(!tour) return; const now=Date.now(), name=tourTitle(), last=rec&&rec.fixes.length?rec.start+rec.fixes[rec.fixes.length-1][0]*1000:0;
+  if(!rec||rec.name!==name||now-last>3*3600e3){
+    rec={v:1,name,start:now,depot:depotLL(),stops:tour.stops.map((q,i)=>({no:i+1,addr:q.addr||"",town:q.town||"",ll:q.ll?q.ll.map(v=>+v.toFixed(6)):null,exact:!!q.exact})),fixes:[]}; recN=0; }
+  const c=pos.coords, r1=v=>v==null||isNaN(v)?null:Math.round(v*10)/10;
+  rec.fixes.push([Math.round((now-rec.start)/100)/10,+c.latitude.toFixed(6),+c.longitude.toFixed(6),Math.round(c.accuracy||0),r1(c.speed),r1(c.heading),cur,tour.stops.filter(q=>q.done).length]);
+  if(++recN%15===0) recSave(); }
+function recUi(){ const b=document.getElementById("recBtn"); if(!b) return; const n=rec&&rec.fixes?rec.fixes.length:0;
+  b.textContent=n?`🎥 Fahrt-Aufzeichnung teilen (${Math.round(n/60)} Min.)`:"🎥 Fahrt-Aufzeichnung (noch leer)"; b.disabled=!n; }
+document.addEventListener("visibilitychange",()=>{ if(rec&&document.hidden) recSave(); });
+setTimeout(recUi,0);
+document.getElementById("recBtn").addEventListener("click",async()=>{ if(!rec||!rec.fixes.length) return; recSave();
+  const d=new Date(rec.start), p=n=>String(n).padStart(2,"0"), name=`Fahrt_${String(rec.name).replace(/[^\w-]+/g,"_")}_${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`;
+  const file=new File([JSON.stringify(rec)],name,{type:"application/json"});
+  try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(file); a.download=name; document.body.append(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000); });
+function stopGps(){ try{ recSave(); }catch(e){} if(gpsWatch!==null) navigator.geolocation.clearWatch(gpsWatch); gpsWatch=null; $("gps").textContent="📍 GPS starten"; try{wakeLock&&wakeLock.release();}catch(e){} wakeLock=null; }
 $("gps").addEventListener("click",()=>{
   if(gpsWatch!==null){stopGps();$("gpsState").hidden=true;return;}
   withGeo(()=>startGps());
@@ -3021,6 +3042,7 @@ async function startGps(){
   try{ if(navigator.wakeLock) wakeLock=await navigator.wakeLock.request("screen"); }catch(e){}
   gpsWatch=navigator.geolocation.watchPosition(pos=>{
     carPos=[pos.coords.latitude,pos.coords.longitude]; gpsAcc=pos.coords.accuracy||0; gpsWallFix=Date.now();
+    if(IS_TEST&&document.body.classList.contains("drive")) recFix(pos);
     if(!car) car=L.marker(carPos,{icon:L.divIcon({className:"",html:''+meHtml(),iconSize:[34,42],iconAnchor:[17,42]}),zIndexOffset:2000});
     if(!disp) car.setLatLng(carPos); car.addTo(map); gpsSpeed=pos.coords.speed; setHead(carPos,pos.coords.heading,pos.coords.speed,gpsAcc);
     { const t=performance.now(), dt=lastFixAt?t-lastFixAt:1000; lastFixAt=t; moveCar(carPos,Math.min(2000,Math.max(300,dt)),firstFix&&document.body.classList.contains("drive")); }

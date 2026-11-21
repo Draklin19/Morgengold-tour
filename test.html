@@ -846,7 +846,8 @@ body.drive #map{height:100%;min-height:0;border-radius:0;border:0}
 #mapIn{position:absolute;left:0;top:0;width:100%;height:100%;z-index:0;transform-origin:50% 50%;transition:transform 1s linear;border-radius:inherit}
 #mapIn .leaflet-marker-icon>*{rotate:var(--cr,0deg);transition:rotate .8s ease-out}
 #gl3d{position:absolute;inset:0;z-index:400;pointer-events:none;display:none;border-radius:inherit;overflow:hidden}
-body.r3d #gl3d{display:block}
+body.r3d #gl3d{display:block;pointer-events:auto} body.r3d .leaflet-ctl{z-index:500} /* v=182: 3D-Karte selbst bedienbar, Knöpfe darüber */
+#gl3d .maplibregl-popup{z-index:5} #gl3d .maplibregl-popup-content{border-radius:12px;padding:12px 14px 10px} #gl3d .sperr{cursor:pointer}
 .car3d{width:46px;height:46px;filter:drop-shadow(0 6px 5px rgb(0 0 0 / .45))} /* v=155: 3D-Sicht: Markierungen strecken, damit sie trotz Neigung normal aussehen */ /* Markierungen bleiben aufrecht, wenn die Karte gedreht ist */
 #mapIn .leaflet-marker-icon>.me{transform-origin:50% 100%}
 .leaflet-ctl{position:absolute;inset:0;pointer-events:none;background:none!important;overflow:visible;z-index:1}
@@ -2567,18 +2568,22 @@ function fit(){ const p=tour?tour.stops.filter(s=>s.ll).map(s=>s.ll):[]; if(p.le
 function focusStop(i){ const s=tour.stops[i]; if(!s.ll) return; setFollow(false);
   if(IS_TEST&&s.warn&&!s.fixed&&s.osm) fitVis(L.latLngBounds([s.ll,s.osm]).pad(.6),{maxZoom:18}); else map.setView(s.ll,16); }
 // Lange auf die Karte drücken: Hauspunkt für den aktuellen oder den nächstgelegenen Stopp hierher setzen
-map.on("contextmenu",e=>{ const p=[e.latlng.lat,e.latlng.lng], c=[];
+function posBox(p){ const c=[]; // v=182: gleiches Menü für flache und 3D-Karte
   if(tour&&cur>=0) c.push(cur);
   let ni=-1,nd=400; if(tour) tour.stops.forEach((s,i)=>{ if(s.ll){ const d=dist(p,s.ll); if(d<nd){nd=d;ni=i;} } });
   if(ni>=0&&!c.includes(ni)) c.push(ni);
   const box=document.createElement("div"); box.className="posbox";
   if(IS_TEST) sperrMenu(box,p); // v=161 (Test): Straße sperren
-  if(!c.length&&!box.children.length) return;
+  if(!c.length&&!box.children.length) return null;
   if(c.length){ const b=document.createElement("b"); b.textContent="Hauspunkt hier setzen für:"; box.append(b); }
   c.forEach(i=>{ const s=tour.stops[i], x=document.createElement("button"); x.type="button"; x.className="btn";
     x.textContent=`Stopp ${nr(i)} · ${s.addr||""}`; x.addEventListener("click",()=>setPos(i,p)); box.append(x);
     if(s.fixed){ const r=document.createElement("button"); r.type="button"; r.className="btn"; r.textContent=`Stopp ${nr(i)}: eigenen Punkt entfernen`; r.addEventListener("click",()=>resetPos(i)); box.append(r); } });
-  L.popup({closeButton:true}).setLatLng(e.latlng).setContent(box).openOn(map); });
+  return box; }
+map.on("contextmenu",e=>{ const box=posBox([e.latlng.lat,e.latlng.lng]); if(box) L.popup({closeButton:true}).setLatLng(e.latlng).setContent(box).openOn(map); });
+// v=182 (Test): Menüs auf der 3D-Karte schließen sich mit, wenn die App ein Kartenmenü schließt
+let gl3pop=null; { const cp=map.closePopup.bind(map); map.closePopup=(...a)=>{ try{ if(gl3pop){ const q=gl3pop; gl3pop=null; q.remove(); } }catch(e){} return cp(...a); }; }
+function gl3Menu(p,box){ if(!gl3||!box) return; try{ if(gl3pop) gl3pop.remove(); gl3pop=new maplibregl.Popup({closeButton:true,closeOnClick:false,maxWidth:"300px",focusAfterOpen:false}).setLngLat([p[1],p[0]]).setDOMContent(box).addTo(gl3); }catch(e){} }
 // v=161 (Test): Straße sperren. Lange auf die Straße drücken → „Straße hier sperren“. Die Sperrung bleibt nur auf diesem Handy (navi-sperren).
 // Führt die grüne Anfahrt durch eine Sperrung, fragt die App andere Wege an (Alternativen, dann Umwege über Punkte rund um die Sperrung)
 // und nimmt den kürzesten ohne Sperrung. Klappt das nicht, kommt „Gesperrte Straße auf der Strecke, bitte selbst umfahren“.
@@ -2588,9 +2593,9 @@ let sperrWarned=-1;
 function sperrSave(){ try{ localStorage.setItem(SPK,JSON.stringify(sperren)); }catch(e){} }
 function sperrDraw(){ sperrLayer.clearLayers(); if(!IS_TEST) return;
   sperren.forEach((q,i)=>{ const m=L.marker(q.ll,{icon:L.divIcon({className:"",html:'<div class="sperr">⛔</div>',iconSize:[28,28],iconAnchor:[14,14]}),keyboard:false,zIndexOffset:500}).addTo(sperrLayer);
-    m.on("click",()=>{ const box=document.createElement("div"); box.className="posbox"; const b=document.createElement("b"); b.textContent="Gesperrt"+(q.name?": "+q.name:""); box.append(b);
-      const x=document.createElement("button"); x.type="button"; x.className="btn"; x.textContent="Sperrung entfernen"; x.addEventListener("click",()=>sperrDel(i)); box.append(x);
-      L.popup({closeButton:true}).setLatLng(q.ll).setContent(box).openOn(map); }); }); }
+    m.on("click",()=>{ L.popup({closeButton:true}).setLatLng(q.ll).setContent(sperrBox(i)).openOn(map); }); }); try{ gl3sig=""; }catch(e){} }
+function sperrBox(i){ const q=sperren[i], box=document.createElement("div"); box.className="posbox"; const b=document.createElement("b"); b.textContent="Gesperrt"+(q.name?": "+q.name:""); box.append(b);
+  const x=document.createElement("button"); x.type="button"; x.className="btn"; x.textContent="Sperrung entfernen"; x.addEventListener("click",()=>sperrDel(i)); box.append(x); return box; }
 function sperrMenu(box,p){ const ni=sperren.findIndex(q=>dist(q.ll,p)<40);
   const x=document.createElement("button"); x.type="button"; x.className="btn"; x.textContent="⛔ Straße hier sperren"; x.addEventListener("click",()=>sperrAdd(p)); box.append(x);
   if(ni>=0){ const r=document.createElement("button"); r.type="button"; r.className="btn"; r.textContent="Sperrung hier entfernen"; r.addEventListener("click",()=>sperrDel(ni)); box.append(r); } }
@@ -2666,16 +2671,20 @@ function applyRot(now){ const t=rotOn()?head:0, d=((t-brg)%360+540)%360-180; brg
 // v=158 (Test): echte 3D-Fahransicht. Beim Fahren mit 3D liegt über der Leaflet-Karte eine MapLibre-Karte (OpenFreeMap), schräg von hinten,
 // mit Häusern in 3D. Sie zeigt grüne Anfahrt, restliche Tour, offene Kunden und einen 3D-Pfeil; alles andere (Schild, Leiste, Knöpfe) bleibt darüber.
 // Fingerbewegungen gehen weiter an die Leaflet-Karte: Verschieben = flach mit Norden oben, „Zur aktuellen Position“ = wieder 3D.
-let gl3b=null, gl3=null, gl3ok=false, gl3car=null, gl3raf=0, gl3sig="";
-const want3d=()=>IS_TEST&&t3dPref()&&rotMode()&&rotOn()&&!!(disp||carPos);
+let gl3b=null, gl3=null, gl3ok=false, gl3car=null, gl3raf=0, gl3sig="", gl3Free=false, gl3Hold=0, gl3sp=[]; // v=182: gl3Free = mit dem Finger verschoben, bleibt 3D
+const want3d=()=>{ let pe=false; try{ pe=!!pinEdit; }catch(e){} return IS_TEST&&t3dPref()&&rotMode()&&!pe&&!!(disp||carPos)&&(rotOn()||gl3Free); };
 const llq=a=>a.map(q=>[q[1],q[0]]);
 function gl3Make(){ if(gl3) return; const box=document.createElement("div"); box.id="gl3d"; mapIn.after(box);
-  try{ gl3=new maplibregl.Map({container:box,style:OFM_STYLE,interactive:false,attributionControl:false,pitch:60,zoom:16,center:[8.6,48.2],pixelRatio:devicePixelRatio||1,fadeDuration:0}); }
+  try{ gl3=new maplibregl.Map({container:box,style:OFM_STYLE,interactive:true,dragRotate:true,touchPitch:true,maxPitch:70,attributionControl:false,pitch:60,zoom:16,center:[8.6,48.2],pixelRatio:devicePixelRatio||1,fadeDuration:0}); }
   catch(e){ gl3=null; box.remove(); return; }
   gl3.on("error",()=>{}); gl3.on("load",()=>{ try{
     gl3.addSource("tour",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
     gl3.addSource("ap",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
     gl3.addSource("stops",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+    gl3.addSource("foot",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+    gl3.addSource("hn",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+    gl3.addLayer({id:"foot",type:"line",source:"foot",layout:{"line-cap":"round"},paint:{"line-color":"#3d5a80","line-width":3,"line-dasharray":[1,2.5],"line-opacity":.8}}); // v=182: Fußwege
+    gl3.addLayer({id:"hn",type:"symbol",source:"hn",layout:{"text-field":["get","n"],"text-font":["Noto Sans Bold"],"text-size":14,"text-allow-overlap":true,"text-ignore-placement":true},paint:{"text-color":"#4a4f4b","text-halo-color":"#fff","text-halo-width":2.5}}); // v=182: Hausnummern der Nachbarn
     gl3.addLayer({id:"tour",type:"line",source:"tour",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#8f969c","line-width":5,"line-opacity":.55}});
     gl3.addLayer({id:"ap-halo",type:"line",source:"ap",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#ffffff","line-width":13}});
     gl3.addLayer({id:"ap",type:"line",source:"ap",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#1f9d55","line-width":9}});
@@ -2685,9 +2694,34 @@ function gl3Make(){ if(gl3) return; const box=document.createElement("div"); box
     gl3ok=true; gl3sig=""; }catch(e){} });
   const el=document.createElement("div"); el.className="car3d";
   el.innerHTML='<svg viewBox="0 0 48 48" width="46" height="46"><path d="M24 3 L41 43 L24 34 L7 43 Z" fill="#1a73e8" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/><path d="M24 3 L24 34 L7 43 Z" fill="#000" opacity=".18"/></svg>';
-  gl3car=new maplibregl.Marker({element:el,rotationAlignment:"map",pitchAlignment:"map"}).setLngLat([8.6,48.2]).addTo(gl3); }
+  gl3car=new maplibregl.Marker({element:el,rotationAlignment:"map",pitchAlignment:"map"}).setLngLat([8.6,48.2]).addTo(gl3);
+  // v=182 (Test): mit dem Finger verschieben, zoomen, drehen: Karte bleibt 3D, folgt nicht mehr dem Auto („Zur aktuellen Position“ holt sie zurück)
+  ["dragstart","zoomstart","rotatestart","pitchstart"].forEach(ev=>gl3.on(ev,e=>{ if(!e.originalEvent) return; lpCancel(); if(!gl3Free){ gl3Free=true; if(follow) setFollow(false); } }));
+  gl3.on("moveend",e=>{ if(!e.originalEvent||!gl3Free) return; const c=gl3.getCenter(); try{ map.setView([c.lat,c.lng],Math.min(19,gl3.getZoom()+.6),{animate:false}); }catch(x){} });
+  // lange drücken = gleiches Menü wie auf der flachen Karte (Hauspunkt setzen, Straße sperren)
+  const cc=gl3.getCanvasContainer(); let lp=null, lpAt=0, pd=0;
+  // Solange ein Finger auf der Karte liegt, folgt sie nicht dem Auto (sonst bricht das Mitführen die Fingerbewegung ab).
+  // Bewegt sich der Finger mehr als 10 Pixel (oder zwei Finger), bleibt die Karte frei stehen.
+  const goFree=()=>{ lpCancel(); if(!gl3Free){ gl3Free=true; if(follow) setFollow(false); } };
+  const pts=new Map(); // Finger/Maus, die gerade auf der Karte liegen
+  cc.addEventListener("pointerdown",e=>{ pts.set(e.pointerId,[e.clientX,e.clientY]); gl3Hold=pts.size; pd=pts.size; if(pd>1) goFree(); });
+  cc.addEventListener("pointermove",e=>{ const q=pts.get(e.pointerId); if(q&&Math.hypot(e.clientX-q[0],e.clientY-q[1])>10) goFree(); });
+  const up=e=>{ if(pts.delete(e.pointerId)){ gl3Hold=pts.size; pd=pts.size; } };
+  window.addEventListener("pointerup",up,true); window.addEventListener("pointercancel",up,true);
+  cc.addEventListener("wheel",goFree,{passive:true});
+  function lpCancel(){ if(lp){ clearTimeout(lp.t); lp=null; } }
+  const lpFire=(x,y)=>{ if(Date.now()-lpAt<800) return; lpAt=Date.now(); goFree(); const r=box.getBoundingClientRect(), q=gl3.unproject([x-r.left,y-r.top]); const p=[q.lat,q.lng]; gl3Menu(p,posBox(p)); };
+  cc.addEventListener("pointerdown",e=>{ lpCancel(); if(e.pointerType==="mouse"||pd>1) return; lp={x:e.clientX,y:e.clientY,t:setTimeout(()=>{ const q=lp; lp=null; if(q) lpFire(q.x,q.y); },600)}; });
+  cc.addEventListener("pointermove",e=>{ if(lp&&Math.hypot(e.clientX-lp.x,e.clientY-lp.y)>10) lpCancel(); });
+  cc.addEventListener("pointerup",lpCancel); cc.addEventListener("pointercancel",lpCancel);
+  gl3.on("contextmenu",e=>{ e.preventDefault(); const r=box.getBoundingClientRect(); lpFire(e.point.x+r.left,e.point.y+r.top); }); }
 function gl3Data(){ if(!gl3ok||!tour) return;
-  const sig=[cur,apStop,apLine&&apLine.length,apLine&&apLine[0]&&apLine[0][0],tour.road&&tour.road.line.length,tour.stops.filter(q=>q.done).length].join("|"); if(sig===gl3sig) return; gl3sig=sig;
+  const fv=footList.filter(f=>f.on), hv=hnList.filter(h=>h.on);
+  const sig=[cur,apStop,apLine&&apLine.length,apLine&&apLine[0]&&apLine[0][0],tour.road&&tour.road.line.length,tour.stops.filter(q=>q.done).length,fv.length,hv.length,sperren.length].join("|"); if(sig===gl3sig) return; gl3sig=sig;
+  gl3.getSource("foot").setData({type:"FeatureCollection",features:fv.map(f=>({type:"Feature",properties:{},geometry:{type:"LineString",coordinates:llq(f.pts)}}))}); // v=182
+  gl3.getSource("hn").setData({type:"FeatureCollection",features:hv.map(h=>({type:"Feature",properties:{n:h.txt},geometry:{type:"Point",coordinates:[h.at[1],h.at[0]]}}))});
+  gl3sp.forEach(m=>m.remove()); gl3sp=sperren.map((q,i)=>{ const el=document.createElement("div"); el.className="sperr"; el.textContent="⛔";
+    el.addEventListener("click",ev=>{ ev.stopPropagation(); gl3Menu(q.ll,sperrBox(i)); }); return new maplibregl.Marker({element:el}).setLngLat([q.ll[1],q.ll[0]]).addTo(gl3); });
   const rl=tour.road&&tour.road.line||tour.line||[];
   gl3.getSource("tour").setData({type:"Feature",geometry:{type:"LineString",coordinates:llq(rl.length>1?rl:[[0,0],[0,0]])}});
   gl3.getSource("ap").setData(apLine&&apLine.length>1?{type:"Feature",geometry:{type:"LineString",coordinates:llq(apLine)}}:{type:"FeatureCollection",features:[]});
@@ -2695,6 +2729,8 @@ function gl3Data(){ if(!gl3ok||!tour) return;
 function gl3Frame(){ gl3raf=0; if(!want3d()||!gl3){ return; }
   const p=disp||carPos, h=mapBox.clientHeight;
   const hb=head||0; if(gl3b==null) gl3b=hb; else { const d=((hb-gl3b)%360+540)%360-180; gl3b=(gl3b+d*.08+360)%360; }
+  if(gl3Free){ if(gl3car){ gl3car.setLngLat([p[1],p[0]]); gl3car.setRotation(hb); } gl3Data(); gl3raf=requestAnimationFrame(gl3Frame); return; } // v=182: verschoben, Karte bleibt stehen
+  if(gl3Hold){ gl3raf=requestAnimationFrame(gl3Frame); return; } // Finger liegt auf der Karte
   gl3.jumpTo({center:[p[1],p[0]],bearing:gl3b,pitch:62,zoom:Math.min(19,map.getZoom()-.6),padding:{top:Math.round(h*.38),bottom:0,left:0,right:0}});
   if(gl3car){ gl3car.setLngLat([p[1],p[0]]); gl3car.setRotation(gl3b); }
   gl3Data(); gl3raf=requestAnimationFrame(gl3Frame); }
@@ -2709,7 +2745,8 @@ function gl3Check(){ const on=want3d();
 function routeHead(){ const p=carPos, L=apLine; if(!p||!L||L.length<2) return null;
   let bi=0,bd=1e9; for(let i=0;i<L.length;i++){ const d=dist(p,L[i]); if(d<bd){ bd=d; bi=i; } } if(bd>60) return null;
   let acc=0; for(let i=bi+1;i<L.length;i++){ acc+=dist(L[i-1],L[i]); if(acc>=25||i===L.length-1){ const q=L[i]; return dist(p,q)>3?bearingDeg(p,q):null; } } return null; }
-if(IS_TEST) setInterval(gl3Check,400); // v=181 (Test): 3D-Fahransicht wieder an (Draklin will sie genau ansehen)
+if(IS_TEST) setInterval(gl3Check,400);
+map.on("zoomend",()=>{ try{ if(gl3&&gl3Free&&document.body.classList.contains("r3d")){ const z=Math.min(19,map.getZoom())-.6; if(Math.abs(gl3.getZoom()-z)>.05) gl3.easeTo({zoom:z,duration:250}); } }catch(e){} }); // v=182: Zoom-Knöpfe wirken auch auf die verschobene 3D-Karte // v=181 (Test): 3D-Fahransicht wieder an (Draklin will sie genau ansehen)
 setInterval(()=>{ if(!rotMode()||head!==null) return; const h=routeHead(); if(h!==null){ head=Math.round(h)%360; applyRot(); } },1000);
 function bearingDeg(a,b){ const c=Math.cos(a[0]*Math.PI/180); return (Math.atan2((b[1]-a[1])*c,b[0]-a[0])*180/Math.PI+360)%360; }
 let gpsSpeed=null;
@@ -2793,7 +2830,7 @@ function fitVis(b,opt){ // fitBounds nur auf den sichtbaren Teil der (beim Fahre
 new MutationObserver(()=>{ sizeInner(); applyRot(true); }).observe(document.body,{attributes:true,attributeFilter:["class"]});
 // Nachführen: aus, sobald man selbst einen Stopp wählt oder die Karte verschiebt; der Knopf „Zur aktuellen Position“ schaltet es wieder ein
 let follow=true;
-function setFollow(on){ const was=follow; follow=on; const b=document.getElementById("toMe"); if(b) b.hidden=on||!carPos; applyRot(was&&!on); }
+function setFollow(on){ const was=follow; follow=on; if(on) gl3Free=false; /* v=182 */ const b=document.getElementById("toMe"); if(b) b.hidden=on||!carPos; applyRot(was&&!on); }
 map.on("dragstart",()=>{ const dr=map.dragging&&map.dragging._draggable; if(dr&&brg%360) dr._parentScale={x:1,y:1,boundingClientRect:mapIn.getBoundingClientRect()}; setFollow(false); });
 // Kartengröße ändert sich auch ohne Fenster-Resize (Tourleiste oben/unten, Schriftgröße, Vollbild, Handy-Leisten).
 // Dann muss die Karte ihre Größe neu messen, sonst sitzt die eigene Position nicht mehr in der Mitte.

@@ -799,6 +799,7 @@ body.drive .footman{transform:scale(.7);opacity:.55;filter:grayscale(1)}
 .walkman{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;background:#fff;border:2px solid var(--route);box-shadow:0 1px 3px rgb(0 0 0 / .35)}
 .hn{position:absolute;translate:-50% -50%;color:#4a4f4b;font:800 14px/1 var(--font-body);white-space:nowrap;pointer-events:none;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff,0 0 4px #fff} /* v=165: ohne Feld und Rand, fetter (Draklin) */ /* v=130: Hausnummern aus OpenStreetMap */
 .hn.k{color:#1f6f4a;font-weight:900;font-size:24px;text-shadow:0 0 2px #fff,0 0 3px #fff,0 0 4px #fff,0 0 5px #fff,0 0 6px #fff}
+.hn-cust{position:absolute;translate:-50% -50%;white-space:nowrap;pointer-events:none;background:#fff;color:#c2410c;border:3px solid #ea580c;border-radius:9px;padding:3px 9px 2px;font:900 24px/1 var(--font-body);box-shadow:0 0 0 2px #fff,0 2px 6px rgb(0 0 0 / .45);transition:none!important} /* v=178 (Test): Hausnummer des aktuellen Kunden */
 .pin.hidepin{display:none!important} /* v=165: Kunde nur als grüne Hausnummer */
 .st-lab{position:absolute;translate:-50% -50%;white-space:nowrap;pointer-events:none;color:#fff;font:900 17px/1 var(--font-body);letter-spacing:.3px;transition:none!important;text-shadow:0 0 2px #14532d,0 0 2px #14532d,0 0 3px #14532d,0 0 4px #14532d,1px 1px 2px #14532d} /* v=165: Straßenname auf der grünen Linie */ /* unter den Kunden-Pin, nicht dahinter */
 .footman{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;line-height:1;background:#fff;border:1.5px solid #3d5a80;box-shadow:0 1px 2px rgb(0 0 0 / .3)}
@@ -2157,12 +2158,37 @@ async function routeLegs(base,pts,straight){ // v=149: Route mit Einzelabschnitt
   }
   if(legs.length!==pts.length-1) throw new Error("Abschnitte fehlen"); return legs;
 }
+// v=178 (Test): Ziel für die Route = Punkt auf der Straße aus der Ausfahrliste (gleicher Straßenname, bis 200 m vom Haus).
+// Sonst sucht der Kartendienst die nächste befahrbare Linie zum Hauspunkt, und das kann ein Feldweg hinter dem Haus sein (Umweg außen herum).
+const STR_C="navi-strpkt", STR_R=200;
+const strName=s=>{ const m=s&&s.addr?String(s.addr).split(",")[0].match(/^(.*?)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/):null; return hnKey(m?m[1]:s&&s.addr?String(s.addr).split(",")[0]:""); };
+const strKey=s=>addrKey(s)+"@"+s.ll[0].toFixed(5)+","+s.ll[1].toFixed(5);
+function strPick(s,ways){ const k=strName(s); if(!k) return 0; let best=null;
+  ways.forEach(w=>{ const n=hnKey(w.tags&&w.tags.name); if(!n||!(n===k||(k.length>5&&(n.startsWith(k)||k.startsWith(n))))) return;
+    const g=(w.geometry||[]).map(q=>[q.lat,q.lon]); for(let i=1;i<g.length;i++){ const c=segP(s.ll,g[i-1],g[i]), d=dist(s.ll,c); if(d<=STR_R&&(!best||d<best.d)) best={d,ll:c}; } });
+  return best?[+best.ll[0].toFixed(6),+best.ll[1].toFixed(6)]:0; }
+async function strFetch(list){ // eine Abfrage für viele Stopps; liefert false, wenn kein Server antwortet
+  const q="[out:json][timeout:25];("+list.map(s=>`way(around:${STR_R},${s.ll[0].toFixed(6)},${s.ll[1].toFixed(6)})[highway~"${SP_HW}"][name];`).join("")+");out geom tags;";
+  for(const u of OVERPASS){ try{
+      const r=await fetch(u,{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"},...(typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(20000)}:{})});
+      if(!r.ok) continue; const j=await r.json(); return j.elements||[]; }catch(e){} }
+  return false; }
+let strBusy=null;
+async function strPrep(t){ if(!IS_TEST||!t) return; if(strBusy) return strBusy; // fertige Punkte aus dem Speicher, fehlende in Gruppen zu 20 holen
+  strBusy=(async()=>{ const c=jget(STR_C), todo=[];
+    t.stops.forEach(s=>{ if(!s.ll||!s.addr){ s.rll=null; return; } const k=strKey(s); if(k in c) s.rll=c[k]||null; else { s.rll=null; todo.push(s); } });
+    for(let i=0;i<todo.length;i+=20){ const part=todo.slice(i,i+20), ways=await strFetch(part); if(ways===false) break;
+      const c2=jget(STR_C); part.forEach(s=>{ const p=strPick(s,ways); s.rll=p||null; c2[strKey(s)]=p; });
+      const ks=Object.keys(c2); if(ks.length>3000) ks.slice(0,ks.length-3000).forEach(k=>delete c2[k]); try{ localStorage.setItem(STR_C,JSON.stringify(c2)); }catch(e){} } })();
+  try{ await strBusy; } finally { strBusy=null; } }
+const rDest=s=>IS_TEST&&s&&s.rll&&s.ll&&dist(s.rll,s.ll)<=STR_R?s.rll:s&&s.ll; // Zielpunkt für den Kartendienst
 async function routeTour(){
   if(!tour) return; const seq=++routeSeq, t=tour;
+  await strPrep(t); if(seq!==routeSeq||tour!==t) return; // v=178
   // v=110: Straßenroute über die Wegpunkte der .bcr; mit Kommissionierstelle beginnt sie dort (Kilometer und Zeit ab Abfahrt).
   // v=149: jeder Abschnitt (Stopp zu Stopp) wird zusätzlich direkt berechnet. Ist er mit den .bcr-Wegpunkten mehr als 15 % + 80 m länger
   // (Wenden, Runde um den Block), gilt der direkte Weg. Sonst kamen z. B. 82,6 statt ca. 70 km heraus.
-  const dp=depotLL(), S=[...(dp?[dp]:[]),...t.stops.filter(s=>s.ll).map(s=>s.ll)], st=t.stops.filter(s=>s.ll); if(S.length<2) return;
+  const dp=depotLL(), S=[...(dp?[dp]:[]),...t.stops.filter(s=>s.ll).map(s=>rDest(s))], st=t.stops.filter(s=>s.ll); if(S.length<2) return;
   const P=[S[0]], rng=[]; // rng[i] = [erster, letzter+1] Abschnitt in P für Stopp-Abschnitt i
   for(let i=0;i<S.length-1;i++){ const a=P.length-1, v=(dp&&i===0)?[]:bcrVias(st[dp?i:i+1]); P.push(...v,S[i+1]); rng.push([a,P.length-1]); }
   routeState("Straßenroute wird berechnet …");
@@ -2480,13 +2506,13 @@ function hnMark(){ const drv=document.body.classList.contains("drive")||!!simTim
   const kn=mm?hnKey(mm[2]):"", ks=mm?hnKey(mm[1]):"";
   hnList.forEach(h=>{ const vis=near&&dist(h.at,s.ll)<=250&&(!ks||h.street===ks), /* v=148: nur Häuser in der Straße des Kunden */ on=vis&&!!kn&&h.num===kn&&(!h.street||!ks||h.street===ks);
     if(on!==h.k){ h.k=on; h.m.setIcon(hnIcon(h.txt,on)); h.m.setZIndexOffset(on?-100:-500); }
-    if(vis!==h.on){ h.on=vis; if(vis) h.m.addTo(hnLayer); else hnLayer.removeLayer(h.m); } });
+    const sh=vis&&!(custOn&&on); if(sh!==h.on){ h.on=sh; if(sh) h.m.addTo(hnLayer); else hnLayer.removeLayer(h.m); } }); // v=178: Kundennummer steht schon im Feld
   footList.forEach(f=>{ const vis=near&&!!s&&f.pts.some(q=>dist(q,s.ll)<=120);
     if(vis!==f.on){ f.on=vis; if(vis) f.grp.addTo(footLayer); else footLayer.removeLayer(f.grp); } });
-  hnHit=drv&&T===cur&&hnList.some(h=>h.k&&h.on); pinHide();
+  hnHit=drv&&T===cur&&hnList.some(h=>h.k&&(h.on||custOn)); pinHide();
   stLabel(drv&&near&&T===cur?s:null, mm); } // v=165: statt Schild oben steht der Straßenname fett auf der grünen Linie
-let hnHit=false, stLab=null;
-function pinHide(){ try{ markers.forEach(m=>{ const e=m.getElement(), d=e&&e.firstElementChild; if(d) d.classList.toggle("hidepin",hnHit&&m.options.si===cur); }); }catch(e){} }
+let hnHit=false, stLab=null, custOn=false;
+function pinHide(){ try{ markers.forEach(m=>{ const e=m.getElement(), d=e&&e.firstElementChild; if(d) d.classList.toggle("hidepin",(hnHit||custOn)&&m.options.si===cur); }); }catch(e){} }
 function stLabel(s,mm){ const L=apLine;
   if(!s||!mm||!L||L.length<2||!s.ll){ if(stLab){ stLab.remove(); stLab=null; } return; }
   let k=L.length-1, bd=1e9; L.forEach((q,j)=>{ const d=dist(q,s.ll); if(d<bd){ bd=d; k=j; } });
@@ -2778,10 +2804,19 @@ function stopSim(){const was=simTimer!==null;clearInterval(simTimer);simTimer=nu
 // das Ziel ist (nach dem Abhaken des vorigen), und bleibt bis zum nächsten Kunden.
 // Seite: dort, wo das Haus liegt (links/rechts), weg von der Straße; reicht der Platz am Bildschirmrand nicht, über dem Pin.
 let stPill=null, stShown=-1;
+// v=178 (Test): beim Fahren steht am aktuellen Kunden statt des Punkts seine Hausnummer: groß, weißes Feld mit orange-rotem Rand.
+// Abgehakt verschwindet sie (dann steht sie beim nächsten Kunden). Die gleiche Nummer aus der Karte wird dann nicht doppelt gezeigt.
+let custMk=null, custFor="";
+function custHn(s){ const mm=s?String(s.addr).split(",")[0].match(/(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/):null;
+  const txt=mm?mm[1].replace(/\s+/g,""):"", at=s?(sideLL(s)||s.ll):null, key=txt&&at?txt+"@"+at.join(","):"";
+  if(key!==custFor){ custFor=key; if(custMk){ custMk.remove(); custMk=null; }
+    if(key) custMk=L.marker(at,{icon:L.divIcon({className:"",html:`<div class="hn-cust">${txt.replace(/[&<>"]/g,c=>"&#"+c.charCodeAt(0)+";")}</div>`,iconSize:[0,0]}),interactive:false,keyboard:false,zIndexOffset:2500}).addTo(map); }
+  custOn=!!custMk; }
 function updateHouseNo(){
   const s=tour&&cur>=0?tour.stops[cur]:null, drv=document.body.classList.contains("drive")||!!simTimer;
+  if(IS_TEST) custHn(drv&&s&&s.ll&&s.addr&&!s.done?s:null); // v=178
   if(!drv||!s||!s.ll||!s.addr){ if(stPill){ stPill.remove(); stPill=null; } stShown=-1; return; }
-  { try{ const mk=markers.find(m=>m.options.si===cur), pe=mk&&mk.getElement(); const d=pe&&pe.firstElementChild; if(d&&!d.classList.contains("nonum")) d.classList.add("nonum"); if(d) d.classList.toggle("hidepin",hnHit); }catch(e){} return; } // v=157: statt Marke am Haus ein Schild oben (stSign)
+  { try{ const mk=markers.find(m=>m.options.si===cur), pe=mk&&mk.getElement(); const d=pe&&pe.firstElementChild; if(d&&!d.classList.contains("nonum")) d.classList.add("nonum"); if(d) d.classList.toggle("hidepin",hnHit||custOn); }catch(e){} return; } // v=157: statt Marke am Haus ein Schild oben (stSign)
   if(stShown!==cur){
     if(stPill){ stPill.remove(); stPill=null; }
     if(!carPos||apStop!==cur) return;
@@ -3411,6 +3446,8 @@ async function updateApproach(){
   { const q=tour.stops[T]; if(apStop===T&&q.park&&dist(carPos,q.park)<80) return; } // am Parkpunkt: nicht neu berechnen
   if(Date.now()-apAt<8000&&apStop===T) return;
   apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[T].ll, stopNo=T; let line=null;
+  if(IS_TEST&&tour.stops[T].rll===undefined){ try{ await strPrep(tour); }catch(e){} } // v=178
+  const toR=rDest(tour.stops[T])||to; // v=178: Route endet auf der Straße des Kunden
   let steps=[];
   // Anfahrpunkt aus der Routendatei: Die Morgengold-Strecke endet auf der Straße, von der aus das Haus erreicht wird.
   // Liegt das Haus 40–300 m davon weg, fährt die App über diesen Punkt. Müsste das Auto danach erst um den Block,
@@ -3425,16 +3462,16 @@ async function updateApproach(){
   const getRoute=async pts=>{ if(noNet) return null; let n=0, f=0;
     for(const b of hb!==null?[hb,null]:[null]) for(const base of ROUTERS){ try{ return await routeSteps(base,pts,b); }catch(e){ n++; if(e instanceof TypeError||e.name==="AbortError"||e.name==="TimeoutError") f++; } }
     if(n&&f===n) noNet=true; return null; }; // ohne Richtung nochmal, falls keine Straße in Fahrtrichtung passt
-  let rr=await getRoute(bv.length?[from,...bv,to]:ap?[from,ap,to]:[from,to]);
-  if(bv.length&&!rr) rr=await getRoute([from,to]);
+  let rr=await getRoute(bv.length?[from,...bv,toR]:ap?[from,ap,toR]:[from,toR]);
+  if(bv.length&&!rr) rr=await getRoute([from,toR]);
   if(bv.length&&rr){ // v=118: führen die .bcr-Zwischenpunkte in einen Abstecher mit Wenden oder einen Umweg, lieber den direkten (schnellsten) Weg nehmen
     const len=r=>r.legs.reduce((a,b)=>a+b,0), uturn=rr.steps.some(t=>t.t==="wenden");
-    const rd=await getRoute([from,to]); if(rd&&(uturn||len(rr)>len(rd)*1.15+80)) rr=rd; }
+    const rd=await getRoute([from,toR]); if(rd&&(uturn||len(rr)>len(rd)*1.15+80)) rr=rd; }
   if(ap){ // Zwischenpunkt aus der Routendatei nur nehmen, wenn der Weg darüber kaum länger ist als der direkte Weg
-    const rd=await getRoute([from,to]), len=r=>r.legs.reduce((a,b)=>a+b,0);
+    const rd=await getRoute([from,toR]), len=r=>r.legs.reduce((a,b)=>a+b,0);
     if(rd&&(!rr||len(rr)>len(rd)*1.15+80)){ rr=rd; ap=null; } }
   { const hit=rr&&sperrHit(rr.line,from); // v=161 (Test): Sperrung auf der Strecke → drumherum
-    if(hit){ if(sperrWarned!==stopNo) toast("⛔ Sperrung auf der Strecke, suche Umleitung …"); const alt=await sperrAround(from,to,hit,getRoute,rr.line); if(alt){ rr=alt; ap=null; if(sperrWarned!==stopNo){ sperrWarned=stopNo; toast("Umleitung um die Sperrung berechnet"); } } else if(sperrWarned!==stopNo){ sperrWarned=stopNo; toast("⛔ Gesperrte Straße auf der Strecke, bitte selbst umfahren"); say("Achtung, gesperrte Straße auf der Strecke",true); } } }
+    if(hit){ if(sperrWarned!==stopNo) toast("⛔ Sperrung auf der Strecke, suche Umleitung …"); const alt=await sperrAround(from,toR,hit,getRoute,rr.line); if(alt){ rr=alt; ap=null; if(sperrWarned!==stopNo){ sperrWarned=stopNo; toast("Umleitung um die Sperrung berechnet"); } } else if(sperrWarned!==stopNo){ sperrWarned=stopNo; toast("⛔ Gesperrte Straße auf der Strecke, bitte selbst umfahren"); say("Achtung, gesperrte Straße auf der Strecke",true); } } }
   if(rr){ line=rr.line; steps=rr.steps; legs=rr.legs; }
   const off=!rr&&noNet; if(off){ ap=null; line=tourPart(from,to); }
   if(hadAp) sx.park=null;

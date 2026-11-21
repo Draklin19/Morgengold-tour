@@ -1022,7 +1022,7 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 html.fahrer #pdBox{display:none!important}
 #bcrOnlyRow,#cmpBox{display:none!important}
 html.fahrer #recBtn,html.fahrer #bcrOnlyRow,html.fahrer #ofmRow,html.fahrer #corrShare{display:none!important}
-#t3dRow,.d3-btn{display:none!important} /* v=159: 3D wieder raus (Draklin) */
+html.fahrer #t3dRow{display:none!important} /* v=181: 3D wieder an (Test) */
 /* v=106: Ton-Knopf beim Fahren */
 .snd-btn{display:none}
 body.drive .snd-btn{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--surface);color:var(--fg);font-size:1.45rem;box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;margin-top:10px!important;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -2679,7 +2679,8 @@ function gl3Make(){ if(gl3) return; const box=document.createElement("div"); box
     gl3.addLayer({id:"tour",type:"line",source:"tour",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#8f969c","line-width":5,"line-opacity":.55}});
     gl3.addLayer({id:"ap-halo",type:"line",source:"ap",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#ffffff","line-width":13}});
     gl3.addLayer({id:"ap",type:"line",source:"ap",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#1f9d55","line-width":9}});
-    gl3.addLayer({id:"stops",type:"circle",source:"stops",paint:{"circle-radius":["case",["get","t"],9,11],"circle-color":["case",["get","t"],"#1f6f4a","#1f6f5c"],"circle-stroke-color":"#fff","circle-stroke-width":2.5,"circle-pitch-alignment":"viewport"}});
+    gl3.addLayer({id:"stops",type:"circle",source:"stops",paint:{"circle-radius":["case",["get","t"],0,11],"circle-stroke-opacity":["case",["get","t"],0,1],"circle-color":["case",["get","t"],"#1f6f4a","#1f6f5c"],"circle-stroke-color":"#fff","circle-stroke-width":2.5,"circle-pitch-alignment":"viewport"}});
+    gl3.addLayer({id:"cust-hn",type:"symbol",source:"stops",filter:["all",["get","t"],["!=",["get","h"],""]],layout:{"text-field":["get","h"],"text-font":["Noto Sans Bold"],"text-size":26,"text-allow-overlap":true,"text-ignore-placement":true},paint:{"text-color":"#c2410c","text-halo-color":"#fff","text-halo-width":4}}); // v=181: Hausnummer des Kunden
     gl3.addLayer({id:"stop-no",type:"symbol",source:"stops",filter:["!",["get","t"]],layout:{"text-field":["get","n"],"text-font":["Noto Sans Bold"],"text-size":12,"text-allow-overlap":true,"text-ignore-placement":true},paint:{"text-color":"#fff"}});
     gl3ok=true; gl3sig=""; }catch(e){} });
   const el=document.createElement("div"); el.className="car3d";
@@ -2690,7 +2691,7 @@ function gl3Data(){ if(!gl3ok||!tour) return;
   const rl=tour.road&&tour.road.line||tour.line||[];
   gl3.getSource("tour").setData({type:"Feature",geometry:{type:"LineString",coordinates:llq(rl.length>1?rl:[[0,0],[0,0]])}});
   gl3.getSource("ap").setData(apLine&&apLine.length>1?{type:"Feature",geometry:{type:"LineString",coordinates:llq(apLine)}}:{type:"FeatureCollection",features:[]});
-  gl3.getSource("stops").setData({type:"FeatureCollection",features:tour.stops.map((q,i)=>!q.done&&q.ll?{type:"Feature",properties:{n:String(nr(i)),t:i===cur},geometry:{type:"Point",coordinates:[q.ll[1],q.ll[0]]}}:null).filter(Boolean)}); }
+  gl3.getSource("stops").setData({type:"FeatureCollection",features:tour.stops.map((q,i)=>!q.done&&q.ll?{type:"Feature",properties:{n:String(nr(i)),t:i===cur,h:(String(q.addr||"").split(",")[0].match(/(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/)||["",""])[1].replace(/\s+/g,"")},geometry:{type:"Point",coordinates:[q.ll[1],q.ll[0]]}}:null).filter(Boolean)}); }
 function gl3Frame(){ gl3raf=0; if(!want3d()||!gl3){ return; }
   const p=disp||carPos, h=mapBox.clientHeight;
   const hb=head||0; if(gl3b==null) gl3b=hb; else { const d=((hb-gl3b)%360+540)%360-180; gl3b=(gl3b+d*.08+360)%360; }
@@ -2708,6 +2709,7 @@ function gl3Check(){ const on=want3d();
 function routeHead(){ const p=carPos, L=apLine; if(!p||!L||L.length<2) return null;
   let bi=0,bd=1e9; for(let i=0;i<L.length;i++){ const d=dist(p,L[i]); if(d<bd){ bd=d; bi=i; } } if(bd>60) return null;
   let acc=0; for(let i=bi+1;i<L.length;i++){ acc+=dist(L[i-1],L[i]); if(acc>=25||i===L.length-1){ const q=L[i]; return dist(p,q)>3?bearingDeg(p,q):null; } } return null; }
+if(IS_TEST) setInterval(gl3Check,400); // v=181 (Test): 3D-Fahransicht wieder an (Draklin will sie genau ansehen)
 setInterval(()=>{ if(!rotMode()||head!==null) return; const h=routeHead(); if(h!==null){ head=Math.round(h)%360; applyRot(); } },1000);
 function bearingDeg(a,b){ const c=Math.cos(a[0]*Math.PI/180); return (Math.atan2((b[1]-a[1])*c,b[0]-a[0])*180/Math.PI+360)%360; }
 let gpsSpeed=null;

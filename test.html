@@ -1250,6 +1250,49 @@ body[data-pg="plan"]:not(.drive) .pg-plan{display:flex;flex-direction:column;gap
 .plan-empty{background:var(--surface);border:1px dashed var(--line);border-radius:20px;padding:48px 20px;text-align:center;color:var(--muted)}
 .plan-empty span{font-size:2.6rem;display:block;margin-bottom:8px}
 .plan-empty p{margin:0}
+/* v=183 (Test): Schichtplan – Kommissionierstellen, Touren, Kalender */
+#spBox{display:flex;flex-direction:column;gap:12px}
+.sp-sub{color:var(--muted);font-size:.85rem;margin:-6px 4px 0}
+.kp{background:var(--surface);border-radius:18px;box-shadow:0 1px 3px rgb(0 0 0/.08);overflow:hidden;border:1px solid var(--line)}
+.kp-h{display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer;width:100%;border:0;background:none;text-align:left;color:inherit;font:inherit}
+.kp-ic{width:42px;height:42px;border-radius:12px;background:#efe9f8;display:grid;place-items:center;font-size:1.3rem;flex:none}
+.kp-t{flex:1;min-width:0}.kp-t b{display:block;font-size:1.05rem;overflow-wrap:anywhere}.kp-t small{color:var(--muted)}
+.kp-ar{font-size:1.4rem;color:var(--muted)}
+.kp-del,.tr-del{border:0;background:none;font-size:1.15rem;color:#c0392b;padding:6px;cursor:pointer}
+.kp-tours{border-top:1px solid var(--line);padding:8px 10px 12px;display:grid;gap:6px;background:color-mix(in srgb,#8a6bbf 5%,var(--surface))}
+.tr{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 6px 6px 12px;font-weight:600}
+.tr-o{flex:1;display:flex;align-items:center;gap:10px;border:0;background:none;font:inherit;color:inherit;text-align:left;padding:6px 0;cursor:pointer;min-width:0}
+.tr .no{background:#8a6bbf;color:#fff;border-radius:8px;padding:2px 8px;font:700 .85rem var(--font-mono,monospace)}
+.sp-add{border:2px dashed #8a6bbf;color:#5b3f8f;background:transparent;border-radius:14px;padding:12px;font:700 1rem var(--font-body);width:100%;text-align:left;cursor:pointer}
+.sp-add.big{padding:16px;text-align:center;background:var(--surface)}
+.sp-form{display:grid;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+.sp-form input{font:inherit;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);width:100%;box-sizing:border-box}
+.sp-form .row{display:flex;gap:8px}.sp-form .row .btn{flex:1}
+.sp-back{border:0;background:none;color:#5b3f8f;font:700 1rem var(--font-body);text-align:left;padding:4px;cursor:pointer}
+.cal{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px}
+.cal-h{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:1.1rem;margin-bottom:8px}
+.cal-h button{border:0;background:none;color:#8a6bbf;font-size:1.6rem;padding:0 10px;cursor:pointer}
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;text-align:center}
+.cal-g .wd{font-size:.75rem;color:var(--muted);font-weight:700}
+.cd{aspect-ratio:1;border-radius:10px;display:grid;place-items:center;font:700 1rem var(--font-body);background:color-mix(in srgb,#8a6bbf 8%,var(--surface));position:relative;border:0;color:var(--fg);cursor:pointer;padding:0}
+.cd.so{color:var(--muted)}.cd.past{opacity:.45}
+.cd.fr{background:#fde7cf;color:#9a4b00}.cd.zu{background:#d6f0de;color:#1f6f4a}
+.cd.sel{background:#8a6bbf;color:#fff;box-shadow:0 0 0 2px #5b3f8f}
+.cd small{position:absolute;bottom:2px;left:0;right:0;font-size:.55rem;font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:0 2px}
+.cd.today{outline:2px solid #1f6f4a;outline-offset:-2px}
+.cal-leg{display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin:8px 2px 0}
+.cal-leg i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:4px;vertical-align:-1px}
+.sp-sum{font-weight:700;margin:2px 4px}
+.sp-btn{display:block;width:100%;border:0;border-radius:14px;padding:15px;font:800 1.05rem var(--font-body);cursor:pointer}
+.sp-btn:disabled{opacity:.4;cursor:default}
+.sp-fr{background:#f59e0b;color:#2e1d00}.sp-zu{background:#1f6f4a;color:#fff}.sp-clr{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
+.sp-dim{position:fixed;inset:0;background:rgb(0 0 0/.35);z-index:3000}
+.sp-sheet{background:var(--surface);color:var(--fg);border-radius:20px 20px 0 0;box-shadow:0 -6px 24px rgb(0 0 0/.25);padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));position:fixed;left:0;right:0;bottom:0;z-index:3001;max-height:80vh;overflow:auto}
+.sp-sheet h3{margin:4px 4px 10px}
+.fx{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:8px;font-weight:700;width:100%;background:var(--surface);color:var(--fg);text-align:left;font-family:var(--font-body);font-size:1rem;cursor:pointer}
+.fx .av{width:36px;height:36px;border-radius:50%;background:#e7f3ec;display:grid;place-items:center;flex:none}
+.fx.on{border:2px solid #1f6f4a;background:color-mix(in srgb,#1f6f4a 8%,var(--surface))}.fx small{display:block;color:var(--muted);font-weight:500}
+.fx .fx-x{margin-left:auto;color:#c0392b;font-size:1.1rem;padding:4px 6px}
 body[data-pg="plan"]:not(.drive){--bg:color-mix(in srgb,#8a6bbf 12%,var(--bg0))}
 /* v=141: größere Auf-/Zuklapp-Pfeile und größeres „← Hauptseite“ */
 .set-row>summary::after,.set-row .chev{font-size:2rem;font-weight:600;color:var(--fg);opacity:.7;width:1.2em;text-align:center}
@@ -1330,7 +1373,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <button class="hb hb-plan" type="button" data-pg="plan"><span class="hb-ic" aria-hidden="true">📅</span><span><b>Schichtplan</b><small>Wer fährt wann</small></span></button> <!-- v=142: neuer Knopf, Seite noch leer -->
     <p class="home-foot">🔒 Alles bleibt auf deinem Handy.</p>
   </section>
-  <section class="pg-plan" id="pgPlan"><h2>Schichtplan</h2><div class="plan-empty"><span aria-hidden="true">📅</span><p>Hier kommt bald der Schichtplan hin.</p></div></section>
+  <section class="pg-plan" id="pgPlan"><h2>Schichtplan</h2><div id="spBox"></div></section>
   <div class="actions cta">
     <label class="btn primary big" for="file">📂 Tour öffnen <small>Ausfahrliste (PDF)</small></label>
     <input type="file" id="file" multiple><!-- kein accept: Android kennt .bcr nicht und graut die Datei sonst aus; Typ wird am Inhalt erkannt -->
@@ -3837,8 +3880,92 @@ function depotUi(){ const box=$("komList"), list=komGet(); box.textContent="";
     box.appendChild(d); });
   $("depotHint").textContent=DEPOT_TXT; }
 async function komGeo(a){ try{ const m=a.match(/^(.*?)[,\s]+(\d{5})\s*(.*)$/); const ll=await geocodeOne(m?{addr:m[1].trim(),town:(m[2]+" "+(m[3]||"")).trim()}:{addr:a,town:""}); return ll&&ll[2]!==1?[ll[0],ll[1]]:null; }catch(e){ return null; } }
-function komAfter(){ if(tour) pickDepot(tour); depotUi(); try{ setSubs(); }catch(e){} if(tour){ render(); routeTour(); } }
+function komAfter(){ if(tour) pickDepot(tour); depotUi(); try{ if(IS_TEST&&!spView.tour) spRender(); }catch(e){} try{ setSubs(); }catch(e){} if(tour){ render(); routeTour(); } }
 $("komAdd").addEventListener("click",()=>{ const l=komGet(); l.push({n:"",a:"",ll:null}); komSet(l); depotUi(); const it=$("komList").lastElementChild; if(it) it.querySelector(".kn").focus(); });
+// v=183 (Test): Schichtplan. Kommissionierstellen (dieselbe Liste wie in den Navigations-Einstellungen) mit ihren Touren.
+// Tour antippen → Kalender: Tage antippen, dann „Für Flexfahrer freigeben“ oder „Flexfahrer zuweisen“.
+// Alles bleibt vorerst nur auf diesem Handy (navi-schichtplan); an andere Handys verteilen geht erst mit einem Server.
+const SP_KEY="navi-schichtplan";
+function spGet(){ let v=null; try{ v=JSON.parse(localStorage.getItem(SP_KEY)||"null"); }catch(e){} v=v&&typeof v==="object"?v:{}; v.tours=v.tours||{}; v.days=v.days||{}; v.flex=Array.isArray(v.flex)?v.flex:[]; return v; }
+function spSet(v){ try{ localStorage.setItem(SP_KEY,JSON.stringify(v)); }catch(e){} }
+let spView={k:-1,tour:null,month:null,sel:new Set(),add:false,addT:false};
+const spEl=(tag,cls,txt)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; };
+const spKey=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const MON=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"], WDS=["So","Mo","Di","Mi","Do","Fr","Sa"];
+function spRender(){ const box=$("spBox"); if(!box) return; box.textContent=""; const P=spGet();
+  if(spView.tour){ spCal(box,P); return; }
+  box.append(spEl("p","sp-sub","Kommissionierstellen und ihre Touren"));
+  komGet().forEach((e,i)=>{ const name=e.n||"Kommissionierstelle", tl=P.tours[name]||[], open=spView.k===i;
+    const c=spEl("div","kp"), h=spEl("button","kp-h"); h.type="button";
+    h.innerHTML='<span class="kp-ic" aria-hidden="true">🧑‍🍳</span><span class="kp-t"><b></b><small></small></span>';
+    h.querySelector("b").textContent=name; h.querySelector("small").textContent=tl.length===1?"1 Tour":tl.length+" Touren";
+    h.append(spEl("span","kp-ar",open?"▾":"›")); h.addEventListener("click",()=>{ spView.k=open?-1:i; spView.addT=false; spRender(); }); c.append(h);
+    if(open){ const d=spEl("button","kp-del","🗑"); d.type="button"; d.title="Kommissionierstelle löschen"; d.setAttribute("aria-label","Kommissionierstelle löschen");
+      d.addEventListener("click",async ev=>{ ev.stopPropagation(); if(!await ask("Kommissionierstelle löschen?",`„${name}“ mit ${tl.length===1?"1 Tour":tl.length+" Touren"} und allen Kalendertagen löschen? Sie verschwindet auch aus den Navigations-Einstellungen.`,"Löschen","Abbrechen")) return;
+        const l=komGet(); l.splice(i,1); komSet(l); if(!l.length) setActiveDepot(null); const Q=spGet(); (Q.tours[name]||[]).forEach(x=>delete Q.days[x.id]); delete Q.tours[name]; spSet(Q); spView.k=-1; komAfter(); spRender(); });
+      h.insertBefore(d,h.lastChild);
+      const w=spEl("div","kp-tours");
+      tl.forEach((x,j)=>{ const r=spEl("div","tr"), o=spEl("button","tr-o"); o.type="button"; o.append(spEl("span","no",x.no||"–"),spEl("span","",x.name||""));
+        o.addEventListener("click",()=>{ const now=new Date(); spView.tour={k:name,id:x.id}; spView.month=new Date(now.getFullYear(),now.getMonth(),1); spView.sel=new Set(); spRender(); window.scrollTo(0,0); });
+        const del=spEl("button","tr-del","🗑"); del.type="button"; del.setAttribute("aria-label","Tour löschen");
+        del.addEventListener("click",async()=>{ if(!await ask("Tour löschen?",`Tour ${x.no} ${x.name} mit allen Kalendertagen löschen?`,"Löschen","Abbrechen")) return; const Q=spGet(); Q.tours[name]=(Q.tours[name]||[]).filter(y=>y.id!==x.id); delete Q.days[x.id]; spSet(Q); spRender(); });
+        r.append(o,del); w.append(r); });
+      if(spView.addT){ const f=spEl("div","sp-form"), no=spEl("input"), nm=spEl("input"); no.placeholder="Tournummer, z. B. 010"; no.inputMode="numeric"; nm.placeholder="Name, z. B. Rottweil";
+        const row=spEl("div","row"), ok=spEl("button","btn primary","Speichern"), ab=spEl("button","btn","Abbrechen"); ok.type=ab.type="button";
+        ok.addEventListener("click",()=>{ const a=no.value.trim(), b=nm.value.trim(); if(!a&&!b){ no.focus(); return; } const Q=spGet(); (Q.tours[name]=Q.tours[name]||[]).push({id:"t"+Date.now().toString(36),no:a,name:b});
+          Q.tours[name].sort((u,v)=>String(u.no).localeCompare(String(v.no),"de",{numeric:true})); spSet(Q); spView.addT=false; spRender(); });
+        ab.addEventListener("click",()=>{ spView.addT=false; spRender(); }); row.append(ok,ab); f.append(no,nm,row); w.append(f); setTimeout(()=>no.focus(),0); }
+      else { const a=spEl("button","sp-add","＋ Tour hinzufügen"); a.type="button"; a.addEventListener("click",()=>{ spView.addT=true; spRender(); }); w.append(a); }
+      c.append(w); }
+    box.append(c); });
+  if(spView.add){ const f=spEl("div","sp-form"), n=spEl("input"), a=spEl("input"); n.placeholder="Name, z. B. 04-Licht-OBERNDORF"; a.placeholder="Adresse: Straße Nr, PLZ Ort";
+    const st=spEl("p","sp-sub",""), row=spEl("div","row"), ok=spEl("button","btn primary","Speichern"), ab=spEl("button","btn","Abbrechen"); ok.type=ab.type="button";
+    ok.addEventListener("click",async()=>{ const nv=n.value.trim(), av=a.value.trim(); if(!nv){ n.focus(); return; } if(komGet().some(x=>x.n===nv)){ st.textContent="Diesen Namen gibt es schon."; return; }
+      ok.disabled=true; st.textContent=av?"Suche Adresse …":""; const ll=av?await komGeo(av):null; const l=komGet(); l.push({n:nv,a:av,ll}); komSet(l); spView.add=false; spView.k=l.length-1; komAfter(); spRender();
+      if(av&&!ll) toast("Adresse nicht gefunden. In den Navigations-Einstellungen bitte als „Straße Nr, PLZ Ort“ eintragen."); });
+    ab.addEventListener("click",()=>{ spView.add=false; spRender(); }); row.append(ok,ab); f.append(n,a,st,row); box.append(f); setTimeout(()=>n.focus(),0); }
+  else { const b=spEl("button","sp-add big","＋ Kommissionierstelle hinzufügen"); b.type="button"; b.addEventListener("click",()=>{ spView.add=true; spRender(); }); box.append(b); } }
+function spCal(box,P){ const {k,id}=spView.tour, x=(P.tours[k]||[]).find(y=>y.id===id); if(!x){ spView.tour=null; spRender(); return; }
+  const days=P.days[id]||{}, m=spView.month, sel=spView.sel;
+  const bk=spEl("button","sp-back","← "+k); bk.type="button"; bk.addEventListener("click",()=>{ spView.tour=null; spRender(); });
+  box.append(bk, spEl("h3","",`Tour ${x.no} ${x.name}`.trim()));
+  const c=spEl("div","cal"), h=spEl("div","cal-h"), pv=spEl("button","","‹"), nx=spEl("button","","›"); pv.type=nx.type="button"; pv.setAttribute("aria-label","Monat zurück"); nx.setAttribute("aria-label","Monat vor");
+  pv.addEventListener("click",()=>{ spView.month=new Date(m.getFullYear(),m.getMonth()-1,1); spRender(); }); nx.addEventListener("click",()=>{ spView.month=new Date(m.getFullYear(),m.getMonth()+1,1); spRender(); });
+  h.append(pv,spEl("span","",MON[m.getMonth()]+" "+m.getFullYear()),nx); c.append(h);
+  const g=spEl("div","cal-g"); ["Mo","Di","Mi","Do","Fr","Sa","So"].forEach(w=>g.append(spEl("div","wd",w)));
+  const off=(m.getDay()+6)%7; for(let i=0;i<off;i++) g.append(spEl("div",""));
+  const today=spKey(new Date()), last=new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
+  for(let d=1;d<=last;d++){ const dt=new Date(m.getFullYear(),m.getMonth(),d), key=spKey(dt), v=days[key], b=spEl("button","cd"); b.type="button"; b.textContent=d;
+    if(dt.getDay()===0) b.classList.add("so"); if(key<today) b.classList.add("past"); if(key===today) b.classList.add("today");
+    if(v&&v.s==="frei"){ b.classList.add("fr"); b.append(spEl("small","","frei")); } else if(v&&v.s==="zu"){ b.classList.add("zu"); b.append(spEl("small","",v.d||"Flex")); }
+    if(sel.has(key)) b.classList.add("sel");
+    b.setAttribute("aria-label",`${d}. ${MON[m.getMonth()]}`+(v?(v.s==="frei"?", freigegeben":", zugewiesen an "+(v.d||"Flexfahrer")):""));
+    b.addEventListener("click",()=>{ if(sel.has(key)) sel.delete(key); else sel.add(key); spRender(); }); g.append(b); }
+  c.append(g); const lg=spEl("div","cal-leg"); lg.innerHTML='<span><i style="background:#8a6bbf"></i>ausgewählt</span><span><i style="background:#fde7cf"></i>für Flexfahrer freigegeben</span><span><i style="background:#d6f0de"></i>Flexfahrer zugewiesen</span>'; c.append(lg); box.append(c);
+  const ks=[...sel].sort(), fmt=s=>{ const [y,mo,dd]=s.split("-").map(Number), dt=new Date(y,mo-1,dd); return WDS[dt.getDay()]+" "+dd+"."+mo+"."; };
+  box.append(spEl("p","sp-sum",ks.length?`${ks.length===1?"1 Tag":ks.length+" Tage"} ausgewählt: ${ks.map(fmt).join(", ")}`:"Tage antippen, um sie auszuwählen."));
+  const setDays=(fn,msg)=>{ const Q=spGet(), D=Q.days[id]=Q.days[id]||{}; ks.forEach(s=>fn(D,s)); if(!Object.keys(D).length) delete Q.days[id]; spSet(Q); spView.sel=new Set(); spRender(); toast(msg); };
+  const fr=spEl("button","sp-btn sp-fr","📢 Für Flexfahrer freigeben"), zu=spEl("button","sp-btn sp-zu","👤 Flexfahrer zuweisen"); fr.type=zu.type="button"; fr.disabled=zu.disabled=!ks.length;
+  fr.addEventListener("click",()=>setDays((D,s)=>D[s]={s:"frei"},`${ks.length===1?"1 Tag":ks.length+" Tage"} für Flexfahrer freigegeben`));
+  zu.addEventListener("click",()=>spSheet(ks,setDays)); box.append(fr,zu);
+  if(ks.some(s=>days[s])){ const cl=spEl("button","sp-btn sp-clr","↺ Freigabe / Zuweisung zurücknehmen"); cl.type="button"; cl.addEventListener("click",()=>setDays((D,s)=>delete D[s],"Zurückgenommen")); box.append(cl); }
+  box.append(spEl("p","sp-sub","Vorerst nur auf diesem Handy gespeichert. Damit Flexfahrer es auf ihrem Handy sehen, braucht es später einen Server.")); }
+function spSheet(ks,setDays){ let pick=null; const dim=spEl("div","sp-dim"), sh=spEl("div","sp-sheet"); sh.setAttribute("role","dialog"); const close=()=>{ dim.remove(); sh.remove(); };
+  dim.addEventListener("click",close);
+  const draw=()=>{ const P=spGet(); sh.textContent=""; sh.append(spEl("h3","",`Flexfahrer zuweisen · ${ks.length===1?"1 Tag":ks.length+" Tage"}`));
+    if(!P.flex.length) sh.append(spEl("p","sp-sub","Noch keine Flexfahrer eingetragen."));
+    P.flex.forEach(n=>{ const busy=ks.filter(s=>Object.values(P.days).some(D=>D[s]&&D[s].s==="zu"&&D[s].d===n)).length;
+      const b=spEl("button","fx"+(pick===n?" on":"")); b.type="button"; b.innerHTML='<span class="av" aria-hidden="true">👤</span><span><span class="fn"></span><small></small></span>';
+      b.querySelector(".fn").textContent=n; b.querySelector("small").textContent=busy?`an ${busy} der Tage schon für eine andere Tour eingeteilt`:"an allen gewählten Tagen frei";
+      const x=spEl("span","fx-x","🗑"); x.setAttribute("role","button"); x.setAttribute("aria-label","Flexfahrer entfernen");
+      x.addEventListener("click",async ev=>{ ev.stopPropagation(); close(); if(await ask("Flexfahrer entfernen?",`„${n}“ aus der Liste entfernen? Bereits zugewiesene Tage bleiben stehen.`,"Entfernen","Abbrechen")){ const Q=spGet(); Q.flex=Q.flex.filter(y=>y!==n); spSet(Q); } spSheet(ks,setDays); });
+      b.append(pick===n?spEl("span","","✔"):x); b.addEventListener("click",()=>{ pick=n; draw(); }); sh.append(b); });
+    const f=spEl("div","sp-form"), inp=spEl("input"), add=spEl("button","btn","＋ Flexfahrer hinzufügen"); inp.placeholder="Name des Flexfahrers"; add.type="button";
+    add.addEventListener("click",()=>{ const v=inp.value.trim(); if(!v){ inp.focus(); return; } const Q=spGet(); if(!Q.flex.includes(v)) Q.flex.push(v); spSet(Q); pick=v; draw(); }); f.append(inp,add); sh.append(f);
+    const ok=spEl("button","sp-btn sp-zu","Zuweisen"), ab=spEl("button","sp-btn sp-clr","Abbrechen"); ok.type=ab.type="button"; ok.disabled=!pick; ok.style.marginTop="10px"; ab.style.marginTop="8px";
+    ok.addEventListener("click",()=>{ close(); setDays((D,s)=>D[s]={s:"zu",d:pick},`${ks.length===1?"1 Tag":ks.length+" Tage"} an ${pick} zugewiesen`); }); ab.addEventListener("click",close); sh.append(ok,ab); };
+  draw(); document.body.append(dim,sh); }
+if(IS_TEST){ document.querySelectorAll('[data-pg="plan"]').forEach(b=>b.addEventListener("click",()=>{ spView={k:-1,tour:null,month:null,sel:new Set(),add:false,addT:false}; spRender(); })); spRender(); }
 $("komShare").addEventListener("click",async()=>{ const l=komGet().filter(e=>e.a).map(e=>({n:e.n,a:e.a,ll:e.ll})); if(!l.length){ toast("Bitte zuerst eine Kommissionierstelle eintragen."); return; }
   const u=location.origin+location.pathname.replace(/test\.html$/i,"")+"#kom="+btoa(unescape(encodeURIComponent(JSON.stringify(l)))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
   try{ if(navigator.share){ await navigator.share({title:"Kommissionierstellen",text:"Öffne diesen Link, dann sind die Kommissionierstellen in deiner App eingetragen:",url:u}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }

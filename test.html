@@ -2981,24 +2981,26 @@ function checkArrival(){
   if(dd<=ANNOUNCE_M&&!s.said){ s.said=true; announced=cur; announce(cur); saveTour(); } // jedes Haus genau einmal ansagen, auch nach Neustart
   noteBan(dd);
   if($("modeAuto").checked){
-    // v=153 (Test, Draklin): erst geliefert, dann abgehaken. 15 s (v=160, vorher 20 s) Stehen bis 25 m vom Haus = geliefert (grüne Linie zeigt dann zum nächsten),
-    // abgehakt wird beim Wegfahren (40 m weg vom Standplatz). Nur Vorbeifahren oder kurzes Halten (Kreuzung, Gegenverkehr) hakt nichts ab.
-    // Nachbarhäuser (z. B. 20 und 22) innerhalb 25 m vom Standplatz gelten mit als geliefert.
-    if(arr.i!==cur){ if(dd>r) return; arr={i:cur,min:dd,at:Date.now(),p:carPos.slice(),t0:Date.now(),ok:false,grp:[cur]}; }
-    if(dd<arr.min){ arr.min=dd; if(!arr.ok) arr.at=Date.now(); }
-    if(!arr.ok){
-      if(gpsAcc>15) return; // ungenaues GPS: noch nichts entscheiden
-      const still=dist(carPos,arr.p)<6&&(simTimer||gpsSpeed==null||gpsSpeed<0||gpsSpeed<1.5);
-      if(!still||dd>STAND_R){ arr.p=carPos.slice(); arr.t0=Date.now(); }
-      else { clearTimeout(arr.tm); arr.tm=setTimeout(checkArrival,1000); // im Stand meldet das Handy selten, daher selbst nachsehen
-        if(Date.now()-arr.t0>=STAND_MS){ arr.ok=true; arr.sp=carPos.slice(); arr.grp=[cur];
-          for(let i=cur+1;i<tour.stops.length;i++){ const q=tour.stops[i]; if(q.done) continue; if(q.ll&&dist(q.ll,carPos)<=STAND_R) arr.grp.push(i); else break; }
-          const nx=apTarget(); toast(nx>=0&&nx!==cur?`Stopp ${arr.grp.map(i=>nr(i)).join(", ")} geliefert, weiter zu Stopp ${nx+1}`:`Stopp ${nr(cur)} geliefert`); updateApproach(); render(); } }
-      if(dd>r+15){ clearTimeout(arr.tm); arr.i=-1; } // nur vorbeigefahren
-      return; }
-    if(gpsAcc<=25&&dist(carPos,arr.sp)>40){ clearTimeout(arr.tm); const g=arr.grp, at=arr.at; arr.i=-1;
-      g.forEach(i=>{ const q=tour.stops[i]; if(q.done) return; q.done=true; if(!q.at) q.at=at; q.dep=Date.now(); if(i===g[0]) learnStand(q); });
-      advanceAfterDone(); render(); if(cur<0) tourFinished(); }
+    // v=179 (Test, Draklin): unsichtbare Linie Auto ↔ Haus. Ab 200 m vor dem Haus beobachtet die App die Verbindung.
+    // Verbunden = Auto in der Straße des Kunden ungefähr vor dem Haus (bis 40 m vom Straßenpunkt vor dem Haus) und Haus höchstens 60 m weg.
+    // Steht das Auto so 15 s (GPS-Wackeln bis 15 m zählt als Stehen, GPS bis 35 m genau), wird abgehakt. Vorbeifahren oder Nebenstraße hakt nichts ab.
+    // Nachbarhäuser (z. B. 20 und 22) innerhalb 25 m vom Standplatz werden mit abgehakt.
+    if(tickP&&dist(carPos,tickP)>=15) tickP=null;
+    if(arr.i!==cur){ if(dd>LINK_ARM) return; arr={i:cur,min:dd,at:Date.now(),p:carPos.slice(),t0:Date.now(),grp:[cur]}; }
+    if(dd<arr.min){ arr.min=dd; arr.at=Date.now(); }
+    if(dd>LINK_ARM+30){ clearTimeout(arr.tm); arr.i=-1; return; } // vorbeigefahren
+    if(gpsAcc>LINK_ACC) return; // zu ungenaues GPS: noch nichts entscheiden
+    const sp=rDest(s), linked=dd<=LINK_HOUSE&&(!s.rll||dist(carPos,sp)<=LINK_ROAD);
+    const still=dist(carPos,arr.p)<LINK_JIT&&(simTimer||gpsSpeed==null||gpsSpeed<0||gpsSpeed<1.5);
+    if(!still||!linked||tickP){ arr.p=carPos.slice(); arr.t0=Date.now(); return; }
+    clearTimeout(arr.tm); arr.tm=setTimeout(checkArrival,1000); // im Stand meldet das Handy selten, daher selbst nachsehen
+    if(Date.now()-arr.t0<STAND_MS) return;
+    const g=[cur]; for(let i=cur+1;i<tour.stops.length;i++){ const q=tour.stops[i]; if(q.done) continue; if(q.ll&&dist(q.ll,carPos)<=STAND_R) g.push(i); else break; }
+    clearTimeout(arr.tm); arr.i=-1; tickP=carPos.slice(); const at=arr.at;
+    g.forEach(i=>{ const q=tour.stops[i]; if(q.done) return; q.done=true; if(!q.at) q.at=at; });
+    depW={s:tour.stops[g[0]],r:LINK_HOUSE}; // Abfahrt (Standzeit) wird beim Wegfahren gemerkt
+    toast(`Stopp ${g.map(i=>nr(i)).join(", ")} abgehakt`);
+    advanceAfterDone(); render(); saveTour(); if(cur<0) tourFinished(); else updateApproach();
     return; }
   if($("modeAuto").checked){
     // Automatisch abhaken erst beim Wegfahren: Ankunft im Umkreis merken (nächster Punkt = Ankunftszeit),
@@ -3494,7 +3496,7 @@ async function updateApproach(){
     const m=[(sx.park[0]+to[0])/2,(sx.park[1]+to[1])/2];
     L.marker(m,{icon:L.divIcon({className:"",html:'<div class="walkman">🚶</div>',iconSize:[22,22],iconAnchor:[11,11]}),interactive:false,keyboard:false}).addTo(approachLayer); }
 }
-const STAND_MS=15000, STAND_R=25; // v=153 (Test): so lange und so nah muss man stehen, damit ein Kunde als geliefert gilt
+const STAND_MS=15000, STAND_R=25, LINK_ARM=200, LINK_HOUSE=60, LINK_ROAD=40, LINK_JIT=15, LINK_ACC=35; // v=153 (Test): so lange und so nah muss man stehen, damit ein Kunde als geliefert gilt
 function apTarget(){ // Ziel der grünen Anfahrt: beim aktuellen Kunden angekommen (noch nicht abgehakt) → schon der Weg zum nächsten
   if(!tour||cur<0) return cur;
   { if(!(arr.i===cur&&arr.ok)) return cur; const last=arr.grp[arr.grp.length-1]; const n=tour.stops.findIndex((q,i)=>i>last&&!q.done); return n<0?cur:n; } // v=153: erst nach „geliefert“ zum nächsten

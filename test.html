@@ -2230,7 +2230,7 @@ const TILE_SOURCES={
 let tileLayer=null;
 // v=103: Kartenbilder auf dem Handy zwischenspeichern (Cache „navi-karte“, höchstens ca. 4000 Bilder, älteste fliegen raus, nach 30 Tagen neu laden).
 // Spart Datenvolumen und hilft bei schlechtem Netz. Klappt etwas nicht, lädt das Bild ganz normal aus dem Netz.
-const TILE_CACHE="navi-karte", TILE_MAX=4000, TILE_DAYS=30; let tilePut=0;
+const TILE_CACHE="navi-karte", TILE_MAX=8000, TILE_DAYS=60; // v=180: mehr und länger aufheben (Akku, Daten) let tilePut=0;
 function tileSrc(url){ if(!("caches" in window)) return Promise.resolve(url);
   return caches.open(TILE_CACHE).then(c=>c.match(url).then(r=>{
     if(r&&Date.now()-(+r.headers.get("x-navi-t")||0)<TILE_DAYS*864e5) return r.blob();

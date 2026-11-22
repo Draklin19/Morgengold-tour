@@ -1300,6 +1300,12 @@ body[data-pg="plan"]:not(.drive) .pg-plan{display:flex;flex-direction:column;gap
 .sp-sum{font-weight:700;margin:2px 4px}
 .sp-btn{display:block;width:100%;border:0;border-radius:14px;padding:15px;font:800 1.05rem var(--font-body);cursor:pointer}
 .sp-btn:disabled{opacity:.4;cursor:default}
+.role-box{display:grid;gap:2px}.role-ck{display:flex;align-items:center;gap:12px;padding:8px 2px;cursor:pointer}.role-ck input{width:24px;height:24px;accent-color:#1f6f4a;flex:none}.role-ck b{display:block}.role-ck small{color:var(--muted)}
+.sp-msgs{display:grid;gap:10px}.sp-msgs:empty{display:none}
+.sp-msg{background:#fff8e1;color:#2e1d00;border:2px solid #f59e0b;border-radius:18px;padding:12px 14px}.sp-msg b{font-size:1.05rem}.sp-msg p{margin:4px 0 10px;color:#5c4a1a;font-size:.92rem}
+.sp-msg .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sp-msg button{border:0;border-radius:12px;padding:12px;font:800 1rem var(--font-body);cursor:pointer}.sp-msg .ok{background:#1f6f4a;color:#fff}.sp-msg .no{background:#e5e7e6;color:#333}
+.sp-grp{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 10px}.sp-grp button{border:2px solid #c9cfcb;background:var(--surface);color:var(--fg);border-radius:999px;padding:9px 14px;font:700 .95rem var(--font-body);cursor:pointer}
+.sp-grp button.on.g-n{background:#e7f3ec;border-color:#1f6f4a;color:#1f6f4a}.sp-grp button.on.g-f{background:#fff3dc;border-color:#d97706;color:#8a4b00}.sp-grp button.on.g-d{background:#fde2e2;border-color:#c0262d;color:#8f1d1d}
 .sp-fr{background:#f59e0b;color:#2e1d00}.sp-zu{background:#1f6f4a;color:#fff}.sp-clr{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
 .sp-dim{position:fixed;inset:0;background:rgb(0 0 0/.35);z-index:3000}
 .sp-sheet{background:var(--surface);color:var(--fg);border-radius:20px 20px 0 0;box-shadow:0 -6px 24px rgb(0 0 0/.25);padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));position:fixed;left:0;right:0;bottom:0;z-index:3001;max-height:80vh;overflow:auto}
@@ -1382,6 +1388,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     </div>
   </header>
   <section class="home" id="home" aria-label="Hauptseite">
+    <div id="spMsg" class="sp-msgs"></div> <!-- v=186 (Test): offene Schichtplan-Touren für meine Rolle -->
     <button class="hb hb-nav" type="button" data-pg="nav"><span class="hb-ic" aria-hidden="true">🧭</span><span><b>Navigation</b><small>Tour öffnen, Karte, Fahren</small></span></button>
     <button class="hb hb-me" type="button" data-pg="me"><span class="hb-ic" aria-hidden="true">👤</span><span><b>Persönliche Einstellungen</b><small>Foto, Adresse, E-Mail</small></span></button>
     <button class="hb hb-rech" type="button" data-pg="rech"><span class="hb-ic" aria-hidden="true">🧾</span><span><b>Rechnung erstellen</b><small>Daten, Tabelle, PDF</small></span></button>
@@ -1410,6 +1417,11 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
       <details class="set-row"><summary><span class="ic c-blue">✉️</span><span class="t">E-Mail-Empfänger<small id="mailSub"></small></span></summary>
         <div class="set-body"><div class="set-in"><input id="mailTo" type="email" inputmode="email" autocomplete="email" placeholder="chef@beispiel.de"><button class="btn" id="mailToSave" type="button">Speichern</button></div>
         <p class="hint">Für Tourberichte und Rechnungen. Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p></div></details>
+      <details class="set-row" id="roleRow"><summary><span class="ic c-amber">🚚</span><span class="t">Ich fahre als<small id="roleSub"></small></span></summary> <!-- v=186 (Test): Fahrerrolle für Schichtplan-Nachrichten -->
+        <div class="set-body role-box"><label class="role-ck"><input type="checkbox" data-r="n"><span><b>Normaler Fahrer</b><small>feste eigene Tour</small></span></label>
+        <label class="role-ck"><input type="checkbox" data-r="f"><span><b>Flexfahrer</b><small>springt bei freien Touren ein</small></span></label>
+        <label class="role-ck"><input type="checkbox" data-r="d"><span><b>Notdienst</b><small>für kurzfristige Ausfälle</small></span></label>
+        <p class="hint">Freigegebene Touren aus dem Schichtplan bekommst du nur für die Gruppen mit Haken.</p></div></details>
       <button class="set-row r set-link" id="codeSwitch" type="button"><span class="ic c-gray">🔑</span><span class="t">Anderen Zugangscode eingeben</span><span class="chev">›</span></button>
     </div>
     <div class="set-gl" data-grp="1">Tour</div>
@@ -3897,7 +3909,7 @@ $("setClose").addEventListener("click",()=>{ if(pg==="me"||pg==="rech") goHome()
 // v=136: Hauptseite mit drei Knöpfen (Navigation, Persönliche Einstellungen, Rechnung erstellen)
 const PG_T={nav:"Einstellungen Navigation",me:"Persönliche Einstellungen",rech:"Rechnung erstellen"};
 let pg="home";
-function showPg(p,push){ pg=p; document.body.dataset.pg=p;
+function showPg(p,push){ pg=p; document.body.dataset.pg=p; if(p==="home") try{ spMsg(); }catch(e){}
   if(p==="me"||p==="rech"){ setTab(p==="me"?0:4,true); $("settings").hidden=false; setSubs(); }
   else { setTab(setTabIdx); $("settings").hidden=true; }
   $("setTitle").textContent=PG_T[p]||"Einstellungen";
@@ -4059,15 +4071,38 @@ function spCal(box,P){ const {k,id}=spView.tour, x=(P.tours[k]||[]).find(y=>y.id
     if(sel.has(key)) b.classList.add("sel");
     b.setAttribute("aria-label",`${d}. ${MON[m.getMonth()]}`+(v?(v.s==="frei"?", freigegeben":", zugewiesen an "+(v.d||"Flexfahrer")):""));
     b.addEventListener("click",()=>{ if(sel.has(key)) sel.delete(key); else sel.add(key); spRender(); }); g.append(b); }
-  c.append(g); const lg=spEl("div","cal-leg"); lg.innerHTML='<span><i style="background:#8a6bbf"></i>ausgewählt</span><span><i style="background:#fde7cf"></i>für Flexfahrer freigegeben</span><span><i style="background:#d6f0de"></i>Flexfahrer zugewiesen</span>'; c.append(lg); box.append(c);
+  c.append(g); const lg=spEl("div","cal-leg"); lg.innerHTML='<span><i style="background:#8a6bbf"></i>ausgewählt</span><span><i style="background:#fde7cf"></i>freigegeben</span><span><i style="background:#d6f0de"></i>Flexfahrer zugewiesen</span>'; c.append(lg); box.append(c);
   const ks=[...sel].sort(), fmt=s=>{ const [y,mo,dd]=s.split("-").map(Number), dt=new Date(y,mo-1,dd); return WDS[dt.getDay()]+" "+dd+"."+mo+"."; };
   box.append(spEl("p","sp-sum",ks.length?`${ks.length===1?"1 Tag":ks.length+" Tage"} ausgewählt: ${ks.map(fmt).join(", ")}`:"Tage antippen, um sie auszuwählen."));
   const setDays=(fn,msg)=>{ const Q=spGet(), D=Q.days[id]=Q.days[id]||{}; ks.forEach(s=>fn(D,s)); if(!Object.keys(D).length) delete Q.days[id]; spSet(Q); spView.sel=new Set(); spRender(); toast(msg); };
-  const fr=spEl("button","sp-btn sp-fr","📢 Für Flexfahrer freigeben"), zu=spEl("button","sp-btn sp-zu","👤 Flexfahrer zuweisen"); fr.type=zu.type="button"; fr.disabled=zu.disabled=!ks.length;
-  fr.addEventListener("click",()=>setDays((D,s)=>D[s]={s:"frei"},`${ks.length===1?"1 Tag":ks.length+" Tage"} für Flexfahrer freigegeben`));
+  const fr=spEl("button","sp-btn sp-fr","📢 Freigeben …"), zu=spEl("button","sp-btn sp-zu","👤 Flexfahrer zuweisen"); fr.type=zu.type="button"; fr.disabled=zu.disabled=!ks.length;
+  fr.addEventListener("click",()=>spGrpSheet(ks,setDays)); // v=186: Gruppen wählen (Normale Fahrer / Flexfahrer / Notdienst)
   zu.addEventListener("click",()=>spSheet(ks,setDays)); box.append(fr,zu);
   if(ks.some(s=>days[s])){ const cl=spEl("button","sp-btn sp-clr","↺ Freigabe / Zuweisung zurücknehmen"); cl.type="button"; cl.addEventListener("click",()=>setDays((D,s)=>delete D[s],"Zurückgenommen")); box.append(cl); }
   box.append(spEl("p","sp-sub","Vorerst nur auf diesem Handy gespeichert. Damit Flexfahrer es auf ihrem Handy sehen, braucht es später einen Server.")); }
+// v=186 (Test, Draklin): Rollen und Freigabe an Gruppen. Nur wer die Gruppe bei „Ich fahre als“ angehakt hat, bekommt die Nachricht.
+const ROLE_KEY="navi-rolle", SP_NO="navi-sp-nein", GRP={n:"Normale Fahrer",f:"Flexfahrer",d:"Notdienst"};
+function roleGet(){ try{ const v=JSON.parse(localStorage.getItem(ROLE_KEY)||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+function roleUi(){ const r=roleGet(); document.querySelectorAll("#roleRow input[data-r]").forEach(i=>i.checked=r.includes(i.dataset.r)); const sub=$("roleSub"); if(sub) sub.textContent=r.length?r.map(k=>({n:"Normaler Fahrer",f:"Flexfahrer",d:"Notdienst"})[k]).join(", "):"Noch nichts angehakt"; }
+document.querySelectorAll("#roleRow input[data-r]").forEach(i=>i.addEventListener("change",()=>{ const r=[...document.querySelectorAll("#roleRow input[data-r]:checked")].map(x=>x.dataset.r); try{ localStorage.setItem(ROLE_KEY,JSON.stringify(r)); }catch(e){} roleUi(); spMsg(); }));
+function spGrpSheet(ks,setDays){ let g=["f"]; const dim=spEl("div","sp-dim"), sh=spEl("div","sp-sheet"); sh.setAttribute("role","dialog"); const close=()=>{ dim.remove(); sh.remove(); }; dim.addEventListener("click",close);
+  const draw=()=>{ sh.textContent=""; sh.append(spEl("h3","",`${ks.length===1?"1 Tag":ks.length+" Tage"} freigeben an:`));
+    const row=spEl("div","sp-grp"); Object.keys(GRP).forEach(k=>{ const b=spEl("button","g-"+k+(g.includes(k)?" on":""),(g.includes(k)?"✓ ":"")+GRP[k]); b.type="button"; b.setAttribute("aria-pressed",g.includes(k)); b.addEventListener("click",()=>{ g=g.includes(k)?g.filter(x=>x!==k):[...g,k]; draw(); }); row.append(b); }); sh.append(row);
+    sh.append(spEl("p","sp-sub","Antippen schaltet die Gruppe an oder aus. Wer zuerst „Übernehmen“ drückt, bekommt die Tage."));
+    const ok=spEl("button","sp-btn sp-fr",g.length?"📢 Freigeben an "+g.map(k=>GRP[k]).join(", "):"Bitte eine Gruppe wählen"); ok.type="button"; ok.disabled=!g.length;
+    ok.addEventListener("click",()=>{ close(); setDays((D,s)=>D[s]={s:"frei",g:[...g]},`${ks.length===1?"1 Tag":ks.length+" Tage"} freigegeben an ${g.map(k=>GRP[k]).join(", ")}`); spMsg(); });
+    const ab=spEl("button","sp-btn sp-clr","Abbrechen"); ab.type="button"; ab.addEventListener("click",close); sh.append(ok,ab); };
+  draw(); document.body.append(dim,sh); }
+function spTourName(id){ const P=spGet(); for(const st in P.tours){ const t=(P.tours[st]||[]).find(x=>x.id===id); if(t) return "Tour "+(t.no||"")+(t.name?" "+t.name:"")+(st?" · "+st:""); } return "Tour"; }
+function spMsg(){ const box=$("spMsg"); if(!box) return; box.textContent=""; if(!IS_TEST) return; const r=roleGet(); if(!r.length) return;
+  let no=[]; try{ no=JSON.parse(localStorage.getItem(SP_NO)||"[]"); }catch(e){} const today=spKey(new Date()), P=spGet();
+  Object.entries(P.days).forEach(([id,D])=>{ const ds=Object.keys(D).filter(s=>s>=today&&D[s].s==="frei"&&(D[s].g||["f"]).some(k=>r.includes(k))&&!no.includes(id+"|"+s)).sort(); if(!ds.length) return;
+    const fmt=s=>{ const [y,mo,dd]=s.split("-").map(Number), dt=new Date(y,mo-1,dd); return WDS[dt.getDay()]+" "+dd+"."+mo+"."; };
+    const c=spEl("div","sp-msg"); c.setAttribute("role","status"); c.append(spEl("b","","📅 Schichtplan: Tour offen"), spEl("p","",`${spTourName(id)} · ${ds.map(fmt).join(", ")}`));
+    const two=spEl("div","two"), ok=spEl("button","ok","✓ Übernehmen"), nb=spEl("button","no","Nicht möglich"); ok.type=nb.type="button";
+    ok.addEventListener("click",()=>{ const Q=spGet(), E=Q.days[id]||{}; ds.forEach(s=>{ if(E[s]&&E[s].s==="frei") E[s]={s:"zu",d:"Ich (dieses Handy)"}; }); Q.days[id]=E; spSet(Q); toast("Übernommen"); spMsg(); try{ spRender(); }catch(e){} });
+    nb.addEventListener("click",()=>{ ds.forEach(s=>no.push(id+"|"+s)); try{ localStorage.setItem(SP_NO,JSON.stringify(no)); }catch(e){} spMsg(); });
+    two.append(ok,nb); c.append(two); box.append(c); }); }
 function spSheet(ks,setDays){ let pick=null; const dim=spEl("div","sp-dim"), sh=spEl("div","sp-sheet"); sh.setAttribute("role","dialog"); const close=()=>{ dim.remove(); sh.remove(); };
   dim.addEventListener("click",close);
   const draw=()=>{ const P=spGet(); sh.textContent=""; sh.append(spEl("h3","",`Flexfahrer zuweisen · ${ks.length===1?"1 Tag":ks.length+" Tage"}`));
@@ -4083,6 +4118,7 @@ function spSheet(ks,setDays){ let pick=null; const dim=spEl("div","sp-dim"), sh=
     const ok=spEl("button","sp-btn sp-zu","Zuweisen"), ab=spEl("button","sp-btn sp-clr","Abbrechen"); ok.type=ab.type="button"; ok.disabled=!pick; ok.style.marginTop="10px"; ab.style.marginTop="8px";
     ok.addEventListener("click",()=>{ close(); setDays((D,s)=>D[s]={s:"zu",d:pick},`${ks.length===1?"1 Tag":ks.length+" Tage"} an ${pick} zugewiesen`); }); ab.addEventListener("click",close); sh.append(ok,ab); };
   draw(); document.body.append(dim,sh); }
+roleUi(); spMsg(); if(!IS_TEST){ const rr=$("roleRow"); if(rr) rr.hidden=true; } // v=186
 if(IS_TEST){ document.querySelectorAll('[data-pg="plan"]').forEach(b=>b.addEventListener("click",()=>{ spView={k:-1,tour:null,month:null,sel:new Set(),add:false,addT:false}; spRender(); })); spRender(); }
 $("komShare").addEventListener("click",async()=>{ const l=komGet().filter(e=>e.a).map(e=>({n:e.n,a:e.a,ll:e.ll})); if(!l.length){ toast("Bitte zuerst eine Kommissionierstelle eintragen."); return; }
   const u=location.origin+location.pathname.replace(/test\.html$/i,"")+"#kom="+btoa(unescape(encodeURIComponent(JSON.stringify(l)))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");

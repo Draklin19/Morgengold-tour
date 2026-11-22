@@ -1055,6 +1055,10 @@ body.drive .gps-ban{background:#c0392b;color:#fff;pointer-events:none}
 body.drive .net-ban{background:#37474f;color:#fff;pointer-events:none}
 body.drive .net-ban:not([hidden]){right:auto;font-size:1.05rem;padding:9px 14px} /* v=129: nur so breit wie der Text */
 body.drive .note-ban{background:#f2b51c;color:#2a1e00;cursor:pointer}
+body.drive .geo-ban:not([hidden]){display:flex;align-items:center;gap:8px;left:110px;right:auto;top:14px;padding:6px 6px 6px 12px;background:#fff4e5;color:#7a3300;border:2px solid #ea580c;border-radius:12px;font:800 .95rem/1.2 var(--font-body);white-space:nowrap;max-width:calc(100% - 250px)} /* v=184 (Test): Hausnummer nicht genau gefunden, kompakt */
+#geoBanT{overflow:hidden;text-overflow:ellipsis}
+.geo-ban-b{display:flex;gap:6px}.geo-ban-b button{border:0;border-radius:9px;padding:7px 10px;font:800 .9rem var(--font-body);cursor:pointer}
+#geoBanG{background:#1f6f4a;color:#fff}#geoBanX{background:#f3e1cf;color:#7a3300}
 body.drive .note-ban:not([hidden]){top:auto;bottom:var(--nb,120px);right:auto;max-width:calc(100% - 24px);font-size:1.1rem;padding:10px 14px} /* nur so breit wie der Text, verdeckt weniger Karte */ /* v=112: direkt über der unteren Leiste */
 .set-tabs{display:flex;background:var(--line);border-radius:12px;padding:3px;margin:8px 0 4px;gap:2px}
 .set-tabs button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;font:600 .78rem var(--font-body);border:0;background:transparent;color:var(--muted);padding:9px 2px;border-radius:9px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1488,7 +1492,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
   </section>
 
   <div class="main">
-    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="sim-speed" id="simSpeed"><span aria-hidden="true">🐇</span><div class="sim-track"><input type="range" id="simRange" min="2" max="60" step="1" aria-label="Tempo der Simulation"></div><span aria-hidden="true">🐢</span></div><div class="drive-ban gps-ban" id="gpsBan" role="alert" hidden>⚠ Kein GPS-Signal<small>Deine Position wird gerade nicht aktualisiert</small></div><div class="drive-ban net-ban" id="netBan" role="status" hidden>📶 Kein Internet<small>Linie folgt der Tour, ohne Ansagen</small></div><button type="button" class="drive-ban note-ban" id="noteBan" hidden></button><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
+    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="sim-speed" id="simSpeed"><span aria-hidden="true">🐇</span><div class="sim-track"><input type="range" id="simRange" min="2" max="60" step="1" aria-label="Tempo der Simulation"></div><span aria-hidden="true">🐢</span></div><div class="drive-ban gps-ban" id="gpsBan" role="alert" hidden>⚠ Kein GPS-Signal<small>Deine Position wird gerade nicht aktualisiert</small></div><div class="drive-ban net-ban" id="netBan" role="status" hidden>📶 Kein Internet<small>Linie folgt der Tour, ohne Ansagen</small></div><button type="button" class="drive-ban note-ban" id="noteBan" hidden></button><div class="drive-ban geo-ban" id="geoBan" role="status" hidden><span id="geoBanT"></span><span class="geo-ban-b"><button type="button" id="geoBanG">📍 Google</button><button type="button" id="geoBanX" aria-label="Hinweis ausblenden">✕</button></span></div><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
       <section class="mode gtour" id="gTour"> <!-- v=92: Google-Abschnitte direkt unter der Karte, immer offen -->
@@ -2090,7 +2094,12 @@ async function geocodeOne(s,ref){ // v=151: ref = Bezugspunkt (Kommissionierstel
     let hs=(await r.json()).filter(fits).map(h=>[parseFloat(h.lat),parseFloat(h.lon),0,(h.place_rank>=30||/^(house|building)$/.test(h.addresstype||"")||h.type==="house"||h.category==="building")?1:0]); // v=168: [3]=1 genau ein Haus
     if(ref&&!plz){ hs=hs.filter(p=>dist(p,ref)<45000).sort((a,b)=>dist(a,ref)-dist(b,ref)); }
     return hs[0]||null; };
-  if(s.addr) for(const t of [{street:s.addr,postalcode:plz,city:ort},{q:`${s.addr}, ${plz} ${ort}`},{street:s.addr,postalcode:plz}]){ const p=await ask1(t); if(p) return p; }
+  let first=null;
+  if(s.addr) for(const t of [{street:s.addr,postalcode:plz,city:ort},{q:`${s.addr}, ${plz} ${ort}`},{street:s.addr,postalcode:plz}]){ const p=await ask1(t); if(p&&(p[3]===1||!IS_TEST)) return p; if(p&&!first) first=p; if(p) break; }
+  // v=184 (Test): Nummer wie 9/4, 12a oder 3-5 nicht genau gefunden → Grundnummer (9, 12, 3) suchen; das Haus liegt fast immer direkt daneben.
+  const bm=IS_TEST&&s.addr?String(s.addr).match(/^(.*?\D)\s*(\d+)\s*(?:[a-zA-Z]|\s*[-/]\s*\d+\s*[a-zA-Z]?)\s*$/):null;
+  if(bm){ const base=bm[1].trim()+" "+bm[2]; for(const t of [{street:base,postalcode:plz,city:ort},{q:`${base}, ${plz} ${ort}`}]){ const p=await ask1(t); if(p&&p[3]===1) return [p[0],p[1],0,1,1]; } } // [4]=1: nur Grundnummer
+  if(first) return first;
   if(plz||ort){ const p=await ask1({postalcode:plz,city:ort})||(plz&&ort?await ask1({q:`${plz} ${ort}`}):null); if(p) return [p[0],p[1],1]; }
   return null;
 }
@@ -2100,11 +2109,12 @@ async function geocodeTour(){
   // v=151: Bezugspunkt = Kommissionierstelle, sonst Mitte der schon gefundenen Stopps. Gefundene Punkte merkt sich das Handy (navi-geocache).
   const GC="navi-geocache3", gc=jget(GC), gk=s=>(s.addr+"|"+s.town).toLowerCase().replace(/ß/g,"ss").replace(/strasse|str\./g,"str").replace(/\s+/g,"");
   const mid=()=>{ const f=tour.stops.filter(s=>s.ll&&!s.approx); if(!f.length) return null; const m=k=>f.map(s=>s.ll[k]).sort((a,b)=>a-b)[Math.floor(f.length/2)]; return [m(0),m(1)]; };
-  const put=(s,p)=>{ s.ll=p.slice(0,2); s.approx=p[2]===1; s.exact=p[3]===1; s.via=[]; s.geo=true; }; // v=169: Hausseite nur, wenn die Adresssuche genau das Haus trifft
+  const put=(s,p)=>{ s.ll=p.slice(0,2); s.approx=p[2]===1; s.exact=p[3]===1; s.hnBase=p[4]===1; s.via=[]; s.geo=true; }; // v=169: Hausseite nur, wenn die Adresssuche genau das Haus trifft
   try{
     for(const s of todo){
       $("geoState").textContent=`Suche Adresse ${++done} von ${todo.length} …`;
-      const c=gc[gk(s)]; const p=c||await geocodeOne(s,depotLL()||mid());
+      let c=gc[gk(s)]; if(IS_TEST&&c&&c[3]!==1&&/\d\s*([a-zA-Z]|[-/]\s*\d)\s*$/.test(s.addr||"")) c=null; // v=184: früher nur als Straße gefunden → mit Grundnummer neu suchen
+      const p=c||await geocodeOne(s,depotLL()||mid());
       if(p){ put(s,p); if(!c&&!s.approx){ gc[gk(s)]=p; const ks=Object.keys(gc); if(ks.length>3000) delete gc[ks[0]]; jset(GC,gc); } } else miss.push(tour.stops.indexOf(s)+1);
       render(); if(done===1||done===todo.length) fit(); if(done%5===0) try{ saveTour(); }catch(e){}
     }
@@ -2220,11 +2230,87 @@ async function strFetch(list){ // eine Abfrage für viele Stopps; liefert false,
 let strBusy=null;
 async function strPrep(t){ if(!IS_TEST||!t) return; if(strBusy) return strBusy; // fertige Punkte aus dem Speicher, fehlende in Gruppen zu 20 holen
   strBusy=(async()=>{ const c=jget(STR_C), todo=[];
-    t.stops.forEach(s=>{ if(!s.ll||!s.addr){ s.rll=null; return; } const k=strKey(s); if(k in c) s.rll=c[k]||null; else { s.rll=null; todo.push(s); } });
-    for(let i=0;i<todo.length;i+=20){ const part=todo.slice(i,i+20), ways=await strFetch(part); if(ways===false) break;
-      const c2=jget(STR_C); part.forEach(s=>{ const p=strPick(s,ways); s.rll=p||null; c2[strKey(s)]=p; });
+    t.stops.forEach(s=>{ if(!s.ll||!s.addr){ s.rll=null; return; } const k=strKey(s); if(k in c){ s.rll=c[k]||null; s.rllOk=true; } else { s.rll=null; s.rllOk=false; todo.push(s); } }); // rllOk = Abfrage hat geantwortet
+    for(let i=0;i<todo.length;i+=10){ const part=todo.slice(i,i+10), ways=await strFetch(part); if(ways===false) continue; // v=184: kleinere Gruppen, bei Fehler die nächsten trotzdem versuchen
+      const c2=jget(STR_C); part.forEach(s=>{ const p=strPick(s,ways); s.rll=p||null; s.rllOk=true; c2[strKey(s)]=p; });
       const ks=Object.keys(c2); if(ks.length>3000) ks.slice(0,ks.length-3000).forEach(k=>delete c2[k]); try{ localStorage.setItem(STR_C,JSON.stringify(c2)); }catch(e){} } })();
   try{ await strBusy; } finally { strBusy=null; } }
+// v=184 (Test, Draklin): Hausnummer schätzen, wenn die Adresssuche sie nicht genau findet. Für die nächsten 3 offenen Kunden im Hintergrund:
+// Häuser entlang der Kundenstraße holen (auch ohne Nummer), je Straßenseite der Reihe nach ordnen, bekannte Nummern als Anker nehmen
+// und die Häuser dazwischen weiterzählen (vorwärts und rückwärts). Der Punkt wird nur gesetzt, wenn die Adresse nicht genau gefunden wurde.
+const EST_C="navi-hnschaetz", EST_R=600, EST_SKIP=/^(garage|garages|shed|carport|roof|hut|kiosk|transformer_tower|service|greenhouse|barn|cowshed|stable|ruins|toilets|container|bunker)$/;
+let estBusy=false;
+const estNum=a=>{ const m=String(a||"").split(",")[0].match(/(\d+)\s*([a-zA-Z]|\s*[-/]\s*\d+\s*[a-zA-Z]?)?\s*$/); return m?{n:+m[1],x:(m[2]||"").replace(/\s+/g,"")}:null; };
+function estChain(ways){ // Straßenstücke mit gleichem Namen zu Linien verbinden
+  const segs=ways.map(w=>(w.geometry||[]).map(q=>[q.lat,q.lon])).filter(g=>g.length>1), lines=[], near=(a,b)=>dist(a,b)<3;
+  while(segs.length){ let L=segs.shift(), grown=true;
+    while(grown){ grown=false; for(let i=0;i<segs.length;i++){ const g=segs[i], a=L[0], b=L[L.length-1];
+        if(near(b,g[0])) L=L.concat(g.slice(1)); else if(near(b,g[g.length-1])) L=L.concat(g.slice(0,-1).reverse());
+        else if(near(a,g[g.length-1])) L=g.slice(0,-1).concat(L); else if(near(a,g[0])) L=g.slice(1).reverse().concat(L); else continue;
+        segs.splice(i,1); grown=true; break; } }
+    lines.push(L); }
+  return lines; }
+function estProj(L,p){ // Lage eines Punkts zur Linie: Meter entlang (t), Abstand (d), Seite (+1 links / -1 rechts)
+  let best=null, acc=0; const kx=Math.cos(p[0]*Math.PI/180)*111320, ky=111320;
+  for(let i=1;i<L.length;i++){ const a=L[i-1], b=L[i], dx=(b[1]-a[1])*kx, dy=(b[0]-a[0])*ky, l2=dx*dx+dy*dy, l=Math.sqrt(l2);
+    const px=(p[1]-a[1])*kx, py=(p[0]-a[0])*ky, u=l2?Math.max(0,Math.min(1,(px*dx+py*dy)/l2)):0, d=Math.hypot(px-u*dx,py-u*dy);
+    if(!best||d<best.d) best={d,t:acc+u*l,side:(dx*py-dy*px)>=0?1:-1}; acc+=l; }
+  return best; }
+function estPick(s,els){ const want=strName(s), nn=estNum(s.addr); if(!want||!nn) return 0;
+  const ways=els.filter(e=>e.type==="way"&&e.tags&&e.tags.highway&&e.geometry&&(()=>{ const n=hnKey(e.tags.name); return n&&(n===want||(want.length>5&&(n.startsWith(want)||want.startsWith(n)))); })());
+  if(!ways.length) return 0;
+  const lines=estChain(ways); let L=null, bd=1e9; lines.forEach(l=>{ const q=estProj(l,s.ll); if(q&&q.d<bd){ bd=q.d; L=l; } }); if(!L||bd>250) return 0;
+  // Häuser (Mitte) und Adresspunkte entlang dieser Straße
+  const pts=[]; els.forEach(e=>{ const tg=e.tags||{}; if(e.type==="way"&&tg.highway) return;
+    const at=e.type==="node"?[e.lat,e.lon]:e.center?[e.center.lat,e.center.lon]:null; if(!at) return;
+    const isB=!!tg.building; if(isB&&EST_SKIP.test(tg.building)&&!tg["addr:housenumber"]) return;
+    const hn=tg["addr:housenumber"], st=hnKey(tg["addr:street"]); if(hn&&st&&st!==want) return; // Nummer gehört zu einer anderen Straße
+    const q=estProj(L,at); if(!q||q.d>45||q.d<3) return;
+    const m=hn?String(hn).match(/^\s*(\d+)\s*$/):null; pts.push({at,t:q.t,side:q.side,num:m?+m[1]:null,raw:hn||"",b:isB}); });
+  // genau diese Nummer bekannt (z. B. nur an einem Haus eingetragen)
+  const exact=pts.find(q=>q.raw&&hnKey(q.raw)===hnKey(nn.n+nn.x)); if(exact) return [+exact.at[0].toFixed(6),+exact.at[1].toFixed(6)];
+  const base=pts.find(q=>q.num===nn.n); if(base&&nn.x) return [+base.at[0].toFixed(6),+base.at[1].toFixed(6)];
+  if(base) return [+base.at[0].toFixed(6),+base.at[1].toFixed(6)];
+  // Seite der geraden bzw. ungeraden Nummern
+  const par=nn.n%2, known=pts.filter(q=>q.num!=null); if(known.length<2) return 0;
+  const sameP=known.filter(q=>q.num%2===par); let side=0;
+  { const c={1:0,"-1":0}; sameP.forEach(q=>c[q.side]++); const other=known.filter(q=>q.num%2!==par), o={1:0,"-1":0}; other.forEach(q=>o[q.side]++);
+    const tot=c[1]+c[-1]; if(tot>=2&&Math.max(c[1],c[-1])/tot>=.75&&(o[1]+o[-1]===0||Math.max(o[1],o[-1])/(o[1]+o[-1])>=.6)) side=c[1]>=c[-1]?1:-1; }
+  const step=side?2:1; // auf einer Seite gerade/ungerade getrennt, sonst fortlaufend
+  const row=pts.filter(q=>(side?q.side===side:true)&&(q.b||q.num!=null)).sort((a,b)=>a.t-b.t);
+  // gleiche Häuser zusammenfassen (Adresspunkt liegt im Haus)
+  const H=[]; row.forEach(q=>{ const h=H.find(x=>Math.abs(x.t-q.t)<6&&dist(x.at,q.at)<12); if(h){ if(q.num!=null&&h.num==null){ h.num=q.num; } } else H.push({...q}); });
+  const anc=H.map((h,i)=>({i,num:h.num})).filter(a=>a.num!=null&&(!side||a.num%2===par));
+  if(anc.length<2) return 0;
+  const up=anc[anc.length-1].num>anc[0].num; // Nummern steigen entlang der Linie?
+  if(anc.some((a,k)=>k&&(up?a.num<anc[k-1].num:a.num>anc[k-1].num))) return 0; // Reihenfolge widersprüchlich: lieber nicht schätzen
+  let lo=null, hi=null; anc.forEach(a=>{ if(a.num<nn.n&&(!lo||a.num>lo.num)) lo=a; if(a.num>nn.n&&(!hi||a.num<hi.num)) hi=a; });
+  const at=i=>H[i]?[+H[i].at[0].toFixed(6),+H[i].at[1].toFixed(6)]:0;
+  if(lo&&hi){ const a=Math.min(lo.i,hi.i), b=Math.max(lo.i,hi.i), between=[]; for(let i=a+1;i<b;i++) if(H[i].num==null) between.push(i);
+    const steps=(nn.n-lo.num)/step, total=(hi.num-lo.num)/step; // z. B. 22→28 bei 22…30: 3 von 4 Schritten
+    if(between.length){ const k=between.length===total-1?steps-1:Math.round(steps/total*(between.length+1))-1; const idx=(lo.i<hi.i?between:between.slice().reverse())[Math.max(0,Math.min(between.length-1,k))]; return at(idx); }
+    const A=H[lo.i].at, B=H[hi.i].at, f=steps/total; return [+(A[0]+(B[0]-A[0])*f).toFixed(6),+(A[1]+(B[1]-A[1])*f).toFixed(6)]; }
+  const a=lo||hi, dir=((lo?1:-1)*(up?1:-1)), steps=Math.abs(nn.n-a.num)/step; // über das Ende hinaus weiterzählen
+  let i=a.i, c=0; while(c<steps){ i+=dir; if(i<0||i>=H.length) return 0; if(H[i].num!=null) return 0; c++; }
+  return at(i); }
+async function estOne(s){ s.estTry=(s.estTry||0)+1;
+  const c=jget(EST_C), k=addrKey(s); if(k in c){ return c[k]; }
+  const q=`[out:json][timeout:25];(way(around:${EST_R},${s.ll[0].toFixed(6)},${s.ll[1].toFixed(6)})[highway~"${SP_HW}"][name];);out geom tags;(way(around:${EST_R},${s.ll[0].toFixed(6)},${s.ll[1].toFixed(6)})[building];node(around:${EST_R},${s.ll[0].toFixed(6)},${s.ll[1].toFixed(6)})["addr:housenumber"];);out center tags;`;
+  for(const u of OVERPASS){ try{
+      const r=await fetch(u,{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"},...(typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(25000)}:{})});
+      if(!r.ok) continue; const j=await r.json(); const p=estPick(s,j.elements||[]); const c2=jget(EST_C); c2[k]=p; const ks=Object.keys(c2); if(ks.length>2000) delete c2[ks[0]]; try{ localStorage.setItem(EST_C,JSON.stringify(c2)); }catch(e){} return p; }catch(e){} }
+  return null; } // kein Server: später nochmal
+async function estAhead(){ if(!IS_TEST||estBusy||!tour||cur<0) return; estBusy=true;
+  try{ const ahead=[]; for(let i=cur;i<tour.stops.length&&ahead.length<3;i++){ const s=tour.stops[i]; if(!s.done) ahead.push(i); }
+    for(const i of ahead){ const s=tour.stops[i]; if(!s||!s.ll||!s.addr||s.fixed||s.est||(s.exact&&!s.hnBase)||(s.estTry||0)>=3) continue;
+      const p=await estOne(s); if(!p||!tour||tour.stops[i]!==s) continue;
+      if(dist(p,s.ll)<3){ s.est=true; continue; }
+      s.ll=p; s.est=true; s.exact=true; s.rll=undefined; s.rllOk=false; s.rllTry=0; s.said=false; // Hausseite und Straßenpunkt neu
+      saveTour(); render(); if(i===apTarget()) sperrReroute(); } }
+  finally{ estBusy=false; } }
+setInterval(()=>{ if(document.body.classList.contains("drive")||simTimer) estAhead(); },5000);
+async function strOne(s){ if(!s||!s.ll||!s.addr) return; s.rllTry=(s.rllTry||0)+1; const ways=await strFetch([s]); if(ways===false) return; // kein Server: beim nächsten Neuberechnen nochmal
+  const p=strPick(s,ways); s.rll=p||null; s.rllOk=true; const c2=jget(STR_C); c2[strKey(s)]=p; try{ localStorage.setItem(STR_C,JSON.stringify(c2)); }catch(e){} }
 const rDest=s=>IS_TEST&&s&&s.rll&&s.ll&&dist(s.rll,s.ll)<=STR_R?s.rll:s&&s.ll; // Zielpunkt für den Kartendienst
 async function routeTour(){
   if(!tour) return; const seq=++routeSeq, t=tour;
@@ -3049,9 +3135,20 @@ function noteBan(dd){ const b=$("noteBan"); if(!b) return; const s=tour&&cur>=0?
   if(noteFor!==cur){ noteFor=cur; b.textContent=`Stopp ${nr(cur)}: `+[...tg,...nt].join("\n"); }
   const mb=$("mapBar"); if(mb) b.style.setProperty("--nb",(mb.offsetHeight+18)+"px"); b.hidden=false; }
 $("noteBan").addEventListener("click",()=>{ noteHid=cur; $("noteBan").hidden=true; });
+// v=184 (Test): Hinweis, wenn die Hausnummer des aktuellen Kunden nicht genau gefunden wurde (nur Straße oder nur Grundnummer)
+let geoHid=-1;
+function geoBan(){ const b=$("geoBan"); if(!b) return; const s=IS_TEST&&tour&&cur>=0?tour.stops[cur]:null;
+  const bad=!!s&&!!s.ll&&!s.fixed&&(!s.exact||s.hnBase||s.approx||s.est)&&document.body.classList.contains("drive")&&geoHid!==cur;
+  if(!bad){ b.hidden=true; return; }
+  const no=(String(s.addr||"").split(",")[0].match(/(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/)||["",""])[1].replace(/\s+/g,"");
+  const base=(no.match(/^\d+/)||[""])[0];
+  $("geoBanT").textContent=s.est?`≈ Nr. ${no} geschätzt`:s.hnBase&&base?`⚠ Nr. ${no} ungenau (bei ${base})`:`⚠ Nr. ${no||""} ungenau`; b.title=s.hnBase?`Hausnummer ${no} nicht genau gefunden, Punkt bei Haus ${base}`:"Hausnummer nicht genau gefunden. Tipp: mit Google fahren"; b.hidden=false; }
+$("geoBanX").addEventListener("click",()=>{ geoHid=cur; $("geoBan").hidden=true; });
+$("geoBanG").addEventListener("click",()=>{ geoHid=cur; $("geoBan").hidden=true; $("nextGmaps").click(); });
 function checkArrival(){
   kmEnd(); try{ learnDrive(); }catch(e){} if(carPos) kmFix(carPos,gpsAcc);
-  updateHouseNo(); hnMark(); checkTurns(); updateEta();
+  updateHouseNo(); hnMark(); checkTurns(); updateEta(); try{ geoBan(); }catch(e){}
+  if(tour&&cur<0) noteBan(Infinity); // v=184: nach dem letzten Kunden kein Lieferhinweis mehr
   if(depW&&carPos&&depW.s.ll&&dist(carPos,depW.s.park||depW.s.ll)>depW.r+15){ depW.s.dep=Date.now(); learnStand(depW.s); saveTour(); depW=null; } // Abfahrt merken (Standzeit)
   if(tour&&cur<0&&carPos){ homeNav(); return; } // v=122: Heimweg
   if(depotNav()) return; // v=123: erst zur Kommissionierstelle
@@ -3531,6 +3628,7 @@ async function updateApproach(){
   if(Date.now()-apAt<8000&&apStop===T) return;
   apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[T].ll, stopNo=T; let line=null;
   if(IS_TEST&&tour.stops[T].rll===undefined){ try{ await strPrep(tour); }catch(e){} } // v=178
+  if(IS_TEST&&!tour.stops[T].rll&&!tour.stops[T].rllOk&&(tour.stops[T].rllTry||0)<3){ try{ await strOne(tour.stops[T]); }catch(e){} } // v=184: fehlt der Straßenpunkt, nur für diesen Stopp nochmal fragen
   const toR=rDest(tour.stops[T])||to; // v=178: Route endet auf der Straße des Kunden
   let steps=[];
   // Anfahrpunkt aus der Routendatei: Die Morgengold-Strecke endet auf der Straße, von der aus das Haus erreicht wird.

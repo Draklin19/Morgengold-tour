@@ -1306,6 +1306,17 @@ body[data-pg="plan"]:not(.drive) .pg-plan{display:flex;flex-direction:column;gap
 .sp-msg .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sp-msg button{border:0;border-radius:12px;padding:12px;font:800 1rem var(--font-body);cursor:pointer}.sp-msg .ok{background:#1f6f4a;color:#fff}.sp-msg .no{background:#e5e7e6;color:#333}
 .sp-grp{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 10px}.sp-grp button{border:2px solid #c9cfcb;background:var(--surface);color:var(--fg);border-radius:999px;padding:9px 14px;font:700 .95rem var(--font-body);cursor:pointer}
 .sp-grp button.on.g-n{background:#e7f3ec;border-color:#1f6f4a;color:#1f6f4a}.sp-grp button.on.g-f{background:#fff3dc;border-color:#d97706;color:#8a4b00}.sp-grp button.on.g-d{background:#fde2e2;border-color:#c0262d;color:#8f1d1d}
+.hb-fx{background:linear-gradient(145deg,#0f766e,#14b8a6)} html.fahrer .hb-fx{display:none!important} .logout-b{display:none} html.fahrer .logout-b{display:none}
+html:not(.fahrer) .logout-b,html.konto .logout-b{display:flex;flex-direction:column;align-items:center;gap:2px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);border-radius:16px;padding:12px;font:700 1rem var(--font-body);cursor:pointer}.logout-b small{font-weight:500;color:var(--muted);font-size:.8rem}.logout-b small:empty{display:none}
+.fx-page{position:fixed;inset:0;z-index:3500;background:var(--bg0,#f7f3ea);overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 12px) 14px calc(env(safe-area-inset-bottom,0px) + 24px)}
+.fx-in{max-width:520px;margin:0 auto;display:grid;gap:10px}.fx-in h2{margin:2px 2px 4px}.fx-bk{border:0;background:none;color:#1f6f4a;font:700 1rem var(--font-body);text-align:left;padding:4px 2px;cursor:pointer}
+.fx-card{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:8px}
+.fx-lab{font-weight:800;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.fx-card input[type=text],.fx-card input[type=password],.fx-card input[type=tel]{width:100%;box-sizing:border-box;font:500 1rem var(--font-body);padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg)}
+.fx-seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.fx-seg button{border:2px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;padding:10px 8px;font:700 .9rem var(--font-body);cursor:pointer}.fx-seg button.on{border-color:#1f6f4a;background:#e7f3ec;color:#1f6f4a}
+.fx-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--fg);font:inherit;text-align:left;cursor:pointer;width:100%}.fx-row:last-child{border-bottom:0}.fx-row b{display:block}.fx-row small{color:var(--muted)}
+.fx-tag{margin-left:auto;font-size:.75rem;font-weight:800;padding:4px 9px;border-radius:999px;white-space:nowrap}.fx-ok{background:#e7f3ec;color:#1f6f4a}.fx-wt{background:#fff3dc;color:#8a4b00}
+.fx-err{color:#b42318;min-height:1.2em;margin:0 2px}.fx-del{background:none;border:1.5px solid #e4b4b4;color:#b42318}
 .sp-fr{background:#f59e0b;color:#2e1d00}.sp-zu{background:#1f6f4a;color:#fff}.sp-clr{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
 .sp-dim{position:fixed;inset:0;background:rgb(0 0 0/.35);z-index:3000}
 .sp-sheet{background:var(--surface);color:var(--fg);border-radius:20px 20px 0 0;box-shadow:0 -6px 24px rgb(0 0 0/.25);padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));position:fixed;left:0;right:0;bottom:0;z-index:3001;max-height:80vh;overflow:auto}
@@ -1342,7 +1353,10 @@ body[data-pg="rech"]:not(.drive){--bg:color-mix(in srgb,#e6aa1c 14%,var(--bg0))}
   <p style="margin:0 0 18px;color:#555">Bitte den Zugangscode eingeben, den du von deinem Chef bekommen hast.</p>
   <input id="gateCode" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Zugangscode" style="width:100%;box-sizing:border-box;font-size:1.6rem;text-align:center;letter-spacing:.05em;padding:12px;border:2px solid #c9c2b2;border-radius:12px">
   <p id="gateErr" style="color:#b42318;min-height:1.4em;margin:8px 0"></p>
+  <div id="gateUP" style="display:none"><input id="gateUser" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Benutzername" style="width:100%;box-sizing:border-box;font-size:1.3rem;padding:12px;border:2px solid #c9c2b2;border-radius:12px;margin-bottom:8px">
+  <input id="gatePw" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;font-size:1.3rem;padding:12px;border:2px solid #c9c2b2;border-radius:12px"></div>
   <button style="width:100%;font-size:1.2rem;font-weight:700;padding:14px;border:0;border-radius:12px;background:#1a7f64;color:#fff">Öffnen</button>
+  <button type="button" id="gateMode" style="display:none;margin-top:14px;background:none;border:0;color:#1a7f64;font:600 1rem system-ui;cursor:pointer;text-decoration:underline">Mit Benutzername anmelden</button> <!-- v=187 (Test): Fahrer-Login zum Ausprobieren -->
  </form>
 </div>
 <script>
@@ -1354,9 +1368,18 @@ if(!IS_TEST) document.documentElement.classList.add("fahrer"); // v=90: Fahrer-V
   const toTest=()=>location.replace("test.html"+location.search+location.hash), toMain=()=>location.replace("./"+location.search+location.hash);
   const hide=()=>{ g.style.display="none"; }; // v=137: Abfrage nur ausblenden, damit „Anderen Zugangscode eingeben“ sie wieder zeigen kann
   const back=document.getElementById("gateBack"); back.addEventListener("click",hide);
+  // v=187 (Test): Fahrer-Konten nur auf diesem Handy (navi-konten), zum Ausprobieren des späteren Logins. Passwort nur als SHA-256.
+  const KK="navi-konten", kGet=()=>{ try{ const v=JSON.parse(localStorage.getItem(KK)||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; } };
+  let um=false; const mb=document.getElementById("gateMode"), up=document.getElementById("gateUP"), gc=document.getElementById("gateCode");
+  if(IS_TEST) mb.style.display="inline-block";
+  mb.addEventListener("click",()=>{ um=!um; up.style.display=um?"block":"none"; gc.style.display=um?"none":"block"; mb.textContent=um?"Mit Zugangscode öffnen":"Mit Benutzername anmelden"; document.getElementById("gateErr").textContent=""; (um?document.getElementById("gateUser"):gc).focus(); });
+  window.kontoHash=async(u,pw)=>{ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("morgengold-konto:"+u.toLowerCase()+":"+pw)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); };
   window.gateShow=()=>{ document.getElementById("gateCode").value=""; document.getElementById("gateErr").textContent=""; back.style.display="inline-block"; g.style.display="flex"; };
   document.getElementById("gateForm").addEventListener("submit",async e=>{ e.preventDefault();
     const c=document.getElementById("gateCode").value.trim(), err=document.getElementById("gateErr");
+    if(um){ const u=document.getElementById("gateUser").value.trim(), pw=document.getElementById("gatePw").value, a=kGet().find(x=>x.u.toLowerCase()===u.toLowerCase());
+      if(!a||a.ph!==await kontoHash(u,pw)){ err.textContent="Benutzername oder Passwort stimmt nicht."; return; }
+      try{ localStorage.setItem(K,"konto:"+a.u); }catch(e){} location.reload(); return; }
     try{ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("morgengold:"+c));
       const h=[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
       if(h===ADM){ try{ localStorage.setItem(K,ADM); }catch(e){} if(IS_TEST) hide(); else toTest(); }
@@ -1364,10 +1387,10 @@ if(!IS_TEST) document.documentElement.classList.add("fahrer"); // v=90: Fahrer-V
       else err.textContent="Der Code stimmt nicht. Groß- und Kleinschreibung beachten."; }
     catch(x){ err.textContent="Dieser Browser kann den Code nicht prüfen. Bitte Safari oder Chrome nehmen."; } });
   let have=null; try{ have=localStorage.getItem(K); }catch(e){}
-  if(IS_TEST){ if(have===ADM) hide(); } // mit Fahrercode gespeichert: Abfrage zeigen, damit der Chef seinen Admin-Code eingeben kann
+  if(IS_TEST){ if(have===ADM) hide(); else if(have&&have.startsWith("konto:")&&kGet().some(a=>a.u===have.slice(6))){ document.documentElement.classList.add("fahrer","konto"); window.KONTO=have.slice(6); hide(); } } // mit Fahrercode gespeichert: Abfrage zeigen, damit der Chef seinen Admin-Code eingeben kann
   else{ if(have===ADM){ toTest(); return; } if(have===DRV) hide(); }
 })();
-if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.createElement("button"); t.type="button"; t.id="testBadge"; t.textContent="TEST";
+if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ if(window.KONTO) return; const t=document.createElement("button"); t.type="button"; t.id="testBadge"; t.textContent="TEST";
   t.title="Test-Version. Antippen: zur Fahrer-Version wechseln";
   t.style.cssText="position:fixed;left:calc(env(safe-area-inset-left,0px));top:42%;z-index:99998;writing-mode:vertical-rl;transform:rotate(180deg);background:#e5383b;color:#fff;font:700 11px/1 system-ui;letter-spacing:.15em;padding:10px 5px;border:0;border-radius:0 8px 8px 0;box-shadow:0 1px 4px rgb(0 0 0 / .3);opacity:.9"; // seitlich am Rand: verdeckt weder Hausnummer oben noch die Leiste unten
   t.onclick=()=>{ if(confirm("Zur Fahrer-Version wechseln? Danach fragt die App nach einem Code.")){ try{ localStorage.removeItem("navi-zugang"); }catch(e){} location.replace("./"); } };
@@ -1393,6 +1416,8 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
     <button class="hb hb-me" type="button" data-pg="me"><span class="hb-ic" aria-hidden="true">👤</span><span><b>Persönliche Einstellungen</b><small>Foto, Adresse, E-Mail</small></span></button>
     <button class="hb hb-rech" type="button" data-pg="rech"><span class="hb-ic" aria-hidden="true">🧾</span><span><b>Rechnung erstellen</b><small>Daten, Tabelle, PDF</small></span></button>
     <button class="hb hb-plan" type="button" data-pg="plan"><span class="hb-ic" aria-hidden="true">📅</span><span><b>Schichtplan</b><small>Wer fährt wann</small></span></button> <!-- v=142: neuer Knopf, Seite noch leer -->
+    <button class="hb hb-fx" type="button" id="fxOpen"><span class="hb-ic" aria-hidden="true">👥</span><span><b>Fahrer</b><small>Zugänge anlegen und verwalten</small></span></button> <!-- v=187 (Test) -->
+    <button type="button" class="logout-b" id="logoutBtn">🚪 Ausloggen<small id="logoutWho"></small></button> <!-- v=187 (Test) -->
     <p class="home-foot">🔒 Alles bleibt auf deinem Handy.</p>
   </section>
   <section class="pg-plan" id="pgPlan"><h2>Schichtplan</h2><div id="spBox"></div></section>
@@ -4118,6 +4143,55 @@ function spSheet(ks,setDays){ let pick=null; const dim=spEl("div","sp-dim"), sh=
     const ok=spEl("button","sp-btn sp-zu","Zuweisen"), ab=spEl("button","sp-btn sp-clr","Abbrechen"); ok.type=ab.type="button"; ok.disabled=!pick; ok.style.marginTop="10px"; ab.style.marginTop="8px";
     ok.addEventListener("click",()=>{ close(); setDays((D,s)=>D[s]={s:"zu",d:pick},`${ks.length===1?"1 Tag":ks.length+" Tage"} an ${pick} zugewiesen`); }); ab.addEventListener("click",close); sh.append(ok,ab); };
   draw(); document.body.append(dim,sh); }
+// v=187 (Test, Draklin): Fahrer-Zugänge zum Ausprobieren. Alles nur auf diesem Handy; echte Konten für andere Handys brauchen später einen Server.
+const FX_KEY="navi-konten";
+function fxGet(){ try{ const v=JSON.parse(localStorage.getItem(FX_KEY)||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+function fxSet(v){ try{ localStorage.setItem(FX_KEY,JSON.stringify(v)); }catch(e){} }
+const fxRoles=r=>(r||[]).map(k=>({n:"Normal",f:"Flex",d:"Notdienst"})[k]).join(", ");
+function fxRoleBoxes(sel){ const w=spEl("div","role-box"); [["n","Normaler Fahrer"],["f","Flexfahrer"],["d","Notdienst"]].forEach(([k,t])=>{ const l=spEl("label","role-ck"), i=spEl("input"); i.type="checkbox"; i.dataset.r=k; i.checked=(sel||[]).includes(k); l.append(i,spEl("b","",t)); w.append(l); }); return w; }
+function fxInput(ph,val,type){ const i=spEl("input"); i.type=type||"text"; i.placeholder=ph; i.value=val||""; i.autocomplete="off"; return i; }
+function fxPage(view){ let pg=document.getElementById("fxPage"); if(!pg){ pg=spEl("div","fx-page"); pg.id="fxPage"; document.body.append(pg); } pg.textContent=""; const W=spEl("div","fx-in"); pg.append(W);
+  const close=()=>pg.remove();
+  if(!view){ const bk=spEl("button","fx-bk","← Hauptseite"); bk.type="button"; bk.onclick=close; W.append(bk,spEl("h2","","👥 Fahrer"));
+    const L=fxGet(), c=spEl("div","fx-card"); if(!L.length) c.append(spEl("p","sp-sub","Noch keine Fahrer angelegt."));
+    L.forEach((a,i)=>{ const r=spEl("button","fx-row"); r.type="button"; const t=spEl("span"); t.append(spEl("b","",a.d&&a.d.name?a.d.name:a.u), spEl("small","",a.set?(fxRoles(a.d.roles)||"–")+(a.d.tour?" · "+a.d.tour:""):"noch nicht angemeldet")); r.append(spEl("span","","👤"),t,spEl("span","fx-tag "+(a.set?"fx-ok":"fx-wt"),a.set?"✓ Daten da":"⏳ füllt selbst aus")); r.onclick=()=>fxPage({i}); c.append(r); });
+    const nw=spEl("button","sp-btn sp-zu","＋ Neuer Fahrer"); nw.type="button"; nw.onclick=()=>fxPage({i:-1});
+    W.append(c,nw,spEl("p","sp-sub","Zum Ausprobieren: Die Zugänge gibt es nur auf diesem Handy. Mit „Ausloggen“ und „Mit Benutzername anmelden“ siehst du die App wie ein Fahrer.")); return; }
+  const L=fxGet(), a=view.i>=0?L[view.i]:null; let selfFill=a?!a.set:false;
+  const bk=spEl("button","fx-bk","← Fahrer"); bk.type="button"; bk.onclick=()=>fxPage(); W.append(bk,spEl("h2","",a?"👤 "+(a.d&&a.d.name||a.u):"＋ Neuer Fahrer"));
+  const z=spEl("div","fx-card"), u=fxInput("Benutzername",a?a.u:""), pw=fxInput(a?"Neues Startpasswort (leer = bleibt)":"Startpasswort","", "password"); if(a) u.disabled=true;
+  z.append(spEl("div","fx-lab","Zugang"),u,pw); W.append(z);
+  const sg=spEl("div","fx-card"), seg=spEl("div","fx-seg"), b1=spEl("button","","✏ Jetzt selbst ausfüllen"), b2=spEl("button","","📲 Fahrer füllt beim ersten Login aus"); b1.type=b2.type="button"; seg.append(b1,b2); sg.append(spEl("div","fx-lab","Daten ausfüllen"),seg); W.append(sg);
+  const d=(a&&a.d)||{}, dc=spEl("div","fx-card"), nm=fxInput("Vor- und Nachname",d.name), tel=fxInput("Telefon",d.tel,"tel"), ad=fxInput("Straße Nr, PLZ Ort",d.addr), rb=fxRoleBoxes(d.roles), tr=fxInput("z. B. Station A · Tour 010",d.tour);
+  dc.append(spEl("div","fx-lab","Daten des Fahrers"),nm,tel,ad,spEl("div","fx-lab","Fährt als"),rb,spEl("div","fx-lab","Station / Tour"),tr); W.append(dc);
+  const seg2=()=>{ b1.classList.toggle("on",!selfFill); b2.classList.toggle("on",selfFill); dc.hidden=selfFill; }; b1.onclick=()=>{ selfFill=false; seg2(); }; b2.onclick=()=>{ selfFill=true; seg2(); }; seg2();
+  const err=spEl("p","fx-err"), sv=spEl("button","sp-btn sp-zu",a?"💾 Speichern":"💾 Fahrer anlegen"); sv.type="button"; W.append(err,sv);
+  sv.onclick=async()=>{ const un=u.value.trim(), p=pw.value; err.textContent="";
+    if(!a){ if(!/^[\w.\-]{3,30}$/.test(un)){ err.textContent="Benutzername: 3–30 Zeichen, nur Buchstaben, Zahlen, Punkt, Strich."; return; } if(L.some(x=>x.u.toLowerCase()===un.toLowerCase())){ err.textContent="Diesen Benutzernamen gibt es schon."; return; } if(p.length<4){ err.textContent="Startpasswort: mindestens 4 Zeichen."; return; } }
+    const roles=[...rb.querySelectorAll("input:checked")].map(x=>x.dataset.r);
+    if(!selfFill&&!nm.value.trim()){ err.textContent="Bitte mindestens den Namen eintragen."; return; }
+    const n=a||{u:un}; if(p) n.ph=await kontoHash(n.u,p); n.set=!selfFill; n.d=selfFill?(a&&a.set?{}:(n.d||{})):{name:nm.value.trim(),tel:tel.value.trim(),addr:ad.value.trim(),roles,tour:tr.value.trim()};
+    if(a) L[view.i]=n; else L.push(n); fxSet(L); toast(a?"Gespeichert":"Fahrer angelegt"); fxPage(); };
+  if(a){ const del=spEl("button","sp-btn fx-del","🗑 Zugang löschen"); del.type="button"; del.onclick=async()=>{ if(await ask("Zugang löschen?",`„${a.u}“ kann sich dann nicht mehr anmelden.`,"Löschen","Abbrechen")){ L.splice(view.i,1); fxSet(L); fxPage(); } }; W.append(del); } }
+$("fxOpen").addEventListener("click",()=>fxPage());
+// Ausloggen: Zugang vergessen, die Code-Abfrage kommt wieder (Admin-Code oder Benutzername)
+$("logoutBtn").addEventListener("click",async()=>{ if(!await ask("Ausloggen?","Danach fragt die App wieder nach Zugangscode oder Benutzername.","Ausloggen","Abbrechen")) return; try{ localStorage.removeItem("navi-zugang"); }catch(e){} location.reload(); });
+if(window.KONTO) $("logoutWho").textContent="angemeldet als "+window.KONTO;
+// Erster Login eines Fahrers, der seine Daten selbst ausfüllt: Hauptseite gesperrt, bis gespeichert
+function fxWelcome(){ const L=fxGet(), i=L.findIndex(x=>x.u===window.KONTO); if(i<0||L[i].set) return; const a=L[i];
+  const pg=spEl("div","fx-page"); pg.id="fxWelcome"; const W=spEl("div","fx-in"); pg.append(W); document.body.append(pg);
+  W.append(spEl("h2","","👋 Willkommen!")); const bn=spEl("div","fx-card"); bn.append(spEl("b","","Bitte zuerst deine Daten eingeben"),spEl("small","","Danach geht es zur Hauptseite.")); W.append(bn);
+  const dc=spEl("div","fx-card"), nm=fxInput("Vor- und Nachname"), tel=fxInput("Telefon","","tel"), ad=fxInput("Straße Nr, PLZ Ort"), rb=fxRoleBoxes([]);
+  dc.append(spEl("div","fx-lab","Deine Daten"),nm,tel,ad,spEl("div","fx-lab","Ich fahre als"),rb); W.append(dc);
+  const pc=spEl("div","fx-card"), p1=fxInput("Eigenes Passwort wählen","","password"), p2=fxInput("Passwort wiederholen","","password"); pc.append(spEl("div","fx-lab","Neues Passwort"),p1,p2); W.append(pc);
+  const err=spEl("p","fx-err"), sv=spEl("button","sp-btn sp-zu","✓ Speichern und weiter"); sv.type="button"; W.append(err,sv,spEl("p","sp-sub","🔒 Navigation, Rechnung usw. erst nach dem Speichern."));
+  sv.onclick=async()=>{ err.textContent=""; const roles=[...rb.querySelectorAll("input:checked")].map(x=>x.dataset.r);
+    if(!nm.value.trim()||!tel.value.trim()||!ad.value.trim()){ err.textContent="Bitte Name, Telefon und Adresse ausfüllen."; return; }
+    if(!roles.length){ err.textContent="Bitte mindestens einen Haken bei „Ich fahre als“."; return; }
+    if(p1.value.length<4){ err.textContent="Passwort: mindestens 4 Zeichen."; return; } if(p1.value!==p2.value){ err.textContent="Die Passwörter sind nicht gleich."; return; }
+    const M=fxGet(), j=M.findIndex(x=>x.u===a.u); if(j<0) return; M[j].d={name:nm.value.trim(),tel:tel.value.trim(),addr:ad.value.trim(),roles,tour:(M[j].d&&M[j].d.tour)||""}; M[j].set=true; M[j].ph=await kontoHash(a.u,p1.value); fxSet(M);
+    try{ localStorage.setItem("navi-rolle",JSON.stringify(roles)); }catch(e){} roleUi(); spMsg(); pg.remove(); toast("Gespeichert, willkommen!"); }; }
+if(window.KONTO){ const a=fxGet().find(x=>x.u===window.KONTO); if(a&&a.set&&a.d&&a.d.roles){ try{ localStorage.setItem("navi-rolle",JSON.stringify(a.d.roles)); }catch(e){} } fxWelcome(); }
 roleUi(); spMsg(); if(!IS_TEST){ const rr=$("roleRow"); if(rr) rr.hidden=true; } // v=186
 if(IS_TEST){ document.querySelectorAll('[data-pg="plan"]').forEach(b=>b.addEventListener("click",()=>{ spView={k:-1,tour:null,month:null,sel:new Set(),add:false,addT:false}; spRender(); })); spRender(); }
 $("komShare").addEventListener("click",async()=>{ const l=komGet().filter(e=>e.a).map(e=>({n:e.n,a:e.a,ll:e.ll})); if(!l.length){ toast("Bitte zuerst eine Kommissionierstelle eintragen."); return; }

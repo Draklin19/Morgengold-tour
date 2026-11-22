@@ -1023,7 +1023,7 @@ button.set-row.set-link{border-top:1px solid var(--line)}
 html.fahrer #pdBox{display:none!important}
 #bcrOnlyRow,#cmpBox{display:none!important}
 html.fahrer #recBtn,html.fahrer #bcrOnlyRow,html.fahrer #ofmRow,html.fahrer #corrShare{display:none!important}
-html.fahrer #t3dRow{display:none!important} /* v=181: 3D wieder an (Test) */
+#t3dRow{display:none!important} /* v=185: 3D wieder aus */
 /* v=106: Ton-Knopf beim Fahren */
 .snd-btn{display:none}
 body.drive .snd-btn{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--surface);color:var(--fg);font-size:1.45rem;box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:pointer;margin-top:10px!important;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -1157,6 +1157,17 @@ body.drive .dock-tog{background:rgb(0 0 0 / .88);color:#f2f5f3}
 body.drive .eta:not([hidden]){background:rgb(0 0 0 / .85);color:#f2f5f3}
 body.drive .eta small{display:block;white-space:normal;font-weight:600;font-size:.62em;color:var(--muted)}
 body.drive #map{container-type:size}
+/* v=185: Leiste mit ▾ rechts im Restzeit-Balken zuklappen, ▴ unten rechts wieder auf; Kartenlizenz links über der Leiste */
+.bar-tog{display:none}
+body.drive .eta:not([hidden]){position:relative;padding-right:56px!important;font-size:min(1.8rem,3.25cqi)}
+body.drive .eta:not([hidden]) .bar-tog{display:grid;place-items:center;position:absolute;right:6px;top:50%;transform:translateY(-50%);width:44px;height:44px;border:2px solid #555;border-radius:10px;background:#2b302d;color:#fff;font:900 22px/1 var(--font-body);pointer-events:auto;cursor:pointer;padding:0}
+body.drive.bar-zu .map-bar{display:none}
+body.drive.bar-zu #map>.bar-tog{display:grid;place-items:center;position:absolute;right:12px;bottom:12px;z-index:1000;width:48px;height:48px;border:0;border-radius:12px;background:rgb(0 0 0 / .85);color:#fff;font:900 22px/1 var(--font-body);box-shadow:0 2px 10px rgb(0 0 0 / .3);cursor:pointer;padding:0}
+body.drive .leaflet-bottom.leaflet-left{display:flex;flex-direction:column;align-items:flex-start;bottom:var(--barH,110px)!important;left:var(--barL,10px)}
+body.drive .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0;margin-bottom:4px}
+body.drive .leaflet-bottom.leaflet-left .leaflet-control-attribution{order:9;text-align:left;font-size:10px;line-height:1.3;border-radius:6px;max-width:min(60vw,420px);white-space:normal;opacity:.85}
+body.drive.bar-zu .leaflet-bottom.leaflet-left{bottom:8px!important;left:10px}
+body.drive.bar-zu .leaflet-bottom.leaflet-right{bottom:12px!important}
 
 /* v=85: Hauptseite unter der Karte aufgeräumt */
 .next-card .row{display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
@@ -1492,7 +1503,7 @@ if(IS_TEST) document.addEventListener("DOMContentLoaded",()=>{ const t=document.
   </section>
 
   <div class="main">
-    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="sim-speed" id="simSpeed"><span aria-hidden="true">🐇</span><div class="sim-track"><input type="range" id="simRange" min="2" max="60" step="1" aria-label="Tempo der Simulation"></div><span aria-hidden="true">🐢</span></div><div class="drive-ban gps-ban" id="gpsBan" role="alert" hidden>⚠ Kein GPS-Signal<small>Deine Position wird gerade nicht aktualisiert</small></div><div class="drive-ban net-ban" id="netBan" role="status" hidden>📶 Kein Internet<small>Linie folgt der Tour, ohne Ansagen</small></div><button type="button" class="drive-ban note-ban" id="noteBan" hidden></button><div class="drive-ban geo-ban" id="geoBan" role="status" hidden><span id="geoBanT"></span><span class="geo-ban-b"><button type="button" id="geoBanG">📍 Google</button><button type="button" id="geoBanX" aria-label="Hinweis ausblenden">✕</button></span></div><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><div class="eta" id="eta" hidden></div></div><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
+    <div id="map" role="region" aria-label="Karte der Stopps"><div id="mapIn"></div><div class="sim-speed" id="simSpeed"><span aria-hidden="true">🐇</span><div class="sim-track"><input type="range" id="simRange" min="2" max="60" step="1" aria-label="Tempo der Simulation"></div><span aria-hidden="true">🐢</span></div><div class="drive-ban gps-ban" id="gpsBan" role="alert" hidden>⚠ Kein GPS-Signal<small>Deine Position wird gerade nicht aktualisiert</small></div><div class="drive-ban net-ban" id="netBan" role="status" hidden>📶 Kein Internet<small>Linie folgt der Tour, ohne Ansagen</small></div><button type="button" class="drive-ban note-ban" id="noteBan" hidden></button><div class="drive-ban geo-ban" id="geoBan" role="status" hidden><span id="geoBanT"></span><span class="geo-ban-b"><button type="button" id="geoBanG">📍 Google</button><button type="button" id="geoBanX" aria-label="Hinweis ausblenden">✕</button></span></div><div class="map-bar" id="mapBar"><button type="button" class="back-chip" id="backChip" hidden>Zurück</button><button type="button" class="stop-chip" id="stopChip" hidden aria-label="Stopp abhaken (lange drücken: Stopp wählen)"></button><button type="button" class="gm-chip" id="gmChip" aria-label="Mit Google Maps hinfahren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Google</button><div class="eta" id="eta" hidden></div></div><button type="button" class="bar-tog" id="barTog" aria-label="Leiste zuklappen">▾</button><button type="button" class="dock-tog" id="dockTog" aria-label="Tourleiste zuklappen"></button></div>
     <div class="side">
       <div class="dock-grip" id="dockGrip" title="Gedrückt halten und an den Rand ziehen" aria-label="Tourleiste verschieben">⠿</div>
       <section class="mode gtour" id="gTour"> <!-- v=92: Google-Abschnitte direkt unter der Karte, immer offen -->
@@ -2874,7 +2885,7 @@ function gl3Check(){ const on=want3d();
 function routeHead(){ const p=carPos, L=apLine; if(!p||!L||L.length<2) return null;
   let bi=0,bd=1e9; for(let i=0;i<L.length;i++){ const d=dist(p,L[i]); if(d<bd){ bd=d; bi=i; } } if(bd>60) return null;
   let acc=0; for(let i=bi+1;i<L.length;i++){ acc+=dist(L[i-1],L[i]); if(acc>=25||i===L.length-1){ const q=L[i]; return dist(p,q)>3?bearingDeg(p,q):null; } } return null; }
-if(IS_TEST) setInterval(gl3Check,400);
+/* v=185: 3D wieder aus (Draklin: schlechte Idee) */
 map.on("zoomend",()=>{ try{ if(gl3&&gl3Free&&document.body.classList.contains("r3d")){ const z=Math.min(19,map.getZoom())-.6; if(Math.abs(gl3.getZoom()-z)>.05) gl3.easeTo({zoom:z,duration:250}); } }catch(e){} }); // v=182: Zoom-Knöpfe wirken auch auf die verschobene 3D-Karte // v=181 (Test): 3D-Fahransicht wieder an (Draklin will sie genau ansehen)
 setInterval(()=>{ if(!rotMode()||head!==null) return; const h=routeHead(); if(h!==null){ head=Math.round(h)%360; applyRot(); } },1000);
 function bearingDeg(a,b){ const c=Math.cos(a[0]*Math.PI/180); return (Math.atan2((b[1]-a[1])*c,b[0]-a[0])*180/Math.PI+360)%360; }
@@ -3589,14 +3600,14 @@ applyLayout();
 // Tour starten: Vollbild im Querformat, Stoppliste links, Karte folgt dem Standort
 let fsUsed=false;
 async function enterDrive(){
-  document.body.classList.add("drive"); fsUsed=false; head=null; headFrom=null; setFollow(true); if(tour) render();
+  document.body.classList.add("drive"); barZu=false; try{ map.attributionControl.setPosition("bottomleft"); barUi(); }catch(e){} fsUsed=false; head=null; headFrom=null; setFollow(true); if(tour) render();
   try{ if(document.documentElement.requestFullscreen){ await document.documentElement.requestFullscreen({navigationUI:"hide"}); fsUsed=true; } }catch(e){}
   try{ if(screen.orientation&&screen.orientation.lock) await screen.orientation.lock("landscape"); }catch(e){} // geht nicht auf jedem Handy (iPhone): dann einfach quer halten
   setTimeout(()=>{ map.invalidateSize(); if(carPos) map.setView(carPos,17); else if(tour&&cur>=0&&tour.stops[cur].ll) map.setView(tour.stops[cur].ll,16); scrollCurrent(); },350);
   startGps();
 }
 function leaveDrive(){
-  document.body.classList.remove("drive");
+  document.body.classList.remove("drive"); try{ barZu=false; barUi(); map.attributionControl.setPosition("topright"); }catch(e){}
   try{ if(screen.orientation&&screen.orientation.unlock) screen.orientation.unlock(); }catch(e){}
   if(document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} }
   stopGps(); clearApproach(); $("gpsState").hidden=true; updateHouseNo(); if(tour) render();
@@ -3704,7 +3715,16 @@ new SndCtl().addTo(map);
 // v=156 (Test): Knopf 3D/2D beim Fahren, zeigt an, wohin er umschaltet
 const D3Ctl=L.Control.extend({options:{position:"topleft"},onAdd(){ const b=L.DomUtil.create("button","d3-btn"); b.type="button"; b.id="d3Btn";
   L.DomEvent.disableClickPropagation(b); b.onclick=()=>{ const on=!t3dPref(); try{ localStorage.setItem("navi-3d",on?"an":"aus"); }catch(x){} $("t3dSw").checked=on; d3Ui(); sizeInner(); map.invalidateSize({animate:false}); applyRot(true); if(follow&&carPos) map.setView(followPt(),map.getZoom(),{animate:false}); toast(on?"3D-Sicht":"Flache Karte"); }; return b; }});
-if(IS_TEST) new D3Ctl().addTo(map);
+/* v=185: kein 3D-Knopf mehr */
+let barZu=false; const barBtn=$("barTog"); // v=185: Leiste zugeklappt (gilt nur für diese Fahrt); Knopf merken, weil die Restzeit ihr Innenleben neu schreibt
+function barUi(){ const b=barBtn, e=$("eta"); document.body.classList.toggle("bar-zu",barZu&&document.body.classList.contains("drive"));
+  if(barZu){ if(b.parentNode!==$("map")) $("map").append(b); } else if(b.parentNode!==e) e.append(b);
+  b.textContent=barZu?"▴":"▾"; b.setAttribute("aria-label",barZu?"Leiste aufklappen":"Leiste zuklappen"); barPos(); }
+function barPos(){ const mb=$("mapBar"), m=$("map"); if(!mb||!m||!mb.offsetHeight) return; const r=mb.getBoundingClientRect(), q=m.getBoundingClientRect();
+  m.style.setProperty("--barH",Math.round(q.bottom-r.top+4)+"px"); m.style.setProperty("--barL",Math.round(r.left-q.left)+"px"); }
+barBtn.addEventListener("click",e=>{ e.stopPropagation(); barZu=!barZu; barUi(); });
+try{ new ResizeObserver(barPos).observe($("mapBar")); }catch(e){}
+addEventListener("resize",()=>setTimeout(barPos,50));
 function d3Ui(){ const b=document.getElementById("d3Btn"); if(!b) return; const on=t3dPref(); b.textContent=on?"2D":"3D"; b.setAttribute("aria-label",on?"Flache Karte":"3D-Sicht"); }
 d3Ui();
 map.attributionControl.setPosition("topright"); map.attributionControl.setPrefix(false); // v=152 (Test): nur die Kartenanbieter nennen, kein „Leaflet“ // Lizenzhinweis oben statt unten (unten stört er die Leiste)
@@ -4166,7 +4186,7 @@ async function kmFix(p,acc){
 function kmEnd(){ if(km&&!km.end&&tour&&!tour.stops.some(s=>!s.done)){ km.end=true; km.endAt=Date.now(); kmSave(); // letzter Kunde abgehakt: Zähler steht
     const k=(km.m/1000).toFixed(1); if(!IS_TEST) return; /* v=148: Fahrer-Version ohne km-Anzeige und km-Ansage beim Feierabend */ toast(`Kilometerzähler gestoppt: ${k.replace(".",",")} km (Kommissionierstelle bis letzter Kunde)`); say(`Letzter Kunde erledigt. Gefahren: ${k.replace(".",",")} Kilometer.`); } }
 // v=127: sichtbar, ab wann gezählt wird: vor der Kommissionierstelle „km ab 🧑‍🍳“, danach „🧑‍🍳 X km“
-const kmText=()=>!IS_TEST||!(depot&&depot.ll)?"":km?`🧑‍🍳 ${(km.m/1000).toFixed(1).replace(".",",")} km gefahren${km.end?" ✓":""}`:"km zählen ab 🧑‍🍳";
+const kmText=()=>!IS_TEST||!(depot&&depot.ll)?"":km?`🧑‍🍳 ${(km.m/1000).toFixed(1).replace(".",",")} km${km.end?" ✓":""}`:"km zählen ab 🧑‍🍳";
 function updateEta(force){
   const el=$("eta"); if(!el) return;
   if(!tour||cur<0||!document.body.classList.contains("drive")){ el.hidden=true; return; }
@@ -4181,7 +4201,7 @@ function updateEta(force){
   const today=avgStand(tour.stops), h=Object.assign({n:0,sum:0},jget(STAND_KEY)), hist=h.n>=3?h.sum/h.n:null;
   const per=(today!=null&&tour.stops.filter(s=>standOf(s)!=null).length>=3?today:hist)??45000; // neue Fahrer: Start mit 45 Sekunden
   const sec=m/mps*fahrF()+open.length*per/1000; // v=148: Fahrzeit × gelernter Faktor // v=98: m = Restkilometer bis zum letzten offenen Kunden, grün in der Leiste (zählt beim Fahren runter)
-  el.hidden=false; el.innerHTML=`<span>Noch ${hm(sec)} · <b class="eta-km">${(m/1000).toFixed(1).replace(".",",")} km</b> · fertig ${hhmm(Date.now()+sec*1000)}</span><small>${open.length} ${open.length===1?"Stopp":"Stopps"} offen · Ø ${mmss(per)} Min. Standzeit${kmText()?" · "+kmText():""}</small>`; }
+  el.hidden=false; el.innerHTML=`<span>Noch ${hm(sec)} · <b class="eta-km">${(m/1000).toFixed(1).replace(".",",")} km</b> · fertig ${hhmm(Date.now()+sec*1000)}</span><small>Ø ${mmss(per)} Min.${kmText()?" · "+kmText():""}</small>`; barUi(); }
 $("gmChip").addEventListener("click",()=>$("nextGmaps").click());
 $("backChip").addEventListener("click",()=>$("prev").click()); // wie „Zurück zum letzten Kunden“: jeder Druck einen Kunden zurück
  // gleicher Link wie „Mit Google Maps hinfahren“

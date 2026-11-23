@@ -3221,12 +3221,13 @@ function checkArrival(){
     const pk=pkOf(s), dpk=pk?dist(carPos,pk):Infinity, dA=Math.min(dd,dpk); // v=188: gemerkter Parkplatz zählt auch
     if(arr.i!==cur){ if(dA>LINK_ARM) return; arr={i:cur,min:dd,at:Date.now(),p:carPos.slice(),t0:Date.now(),grp:[cur]}; }
     if(dA<arr.min){ arr.min=dA; arr.at=Date.now(); }
-    if(dA>LINK_ARM+30){ clearTimeout(arr.tm); arr.i=-1; return; } // vorbeigefahren
+    if(dA>LINK_ARM+30){ clearTimeout(arr.tm); arr.i=-1; if(yelFor===cur) yelOff(); return; } // vorbeigefahren
     if(gpsAcc>LINK_ACC) return; // zu ungenaues GPS: noch nichts entscheiden
     const sp=rDest(s), linked=(dd<=LINK_HOUSE&&(!s.rll||dist(carPos,sp)<=LINK_ROAD))||dpk<=PARK_R;
     const still=dist(carPos,arr.p)<LINK_JIT&&(simTimer||gpsSpeed==null||gpsSpeed<0||gpsSpeed<1.5);
-    if(!still||!linked||tickP){ arr.p=carPos.slice(); arr.t0=Date.now(); return; }
+    if(!still||!linked||tickP){ arr.p=carPos.slice(); arr.t0=Date.now(); if(yelFor===cur&&(!linked||dist(carPos,arr.yp||carPos)>40)) yelOff(); return; } // v=190: weggefahren ohne Abhaken: wieder grün zum alten Kunden
     clearTimeout(arr.tm); arr.tm=setTimeout(checkArrival,1000); // im Stand meldet das Handy selten, daher selbst nachsehen
+    if(IS_TEST&&yelFor!==cur&&Date.now()-arr.t0>=2500){ arr.yp=carPos.slice(); yelOn(cur); } // v=190: angekommen → Weg zum nächsten gelb
     if(Date.now()-arr.t0<STAND_MS) return;
     const g=[cur]; for(let i=cur+1;i<tour.stops.length;i++){ const q=tour.stops[i]; if(q.done) continue; const qp=pkOf(q); if((q.ll&&dist(q.ll,carPos)<=STAND_R)||(qp&&dist(qp,carPos)<=PARK_R)) g.push(i); else break; }
     clearTimeout(arr.tm); arr.i=-1; tickP=carPos.slice(); const at=arr.at;
@@ -3662,7 +3663,7 @@ function scrollCurrent(){ // nur die Liste scrollen, aktueller Stopp in die Mitt
   if(el) l.scrollTop+=el.getBoundingClientRect().top-l.getBoundingClientRect().top-l.clientHeight/2+el.offsetHeight/2; }
 // Anfahrt: Straßenroute vom eigenen Standort zum aktuellen Stopp, neu berechnet bei neuem Stopp oder nach 150 m Abweichung
 const approachLayer=L.layerGroup().addTo(map); let apFrom=null, apStop=-1, apBusy=false, apAt=0, strBg=false, apShown=-1;
-function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; apShown=-1; turns=[]; apLine=null; apPoly=null; apOff=false; }
+function clearApproach(){ try{ yelOff(); }catch(e){} approachLayer.clearLayers(); apFrom=null; apStop=-1; apShown=-1; turns=[]; apLine=null; apPoly=null; apOff=false; }
 // v=129: ohne Internet (kein Routenserver erreichbar) den passenden Teil der schon geladenen Tourlinie als grüne Linie zeigen,
 // ohne Abbiege-Ansagen; alle 10 s neu versuchen, bis wieder eine echte Route kommt.
 let apOff=false;
@@ -3684,6 +3685,10 @@ async function updateApproach(){
   // v=189 (Test, Draklin): nicht mehr auf den Straßenpunkt warten. Route sofort zum Hauspunkt, Straßenpunkt im Hintergrund holen, dann neu.
   if(IS_TEST&&!strBg){ const q=tour.stops[T]; const need=q.rll===undefined?"prep":(!q.rll&&!q.rllOk&&(q.rllTry||0)<3?"one":"");
     if(need){ strBg=true; (need==="prep"?strPrep(tour):strOne(q)).catch(()=>{}).then(()=>{ strBg=false; if(tour&&tour.stops[apTarget()]===q&&q.rll) sperrReroute(); }); } }
+  const yc=IS_TEST&&yelCache[stopNo]&&Date.now()-yelCache[stopNo].at<600000?yelCache[stopNo].line:null; // v=190: gelbe Vorschau wird grün
+  if(IS_TEST&&yelFor>=0&&yelFor!==stopNo&&tour.stops[yelFor]&&tour.stops[yelFor].done) yelOff();
+  if(IS_TEST&&yc&&apStop!==stopNo&&apShown!==stopNo){ approachLayer.clearLayers(); const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
+    L.polyline(yc,{color:rc,weight:apWeight(),opacity:.75,lineCap:"round",lineJoin:"round",pane:"apPane"}).addTo(approachLayer); apShown=stopNo; }
   if(IS_TEST&&apStop!==stopNo&&apShown!==stopNo){ // v=189: neues Ziel: sofort eine Linie zeigen, bis die Route da ist
     const ph=tourPart(from,to)||[from,to]; approachLayer.clearLayers(); const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
     L.polyline(ph,{color:rc,weight:4,opacity:.55,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer); }
@@ -3750,6 +3755,17 @@ function parkLearn(s){ if(!IS_TEST||!s||!s.ll||!carPos||simTimer) return; if(gps
   try{ localStorage.setItem(PARK_KEY,JSON.stringify(parkMap)); }catch(e){} }
 // v=188: Aufzeichnung merkt sich jedes Abhaken (welcher Hauspunkt galt, geschätzt?, von Hand oder automatisch, Parkplatz)
 function recTick(i,how){ try{ if(!rec||!tour) return; const s=tour.stops[i]; if(!s) return; (rec.ticks=rec.ticks||[]).push({t:Math.round((Date.now()-rec.start)/100)/10,no:i+1,how,ll:s.ll?s.ll.map(v=>+(+v).toFixed(6)):null,est:!!s.est,exact:!!s.exact,pk:pkOf(s),car:carPos?carPos.map(v=>+(+v).toFixed(6)):null,acc:gpsAcc}); rec.v=2; recSave&&recSave(); }catch(e){} }
+// v=190 (Test, Draklin): Beim Kunden angekommen (Auto steht verbunden mit dem Haus) → grüne Linie weg, Weg zum nächsten Kunden leicht gelb.
+// Nach dem Abhaken wird daraus die grüne Linie. Fährt man ohne Abhaken weiter, kommt die grüne Linie zum alten Kunden zurück.
+const yelLayer=L.layerGroup().addTo(map); let yelFor=-1, yelNext=-1, yelCache={}, yelSeq=0;
+async function yelRoute(a,b){ const P=[a,b]; return await new Promise(res=>{ let left=ROUTERS.length; ROUTERS.forEach(base=>routeSteps(base,P,null).then(r=>res(r),()=>{ if(--left===0) res(null); })); }); }
+async function yelOn(i){ if(!IS_TEST||!tour) return; const n=tour.stops.findIndex((q,k)=>k>i&&!q.done); if(n<0||!tour.stops[n].ll) return;
+  yelFor=i; yelNext=n; const seq=++yelSeq; if(map.hasLayer(approachLayer)) map.removeLayer(approachLayer);
+  const from=(carPos||tour.stops[i].ll).slice(), to=rDest(tour.stops[n])||tour.stops[n].ll;
+  const draw=(line,dashed)=>{ if(seq!==yelSeq||yelFor!==i) return; yelLayer.clearLayers(); L.polyline(line,{color:"#f5c518",weight:apWeight(),opacity:dashed?.6:.8,lineCap:"round",lineJoin:"round",pane:"apPane",...(dashed?{dashArray:"6 8",weight:4}:{})}).addTo(yelLayer); };
+  draw(tourPart(from,to)||[from,to],true);
+  let r=null; try{ r=await yelRoute(from,to); }catch(e){} if(r&&r.line&&r.line.length>1){ yelCache[n]={line:r.line,at:Date.now()}; draw(r.line,false); } }
+function yelOff(){ if(yelFor<0&&!yelLayer.getLayers().length) return; yelSeq++; yelFor=-1; yelNext=-1; yelLayer.clearLayers(); if(!map.hasLayer(approachLayer)) approachLayer.addTo(map); }
 function handTick(i){ if(!tour) return; const s=tour.stops[i]; if(!s) return; parkLearn(s); recTick(i,"hand"); }
 function apTarget(){ // Ziel der grünen Anfahrt: beim aktuellen Kunden angekommen (noch nicht abgehakt) → schon der Weg zum nächsten
   if(!tour||cur<0) return cur;

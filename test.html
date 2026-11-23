@@ -2805,12 +2805,14 @@ function segD(p,a,b){ const kx=Math.cos(p[0]*Math.PI/180)*111320, ky=111320, ax=
   const t=l?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/l)):0; return Math.hypot(ax+t*dx,ay+t*dy); }
 function sperrHit(line,from){ if(!IS_TEST||!sperren.length||!line||line.length<2) return null;
   return sperren.find(q=>dist(from,q.ll)>25&&line.some((pt,i)=>i>0&&segD(q.ll,line[i-1],pt)<12))||null; }
-async function routeAlts(pts){ for(const base of ROUTERS){ try{
+async function routeAlts(pts){ if(IS_TEST) return await new Promise(res=>{ let left=ROUTERS.length; ROUTERS.forEach(b=>routeAlts1(b,pts).catch(()=>[]).then(a=>{ if(a&&a.length) res(a); else if(--left===0) res([]); })); }); // v=189: beide Server gleichzeitig, erste Antwort zählt
+  for(const base of ROUTERS){ try{ return await routeAlts1(base,pts); }catch(e){} } return []; }
+async function routeAlts1(base,pts){ { {
     const r=await fetch(base+pts.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true&alternatives=3",typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(8000)}:{});
     const j=await r.json(); if(j.code!=="Ok"||!j.routes) throw new Error(j.code);
     return j.routes.map(rt=>{ const steps=[]; (rt.legs||[]).forEach((l,li)=>(l.steps||[]).forEach(st=>{ const t=turnText(st); if(t) steps.push({ll:[st.maneuver.location[1],st.maneuver.location[0]],t,s:t.replace(/ auf .*$/,""),leg:li}); }));
       return {line:rt.geometry.coordinates.map(c=>[c[1],c[0]]),steps,legs:(rt.legs||[]).map(l=>l.distance)}; });
-  }catch(e){} } return []; }
+  } } }
 async function sperrAround(from,to,hit,getRoute,line){ const len=r=>r.legs.reduce((a,b)=>a+b,0), clean=r=>r&&!sperrHit(r.line,from)&&!r.steps.some(t=>t.t==="wenden");
   const alts=(await routeAlts([from,to])).filter(r=>r&&!sperrHit(r.line,from)); if(alts.length) return alts.sort((a,b)=>len(a)-len(b))[0];
   // v=171: Umweg-Punkte quer zur gesperrten Straße (links und rechts), schräg davor und dahinter, immer weiter weg (300 m bis 8 km).
@@ -2819,9 +2821,12 @@ async function sperrAround(from,to,hit,getRoute,line){ const len=r=>r.legs.reduc
   const L2=line&&line.length>1?line:[from,to], a0=L2[Math.max(0,k-1)], a1=L2[Math.min(L2.length-1,k+1)];
   const rb=Math.atan2((a1[1]-a0[1])*Math.cos(hit.ll[0]*Math.PI/180),a1[0]-a0[0]); // Richtung der Straße an der Sperrung
   const off=(r,ang)=>[hit.ll[0]+r*Math.cos(ang)/111320,hit.ll[1]+r*Math.sin(ang)/(111320*Math.cos(hit.ll[0]*Math.PI/180))];
+  const t0=Date.now();
   for(const rad of [300,800,2000,4500,8000]){
+    if(IS_TEST&&Date.now()-t0>10000) break; // v=189: spätestens nach 10 s aufhören
     const vs=[90,-90,45,-45,135,-135].map(d=>off(rad,rb+d*Math.PI/180));
-    const rs=[]; for(let i=0;i<vs.length;i+=2){ const got=await Promise.all(vs.slice(i,i+2).map(v=>getRoute([from,v,to]).catch(()=>null))); got.forEach(r=>{ if(clean(r)) rs.push(r); }); }
+    const rs=[]; const step=IS_TEST?6:2; // v=189: alle 6 Umweg-Punkte einer Entfernung gleichzeitig
+    for(let i=0;i<vs.length;i+=step){ const got=await Promise.all(vs.slice(i,i+step).map(v=>getRoute([from,v,to]).catch(()=>null))); got.forEach(r=>{ if(clean(r)) rs.push(r); }); }
     if(rs.length){ const b=rs.sort((a,c)=>len(a)-len(c))[0]; b.steps.forEach(t=>t.leg=0); return b; } }
   return null; }
 // Karte in Fahrtrichtung: Die Leaflet-Karte (#mapIn) ist beim Fahren ein Quadrat so groß wie die Diagonale des sichtbaren Felds (#map)
@@ -3071,7 +3076,7 @@ async function routeSteps(base,pts,brg){
   const bq=brg!=null?"&bearings="+Math.round(brg)+",60"+";".repeat(pts.length-1):"";
   // v=115: schnellste Variante statt kürzester (Draklin: lieber Hauptstraße als Abkürzung durch Seitenstraßen)
   const r=await fetch(base+pts.map(p=>p[1].toFixed(6)+","+p[0].toFixed(6)).join(";")+"?overview=full&geometries=geojson&steps=true"+straightQ(pts)+bq,
-    typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(8000)}:{}); // v=129: im Funkloch nicht ewig warten
+    typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(IS_TEST?6000:8000)}:{}); // v=129: im Funkloch nicht ewig warten (v=189 Test: 6 s)
   if(!r.ok) throw new Error("HTTP "+r.status);
   const j=await r.json(); if(j.code!=="Ok"||!j.routes||!j.routes.length) throw new Error(j.code||"keine Route");
   const rt=j.routes[0], line=rt.geometry.coordinates.map(c=>[c[1],c[0]]), steps=[];
@@ -3656,8 +3661,8 @@ function scrollCurrent(){ // nur die Liste scrollen, aktueller Stopp in die Mitt
   if(!document.body.classList.contains("drive")) return; const l=$("list"), el=l.querySelector(".stop.is-next");
   if(el) l.scrollTop+=el.getBoundingClientRect().top-l.getBoundingClientRect().top-l.clientHeight/2+el.offsetHeight/2; }
 // Anfahrt: Straßenroute vom eigenen Standort zum aktuellen Stopp, neu berechnet bei neuem Stopp oder nach 150 m Abweichung
-const approachLayer=L.layerGroup().addTo(map); let apFrom=null, apStop=-1, apBusy=false, apAt=0;
-function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; turns=[]; apLine=null; apPoly=null; apOff=false; }
+const approachLayer=L.layerGroup().addTo(map); let apFrom=null, apStop=-1, apBusy=false, apAt=0, strBg=false, apShown=-1;
+function clearApproach(){ approachLayer.clearLayers(); apFrom=null; apStop=-1; apShown=-1; turns=[]; apLine=null; apPoly=null; apOff=false; }
 // v=129: ohne Internet (kein Routenserver erreichbar) den passenden Teil der schon geladenen Tourlinie als grüne Linie zeigen,
 // ohne Abbiege-Ansagen; alle 10 s neu versuchen, bis wieder eine echte Route kommt.
 let apOff=false;
@@ -3676,8 +3681,12 @@ async function updateApproach(){
   { const q=tour.stops[T]; if(apStop===T&&q.park&&dist(carPos,q.park)<80) return; } // am Parkpunkt: nicht neu berechnen
   if(Date.now()-apAt<8000&&apStop===T) return;
   apBusy=true; apAt=Date.now(); const from=carPos.slice(), to=tour.stops[T].ll, stopNo=T; let line=null;
-  if(IS_TEST&&tour.stops[T].rll===undefined){ try{ await strPrep(tour); }catch(e){} } // v=178
-  if(IS_TEST&&!tour.stops[T].rll&&!tour.stops[T].rllOk&&(tour.stops[T].rllTry||0)<3){ try{ await strOne(tour.stops[T]); }catch(e){} } // v=184: fehlt der Straßenpunkt, nur für diesen Stopp nochmal fragen
+  // v=189 (Test, Draklin): nicht mehr auf den Straßenpunkt warten. Route sofort zum Hauspunkt, Straßenpunkt im Hintergrund holen, dann neu.
+  if(IS_TEST&&!strBg){ const q=tour.stops[T]; const need=q.rll===undefined?"prep":(!q.rll&&!q.rllOk&&(q.rllTry||0)<3?"one":"");
+    if(need){ strBg=true; (need==="prep"?strPrep(tour):strOne(q)).catch(()=>{}).then(()=>{ strBg=false; if(tour&&tour.stops[apTarget()]===q&&q.rll) sperrReroute(); }); } }
+  if(IS_TEST&&apStop!==stopNo&&apShown!==stopNo){ // v=189: neues Ziel: sofort eine Linie zeigen, bis die Route da ist
+    const ph=tourPart(from,to)||[from,to]; approachLayer.clearLayers(); const rc=getComputedStyle(document.documentElement).getPropertyValue("--route").trim();
+    L.polyline(ph,{color:rc,weight:4,opacity:.55,dashArray:"6 8",pane:"apPane"}).addTo(approachLayer); }
   const toR=rDest(tour.stops[T])||to; // v=178: Route endet auf der Straße des Kunden
   let steps=[];
   // Anfahrpunkt aus der Routendatei: Die Morgengold-Strecke endet auf der Straße, von der aus das Haus erreicht wird.
@@ -3691,7 +3700,11 @@ async function updateApproach(){
   const hb=reroute&&moving&&head!==null&&headFrom&&dist(headFrom,from)<60?head:null;
   let noNet=false; // v=129: kein Server erreichbar (kein Internet): weitere Versuche in diesem Durchgang sparen
   const getRoute=async pts=>{ if(noNet) return null; let n=0, f=0;
-    for(const b of hb!==null?[hb,null]:[null]) for(const base of ROUTERS){ try{ return await routeSteps(base,pts,b); }catch(e){ n++; if(e instanceof TypeError||e.name==="AbortError"||e.name==="TimeoutError") f++; } }
+    for(const b of hb!==null?[hb,null]:[null]){
+      if(IS_TEST){ // v=189: beide Server gleichzeitig fragen, die erste gute Antwort zählt
+        const errs=[]; const r=await new Promise(res=>{ let left=ROUTERS.length; ROUTERS.forEach(base=>routeSteps(base,pts,b).then(res,e=>{ errs.push(e); if(--left===0) res(null); })); });
+        if(r) return r; errs.forEach(e=>{ n++; if(e instanceof TypeError||e.name==="AbortError"||e.name==="TimeoutError") f++; }); continue; }
+      for(const base of ROUTERS){ try{ return await routeSteps(base,pts,b); }catch(e){ n++; if(e instanceof TypeError||e.name==="AbortError"||e.name==="TimeoutError") f++; } } }
     if(n&&f===n) noNet=true; return null; }; // ohne Richtung nochmal, falls keine Straße in Fahrtrichtung passt
   let rr=await getRoute(bv.length?[from,...bv,toR]:ap?[from,ap,toR]:[from,toR]);
   if(bv.length&&!rr) rr=await getRoute([from,toR]);
@@ -3712,7 +3725,7 @@ async function updateApproach(){
       line=line.slice(0,k+1); steps=steps.filter(t=>t.leg===0); sx.park=ap.slice(); }
   }
   apBusy=false; if(!(document.body.classList.contains("drive")||simTimer)||stopNo!==apTarget()) return; // auch in der Simulation (Abbiege-Ansagen testen)
-  approachLayer.clearLayers(); apFrom=from; apStop=stopNo;
+  approachLayer.clearLayers(); apFrom=from; apStop=stopNo; apShown=stopNo;
   if(turnStop!==stopNo){ turnSaid=new Set(); turnStop=stopNo; } turns=steps;
   if(line&&line.length>1&&tour.stops[stopNo].exact&&!(live.stop===stopNo&&live.src==="gps")){
     let k=line.length-1, bd=Infinity; line.forEach((q,j)=>{ const d=dist(q,to); if(d<bd){bd=d;k=j;} });
